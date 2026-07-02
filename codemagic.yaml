@@ -1,0 +1,36 @@
+workflows:
+  ios-main:
+    name: iOS Main App
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          cd real_estate_iraq
+          flutter pub get
+      - name: Build iOS IPA
+        script: |
+          cd real_estate_iraq
+          flutter build ipa --release
+    artifacts:
+      - real_estate_iraq/build/ios/ipa/*.ipa
+
+  ios-admin:
+    name: iOS Admin App
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          cd vewo_admin
+          flutter pub get
+      - name: Build iOS IPA
+        script: |
+          cd vewo_admin
+          flutter build ipa --release
+    artifacts:
+      - vewo_admin/build/ios/ipa/*.ipa
