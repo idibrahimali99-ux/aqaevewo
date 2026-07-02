@@ -1,0 +1,29 @@
+workflows:
+  ios-workflow:
+    name: iOS Build
+
+    environment:
+      flutter: stable
+      xcode: latest
+
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          if [ -f pubspec.yaml ]; then
+            flutter pub get
+          else
+            cd real_estate_iraq
+            flutter pub get
+          fi
+      - name: Build iOS IPA
+        script: |
+          if [ -f pubspec.yaml ]; then
+            flutter build ipa --release
+          else
+            cd real_estate_iraq
+            flutter build ipa --release
+          fi
+
+    artifacts:
+      - real_estate_iraq/build/ios/ipa/*.ipa
+      - build/ios/ipa/*.ipa
