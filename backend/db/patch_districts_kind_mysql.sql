@@ -1,0 +1,5 @@
+-- عمود kind أصبح مدمجاً في patch_districts_ensure_mysql.sql
+-- نفِّذ هذا الملف الواحد على السيرفر ثم أعد محاولة لوحة «محافظات → أقضية ونواحي».
+--
+-- إذا كان جدول districts قديماً بدون عمود kind فقط، يمكن بدلاً من ذلك تنفيذ يدوياً مرة واحدة:
+--   ALTER TABLE `districts` ADD COLUMN `kind` VARCHAR(16) NOT NULL DEFAULT 'qada' AFTER `name`;

@@ -1,0 +1,4 @@
+# تشغيل تدريجي لملفات الصوت (HTTP Range)
+<IfModule mod_headers.c>
+  Header set Accept-Ranges bytes
+</IfModule>

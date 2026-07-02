@@ -1,0 +1,10 @@
+# Apache (XAMPP) — مجلد api داخل htdocs
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /api/
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+# إذا كان اسم المجلد ليس "api" غيّر RewriteBase ليطابق المسار، مثلاً: /vewo-api/
