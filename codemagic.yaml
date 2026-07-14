@@ -1,36 +1,62 @@
 workflows:
   ios-main:
     name: iOS Main App
-    max_build_duration: 60
+    max_build_duration: 120
+    instance_type: mac_mini_m2
     environment:
       flutter: stable
       xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.idibrahimali99.aqaevewo
     scripts:
+      - name: Configure Flutter for CocoaPods
+        script: flutter config --no-enable-swift-package-manager
+      - name: Apply Codemagic code signing
+        script: xcode-project use-profiles
       - name: Get Flutter packages
         script: |
           cd real_estate_iraq
           flutter pub get
-      - name: Build iOS IPA
+      - name: Install CocoaPods
+        script: |
+          cd real_estate_iraq/ios
+          pod install
+      - name: Build IPA
         script: |
           cd real_estate_iraq
-          flutter build ipa --release
+          flutter build ipa --release \
+            --export-options-plist=$HOME/export_options.plist
     artifacts:
       - real_estate_iraq/build/ios/ipa/*.ipa
 
   ios-admin:
     name: iOS Admin App
-    max_build_duration: 60
+    max_build_duration: 120
+    instance_type: mac_mini_m2
     environment:
       flutter: stable
       xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.idibrahimali99.aqaevewo.admin
     scripts:
+      - name: Configure Flutter for CocoaPods
+        script: flutter config --no-enable-swift-package-manager
+      - name: Apply Codemagic code signing
+        script: xcode-project use-profiles
       - name: Get Flutter packages
         script: |
           cd vewo_admin
           flutter pub get
-      - name: Build iOS IPA
+      - name: Install CocoaPods
+        script: |
+          cd vewo_admin/ios
+          pod install
+      - name: Build IPA
         script: |
           cd vewo_admin
-          flutter build ipa --release
+          flutter build ipa --release \
+            --export-options-plist=$HOME/export_options.plist
     artifacts:
       - vewo_admin/build/ios/ipa/*.ipa
