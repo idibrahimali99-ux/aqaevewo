@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../core/theme/theme.dart';
 import '../core/notifications/app_notification_watcher.dart';
@@ -42,23 +43,28 @@ class _AppState extends ConsumerState<App> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      builder: (context, child) => AppNotificationWatcher(
-        child: Consumer(
-          builder: (context, ref, _) {
-            // يبدأ تسجيل FCM token بعد تسجيل الدخول.
-            ref.watch(fcmBootstrapProvider).start();
-            return OnboardingGate(
-              child: MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: TextScaler.noScaling),
-                child: Directionality(
-                  textDirection: TextDirection.rtl,
-                  child: child ?? const SizedBox.shrink(),
+      builder: (context, child) => ScreenUtilInit(
+        designSize: const Size(360, 690),
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (context, _) => AppNotificationWatcher(
+          child: Consumer(
+            builder: (context, ref, _) {
+              // يبدأ تسجيل FCM token بعد تسجيل الدخول.
+              ref.watch(fcmBootstrapProvider).start();
+              return OnboardingGate(
+                child: MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.noScaling),
+                  child: Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
       routerConfig: router,

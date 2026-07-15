@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
+import '../../../core/widgets/notification_badge.dart';
 import '../../../core/api/api_providers.dart';
 import '../../../core/notifications/app_notification_service.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../routing/app_routes.dart';
 import '../../auth/data/auth_controller.dart';
 
@@ -218,7 +219,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     ref.invalidate(appNotifCountsProvider);
                   },
                   child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: EdgeInsets.fromLTRB(
+                      0,
+                      8,
+                      0,
+                      AppResponsive.shellContentBottomPadding(context),
+                    ),
                     itemCount: items.length,
                     separatorBuilder: (_, _) => const Divider(height: 1),
                     itemBuilder: (context, i) {
@@ -250,8 +256,22 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                           children: [
                             if (thumb.isNotEmpty)
                               CircleAvatar(
-                                backgroundImage: CachedNetworkImageProvider(
-                                  thumb,
+                                backgroundColor: scheme.surfaceContainerHighest,
+                                child: ClipOval(
+                                  child: CachedNetworkImage(
+                                    imageUrl: thumb,
+                                    width: 40,
+                                    height: 40,
+                                    fit: BoxFit.cover,
+                                    errorWidget: (_, _, _) => Icon(
+                                      Icons.notifications_active_outlined,
+                                      color: scheme.primary,
+                                    ),
+                                    placeholder: (_, _) => Icon(
+                                      Icons.notifications_active_outlined,
+                                      color: scheme.primary,
+                                    ),
+                                  ),
                                 ),
                               )
                             else
@@ -267,7 +287,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                   width: 9,
                                   height: 9,
                                   decoration: const BoxDecoration(
-                                    color: AppColors.mapPin,
+                                    color: Color(0xFFDC2626),
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -323,7 +343,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         title,
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
-                      trailing: _RedBadge(count: count),
+                      trailing: NotificationCountBadge(count: count),
                       onTap: onTap == null
                           ? null
                           : () => _openAndDismiss(keyName, onTap),
@@ -338,7 +358,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   final newSold = counts['properties_new_sold'] ?? 0;
 
                   return ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: EdgeInsets.fromLTRB(
+                      0,
+                      8,
+                      0,
+                      AppResponsive.shellContentBottomPadding(context),
+                    ),
                     children: [
                       tile(
                         keyName: 'reel_new_comments_on_my_reels',
@@ -374,31 +399,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               );
             },
           ),
-    );
-  }
-}
-
-class _RedBadge extends StatelessWidget {
-  const _RedBadge({required this.count});
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final txt = count > 99 ? '99+' : '$count';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: AppColors.mapPin,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        txt,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: 11,
-        ),
-      ),
     );
   }
 }

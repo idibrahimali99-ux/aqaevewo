@@ -8,7 +8,8 @@ class AdminMarketersScreen extends ConsumerStatefulWidget {
   const AdminMarketersScreen({super.key});
 
   @override
-  ConsumerState<AdminMarketersScreen> createState() => _AdminMarketersScreenState();
+  ConsumerState<AdminMarketersScreen> createState() =>
+      _AdminMarketersScreenState();
 }
 
 class _AdminMarketersScreenState extends ConsumerState<AdminMarketersScreen> {
@@ -69,7 +70,8 @@ class _AdminMarketersScreenState extends ConsumerState<AdminMarketersScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'تعذر التحميل — نفّذ patch_follows_packages_engagement_mysql.sql';
+        _error =
+            'تعذر التحميل — نفّذ patch_follows_packages_engagement_mysql.sql';
         _loading = false;
       });
     }
@@ -80,10 +82,7 @@ class _AdminMarketersScreenState extends ConsumerState<AdminMarketersScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (ctx) => _PackagesSheet(
-        packages: _packages,
-        onChanged: _load,
-      ),
+      builder: (ctx) => _PackagesSheet(packages: _packages, onChanged: _load),
     );
     if (mounted) await _load();
   }
@@ -91,11 +90,23 @@ class _AdminMarketersScreenState extends ConsumerState<AdminMarketersScreen> {
   Future<void> _editMarketer(Map<String, dynamic> row) async {
     final userId = row['id']?.toString() ?? '';
     if (userId.isEmpty) return;
-    final name = row['full_name']?.toString() ?? row['office_name']?.toString() ?? 'مسوق';
+    final name =
+        row['full_name']?.toString() ??
+        row['office_name']?.toString() ??
+        'مسوق';
     final remCtrl = TextEditingController(
       text: row['posting_listings_remaining']?.toString() ?? '0',
     );
-    var unlimited = row['posting_trial_unlimited'] == 1 ||
+    final daysCtrl = TextEditingController(
+      text: row['posting_subscription_days']?.toString() ?? '',
+    );
+    final expiryCtrl = TextEditingController(
+      text: (row['posting_subscription_expires_at']?.toString() ?? '')
+          .split(' ')
+          .first,
+    );
+    var unlimited =
+        row['posting_trial_unlimited'] == 1 ||
         row['posting_trial_unlimited'] == true;
     String? packageId = row['posting_package_id']?.toString();
     if (packageId != null && packageId.isEmpty) packageId = null;
@@ -123,14 +134,31 @@ class _AdminMarketersScreenState extends ConsumerState<AdminMarketersScreen> {
                     ),
                   ),
                 const SizedBox(height: 8),
+                TextField(
+                  controller: daysCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'مدة الاشتراك بالأيام',
+                    hintText: 'مثلاً 30',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: expiryCtrl,
+                  keyboardType: TextInputType.datetime,
+                  decoration: const InputDecoration(
+                    labelText: 'تاريخ الانتهاء',
+                    hintText: 'YYYY-MM-DD',
+                  ),
+                ),
+                const SizedBox(height: 8),
                 DropdownButtonFormField<String?>(
-                  value: packageId != null &&
+                  initialValue:
+                      packageId != null &&
                           _packages.any((p) => p['id']?.toString() == packageId)
                       ? packageId
                       : null,
-                  decoration: const InputDecoration(
-                    labelText: 'باقة جاهزة',
-                  ),
+                  decoration: const InputDecoration(labelText: 'باقة جاهزة'),
                   items: [
                     const DropdownMenuItem<String?>(
                       value: null,
@@ -161,26 +189,58 @@ class _AdminMarketersScreenState extends ConsumerState<AdminMarketersScreen> {
       ),
     );
     final remaining = int.tryParse(remCtrl.text.trim()) ?? 0;
+    final days = int.tryParse(daysCtrl.text.trim());
+    final expiry = expiryCtrl.text.trim();
     remCtrl.dispose();
+    daysCtrl.dispose();
+    expiryCtrl.dispose();
     if (saved != true || !mounted) return;
     try {
       final api = ref.read(vewoApiClientProvider);
-      await api.postJson('admin/assign-package', {
+      final body = <String, dynamic>{
         'user_id': userId,
         'posting_trial_unlimited': unlimited,
         if (!unlimited) 'posting_listings_remaining': remaining,
-        if (packageId != null) 'posting_package_id': packageId,
-      });
+        if (expiry.isNotEmpty) 'subscription_expires_at': expiry,
+      };
+      if (days != null) body['subscription_days'] = days;
+      if (packageId != null) body['posting_package_id'] = packageId;
+      await api.postJson('admin/assign-package', body);
       if (!mounted) return;
       await _load();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم تحديث الباقة')),
-      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم تحديث الباقة')));
     } on VewoApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _setMarketerFlags(
+    Map<String, dynamic> row, {
+    int? approved,
+    int? active,
+  }) async {
+    final userId = row['id']?.toString() ?? '';
+    if (userId.isEmpty) return;
+    try {
+      final body = <String, dynamic>{'user_id': userId};
+      if (approved != null) body['marketer_approved'] = approved;
+      if (active != null) body['is_active'] = active;
+      await ref
+          .read(vewoApiClientProvider)
+          .postJson('admin/assign-package', body);
+      if (!mounted) return;
+      await _load();
+    } on VewoApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -222,9 +282,9 @@ class _AdminMarketersScreenState extends ConsumerState<AdminMarketersScreen> {
       await _load();
     } on VewoApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -249,71 +309,80 @@ class _AdminMarketersScreenState extends ConsumerState<AdminMarketersScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text(_error!, textAlign: TextAlign.center))
-              : _marketers.isEmpty
-                  ? const Center(
-                      child: Text('لا يوجد مسوقون معتمدون بعد.'),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _marketers.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, i) {
-                        final row = _marketers[i];
-                        final name = row['full_name']?.toString() ??
-                            row['office_name']?.toString() ??
-                            '—';
-                        final phone = row['phone']?.toString() ?? '';
-                        final unlimited = row['posting_trial_unlimited'] == 1 ||
-                            row['posting_trial_unlimited'] == true;
-                        final rem = row['posting_listings_remaining'];
-                        final quota = unlimited
-                            ? 'بلا حدود'
-                            : 'متبقي: ${rem ?? '—'}';
-                        final followers = (row['follower_count'] is num
-                                ? (row['follower_count'] as num).toInt()
-                                : int.tryParse('${row['follower_count']}') ?? 0) +
-                            (row['synthetic_follower_boost'] is num
-                                ? (row['synthetic_follower_boost'] as num).toInt()
-                                : int.tryParse(
-                                      '${row['synthetic_follower_boost']}',
-                                    ) ??
-                                    0);
-                        return ListTile(
-                          title: Text(name),
-                          subtitle: Text(
-                            '$phone · $quota · $followers متابع',
-                            textDirection: TextDirection.ltr,
-                          ),
-                          isThreeLine: true,
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (v) {
-                              if (v == 'pkg') _editMarketer(row);
-                              if (v == 'boost') _boostFollowers(row);
-                            },
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(
-                                value: 'pkg',
-                                child: Text('تعديل الباقة / الرصيد'),
-                              ),
-                              PopupMenuItem(
-                                value: 'boost',
-                                child: Text('زيادة متابعين'),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+          ? Center(child: Text(_error!, textAlign: TextAlign.center))
+          : _marketers.isEmpty
+          ? const Center(child: Text('لا يوجد مسوقون معتمدون بعد.'))
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: _marketers.length,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, i) {
+                final row = _marketers[i];
+                final name =
+                    row['full_name']?.toString() ??
+                    row['office_name']?.toString() ??
+                    '—';
+                final phone = row['phone']?.toString() ?? '';
+                final unlimited =
+                    row['posting_trial_unlimited'] == 1 ||
+                    row['posting_trial_unlimited'] == true;
+                final rem = row['posting_listings_remaining'];
+                final quota = unlimited ? 'بلا حدود' : 'متبقي: ${rem ?? '—'}';
+                final followers =
+                    (row['follower_count'] is num
+                        ? (row['follower_count'] as num).toInt()
+                        : int.tryParse('${row['follower_count']}') ?? 0) +
+                    (row['synthetic_follower_boost'] is num
+                        ? (row['synthetic_follower_boost'] as num).toInt()
+                        : int.tryParse('${row['synthetic_follower_boost']}') ??
+                              0);
+                final approved =
+                    row['office_approved'] == 1 ||
+                    row['office_approved'] == true;
+                final active =
+                    row['is_active'] != 0 && row['is_active'] != false;
+                final expiry =
+                    row['posting_subscription_expires_at']?.toString() ?? '';
+                return ListTile(
+                  title: Text(name),
+                  subtitle: Text(
+                    '$phone · ${approved ? 'معتمد' : 'بانتظار الموافقة'} · ${active ? 'مفعل' : 'موقوف'} · $quota · $followers متابع${expiry.isEmpty ? '' : ' · ينتهي: ${expiry.split(' ').first}'}',
+                    textDirection: TextDirection.ltr,
+                  ),
+                  isThreeLine: true,
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (v) {
+                      if (v == 'pkg') _editMarketer(row);
+                      if (v == 'boost') _boostFollowers(row);
+                      if (v == 'approve') _setMarketerFlags(row, approved: 1);
+                      if (v == 'reject') _setMarketerFlags(row, approved: 0);
+                      if (v == 'activate') _setMarketerFlags(row, active: 1);
+                      if (v == 'suspend') _setMarketerFlags(row, active: 0);
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'approve', child: Text('موافقة')),
+                      PopupMenuItem(value: 'reject', child: Text('رفض')),
+                      PopupMenuItem(value: 'activate', child: Text('تفعيل')),
+                      PopupMenuItem(value: 'suspend', child: Text('إيقاف')),
+                      PopupMenuItem(
+                        value: 'pkg',
+                        child: Text('تعديل الباقة / الرصيد'),
+                      ),
+                      PopupMenuItem(
+                        value: 'boost',
+                        child: Text('زيادة متابعين'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
     );
   }
 }
 
 class _PackagesSheet extends ConsumerStatefulWidget {
-  const _PackagesSheet({
-    required this.packages,
-    required this.onChanged,
-  });
+  const _PackagesSheet({required this.packages, required this.onChanged});
 
   final List<Map<String, dynamic>> packages;
   final Future<void> Function() onChanged;
@@ -359,7 +428,7 @@ class _PackagesSheetState extends ConsumerState<_PackagesSheet> {
                   decoration: const InputDecoration(labelText: 'حد المنشورات'),
                 ),
               DropdownButtonFormField<String>(
-                value: applies,
+                initialValue: applies,
                 decoration: const InputDecoration(labelText: 'ينطبق على'),
                 items: const [
                   DropdownMenuItem(value: 'marketer', child: Text('مسوق')),
@@ -408,9 +477,9 @@ class _PackagesSheetState extends ConsumerState<_PackagesSheet> {
       if (mounted) setState(() {});
     } on VewoApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 

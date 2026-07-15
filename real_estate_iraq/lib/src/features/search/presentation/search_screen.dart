@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:vewo_shared/vewo_shared.dart' show Iraq;
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../core/api/api_providers.dart';
@@ -594,7 +595,11 @@ class _SearchMapAndResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      padding: AppResponsive.pagePadding(
+        context,
+        top: 0,
+        accountForShellNav: true,
+      ),
       children: [
         for (final p in items.take(12))
           Padding(

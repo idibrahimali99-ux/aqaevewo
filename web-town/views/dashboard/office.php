@@ -1,4 +1,4 @@
-﻿<?php ob_start(); ?>
+<?php ob_start(); ?>
 <h1>لوحة المكتب</h1>
 <p class="muted">مرحبا <?= e((string) ($user['office_name'] ?? $user['full_name'] ?? '')) ?>، هذه مساحة إدارة عقاراتك وطلباتك.</p>
 <div class="dashboard-grid">

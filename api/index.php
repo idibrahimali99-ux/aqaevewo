@@ -497,6 +497,20 @@ switch ($route) {
         public_office_detail_route($pdo);
         break;
 
+    case 'marketers/list':
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
+            json_error(405, 'Method not allowed');
+        }
+        public_marketers_list_route($pdo);
+        break;
+
+    case 'marketers/detail':
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
+            json_error(405, 'Method not allowed');
+        }
+        public_marketer_detail_route($pdo);
+        break;
+
     case 'parcels/list':
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
             json_error(405, 'Method not allowed');
@@ -1679,20 +1693,23 @@ function vewo_chat_open_direct_response(
         json_error(400, 'لا يمكن فتح محادثة مباشرة غير صالحة');
     }
 
-    $where = "thread_type = 'direct' AND customer_user_id = :c AND office_user_id = :o";
-    $params = [':c' => $customerId, ':o' => $officeId];
-    if ($propertyId !== null) {
-        $where .= ' AND property_id = :p';
-        $params[':p'] = $propertyId;
-    } else {
-        $where .= ' AND property_id IS NULL';
-    }
-    if ($hasReelThreadColumn && $rawReelId !== '') {
-        $where .= ' AND reel_id = :r';
-        $params[':r'] = $rawReelId;
-    }
-
-    $find = $pdo->prepare("SELECT id, thread_public_no FROM chat_threads WHERE $where LIMIT 1");
+    $find = $pdo->prepare(
+        "SELECT id, thread_public_no
+         FROM chat_threads
+         WHERE thread_type = 'direct'
+           AND (
+             (customer_user_id = :c1 AND office_user_id = :o1)
+             OR (customer_user_id = :o2 AND office_user_id = :c2)
+           )
+         ORDER BY COALESCE(last_message_at, created_at) DESC
+         LIMIT 1"
+    );
+    $params = [
+        ':c1' => $customerId,
+        ':o1' => $officeId,
+        ':o2' => $officeId,
+        ':c2' => $customerId,
+    ];
     $find->execute($params);
     $exRow = $find->fetch(PDO::FETCH_ASSOC);
     if (is_array($exRow) && ($exRow['id'] ?? '') !== '') {
@@ -1853,7 +1870,7 @@ function chat_thread_open(PDO $pdo): void
     if ($rawReelId !== '') {
         $rstmt = $pdo->prepare(
             "SELECT r.id, r.property_id, r.owner_user_id, r.caption, r.video_public_url, r.created_at,
-                    u.full_name, u.office_name, u.role
+                    u.full_name, u.office_name, u.role, u.is_marketer
              FROM reels r INNER JOIN users u ON u.id = r.owner_user_id
              WHERE r.id = :id AND r.approval_status = 'approved' LIMIT 1"
         );
@@ -1867,17 +1884,22 @@ function chat_thread_open(PDO $pdo): void
         }
         $reelOwnerId = trim((string) ($rrow['owner_user_id'] ?? ''));
         $reelOwnerRole = (string) ($rrow['role'] ?? '');
-        $pub = trim((string) ($rrow['office_name'] ?? ''));
+        $isMarketerReelOwner = (int) ($rrow['is_marketer'] ?? 0) === 1;
+        $pub = $isMarketerReelOwner
+            ? trim((string) ($rrow['full_name'] ?? ''))
+            : trim((string) ($rrow['office_name'] ?? ''));
         $isOfficeReelOwner = $reelOwnerRole === 'office';
         if ($pub === '') {
             $pub = trim((string) ($rrow['full_name'] ?? ''));
         }
         $reelContext = [
             'id' => (string) $rrow['id'],
+            'owner_user_id' => (string) ($rrow['owner_user_id'] ?? ''),
             'property_id' => $rrow['property_id'] !== null ? (string) $rrow['property_id'] : null,
             'caption' => (string) ($rrow['caption'] ?? ''),
             'video_public_url' => (string) ($rrow['video_public_url'] ?? ''),
             'publisher_display' => $isOfficeReelOwner && $pub !== '' ? $pub : 'عقار تاون',
+            'publisher_account_type' => $isMarketerReelOwner ? 'marketer' : ($isOfficeReelOwner ? 'office' : 'customer'),
             'created_at' => (string) ($rrow['created_at'] ?? ''),
         ];
     }
@@ -1911,11 +1933,7 @@ function chat_thread_open(PDO $pdo): void
             }
             // الزبون عندما يبدأ مع مكتب/مسوق صاحب المنشور: محادثة مباشرة،
             // مع بقاء الأدمن قادراً على المشاهدة والتدخل.
-            if (
-                $advertiserId !== null &&
-                $requesterRole === 'customer' &&
-                in_array($ownerRole, ['office', 'marketer'], true)
-            ) {
+            if ($advertiserId !== null && in_array($ownerRole, ['office', 'marketer'], true)) {
                 vewo_chat_open_direct_response(
                     $pdo,
                     $cid,
@@ -1940,7 +1958,7 @@ function chat_thread_open(PDO $pdo): void
         $reelOwnerId !== '' &&
         $reelOwnerId !== $cid &&
         $reelOwnerRole === 'office' &&
-        $requesterRole === 'customer'
+        in_array($requesterRole, ['customer', 'office', 'marketer'], true)
     ) {
         vewo_chat_open_direct_response(
             $pdo,
@@ -2027,7 +2045,7 @@ function chat_thread_open(PDO $pdo): void
                 : null,
             'thread_mode' => 'mediated',
             'admin' => [
-                'full_name' => (string) ($an['full_name'] ?? 'المسؤول'),
+                'full_name' => 'عقار تاون',
                 'phone' => (string) ($an['phone'] ?? ''),
             ],
         ], $reelContext);
@@ -2069,7 +2087,7 @@ function chat_thread_open(PDO $pdo): void
         'thread_public_no' => $tpnMed,
         'thread_mode' => 'mediated',
         'admin' => [
-            'full_name' => (string) ($an['full_name'] ?? 'المسؤول'),
+            'full_name' => 'عقار تاون',
             'phone' => (string) ($an['phone'] ?? ''),
         ],
     ], $reelContext);
@@ -2142,11 +2160,13 @@ function chat_threads_list(PDO $pdo): void
                     p.title AS property_title,
                     t.customer_user_id, t.office_user_id, t.created_at, t.thread_type,
                     CASE
-                        WHEN t.thread_type = \'mediated\' THEN a.full_name
+                        WHEN t.thread_type = \'mediated\' AND t.office_user_id = :c1 THEN cu.full_name
+                        WHEN t.thread_type = \'mediated\' THEN COALESCE(NULLIF(TRIM(ofc.office_name), \'\'), ofc.full_name, \'عقار تاون\')
                         WHEN t.office_user_id = :c1 THEN cu.full_name
-                        ELSE ofc.full_name
+                        ELSE COALESCE(NULLIF(TRIM(ofc.office_name), \'\'), ofc.full_name)
                     END AS admin_name,
                     CASE
+                        WHEN t.thread_type = \'mediated\' AND t.office_user_id = :c2 THEN cu.phone
                         WHEN t.thread_type = \'mediated\' THEN a.phone
                         WHEN t.office_user_id = :c2 THEN cu.phone
                         ELSE ofc.phone
@@ -2307,7 +2327,7 @@ function chat_messages_list(PDO $pdo): void
         $sr = (string) ($r['sender_role'] ?? '');
         $senderId = (string) ($r['sender_user_id'] ?? '');
         if ($sr === 'admin' || $sr === 'staff') {
-            $r['sender_display_name'] = (string) ($r['sender_full_name'] ?? 'عقار تاون');
+            $r['sender_display_name'] = 'عقار تاون';
             $r['sender_conversation_label'] = '';
         } elseif ($threadOfficeId !== '' && $senderId === $threadOfficeId) {
             $on = trim((string) ($r['sender_office_name'] ?? ''));
@@ -2344,7 +2364,7 @@ function chat_messages_list(PDO $pdo): void
         if ($rid !== '' && preg_match('/^[0-9a-fA-F-]{36}$/', $rid)) {
             try {
                 $rs = $pdo->prepare(
-                    "SELECT r.id, r.property_id, r.caption, r.video_public_url, r.created_at,
+                    "SELECT r.id, r.owner_user_id, r.property_id, r.caption, r.video_public_url, r.created_at,
                             u.full_name, u.office_name, u.role
                      FROM reels r INNER JOIN users u ON u.id = r.owner_user_id
                      WHERE r.id = :id LIMIT 1"
@@ -2359,6 +2379,7 @@ function chat_messages_list(PDO $pdo): void
                     }
                     $reel = [
                         'id' => (string) $rr['id'],
+                        'owner_user_id' => (string) ($rr['owner_user_id'] ?? ''),
                         'property_id' => $rr['property_id'] !== null ? (string) $rr['property_id'] : null,
                         'caption' => (string) ($rr['caption'] ?? ''),
                         'video_public_url' => (string) ($rr['video_public_url'] ?? ''),
@@ -2376,40 +2397,40 @@ function chat_messages_list(PDO $pdo): void
     $customerDisplayName = null;
     $officePhone = null;
     $officeDisplayName = null;
-    if ($role === 'admin' || $role === 'staff') {
-        $cid = trim((string) ($t['customer_user_id'] ?? ''));
-        $oid = trim((string) ($t['office_user_id'] ?? ''));
-        if ($cid !== '' && preg_match('/^[0-9a-fA-F-]{36}$/', $cid)) {
-            try {
-                $ps = $pdo->prepare('SELECT full_name, office_name, phone FROM users WHERE id = :id LIMIT 1');
-                $ps->execute([':id' => $cid]);
-                $cr = $ps->fetch(PDO::FETCH_ASSOC);
-                if (is_array($cr)) {
-                    $customerPhone = (string) ($cr['phone'] ?? '');
-                    $customerOffice = trim((string) ($cr['office_name'] ?? ''));
-                    $customerFull = trim((string) ($cr['full_name'] ?? ''));
-                    $customerDisplayName = $customerOffice !== '' ? $customerOffice : $customerFull;
-                }
-            } catch (Throwable $e) {
-                $customerPhone = null;
-                $customerDisplayName = null;
+    $cid = trim((string) ($t['customer_user_id'] ?? ''));
+    $oid = trim((string) ($t['office_user_id'] ?? ''));
+    if ($cid !== '' && preg_match('/^[0-9a-fA-F-]{36}$/', $cid)) {
+        try {
+            $ps = $pdo->prepare('SELECT full_name, office_name, phone, role, is_marketer FROM users WHERE id = :id LIMIT 1');
+            $ps->execute([':id' => $cid]);
+            $cr = $ps->fetch(PDO::FETCH_ASSOC);
+            if (is_array($cr)) {
+                $customerPhone = (string) ($cr['phone'] ?? '');
+                $customerOffice = trim((string) ($cr['office_name'] ?? ''));
+                $customerFull = trim((string) ($cr['full_name'] ?? ''));
+                $customerIsOffice = (string) ($cr['role'] ?? '') === 'office' && (int) ($cr['is_marketer'] ?? 0) !== 1;
+                $customerDisplayName = $customerIsOffice && $customerOffice !== '' ? $customerOffice : $customerFull;
             }
+        } catch (Throwable $e) {
+            $customerPhone = null;
+            $customerDisplayName = null;
         }
-        if ($oid !== '' && preg_match('/^[0-9a-fA-F-]{36}$/', $oid)) {
-            try {
-                $ps = $pdo->prepare('SELECT full_name, office_name, phone FROM users WHERE id = :id LIMIT 1');
-                $ps->execute([':id' => $oid]);
-                $or = $ps->fetch(PDO::FETCH_ASSOC);
-                if (is_array($or)) {
-                    $officePhone = (string) ($or['phone'] ?? '');
-                    $officeName = trim((string) ($or['office_name'] ?? ''));
-                    $officeFull = trim((string) ($or['full_name'] ?? ''));
-                    $officeDisplayName = $officeName !== '' ? $officeName : $officeFull;
-                }
-            } catch (Throwable $e) {
-                $officePhone = null;
-                $officeDisplayName = null;
+    }
+    if ($oid !== '' && preg_match('/^[0-9a-fA-F-]{36}$/', $oid)) {
+        try {
+            $ps = $pdo->prepare('SELECT full_name, office_name, phone, role, is_marketer FROM users WHERE id = :id LIMIT 1');
+            $ps->execute([':id' => $oid]);
+            $or = $ps->fetch(PDO::FETCH_ASSOC);
+            if (is_array($or)) {
+                $officePhone = (string) ($or['phone'] ?? '');
+                $officeName = trim((string) ($or['office_name'] ?? ''));
+                $officeFull = trim((string) ($or['full_name'] ?? ''));
+                $officeIsOffice = (string) ($or['role'] ?? '') === 'office' && (int) ($or['is_marketer'] ?? 0) !== 1;
+                $officeDisplayName = $officeIsOffice && $officeName !== '' ? $officeName : $officeFull;
             }
+        } catch (Throwable $e) {
+            $officePhone = null;
+            $officeDisplayName = null;
         }
     }
 

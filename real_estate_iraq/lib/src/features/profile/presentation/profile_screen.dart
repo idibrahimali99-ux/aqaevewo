@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/api/api_providers.dart';
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../routing/app_routes.dart';
 import '../../../core/theme/theme_mode_provider.dart';
@@ -277,7 +278,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         },
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: AppResponsive.pagePadding(context, accountForShellNav: true),
           children: [
             Card(
               child: InkWell(
@@ -529,7 +530,9 @@ class _ProfileInfoGrid extends StatelessWidget {
       (
         icon: Icons.account_circle_outlined,
         label: 'نوع الحساب',
-        value: auth.role == UserRole.office ? 'مكتب / مسوّق' : 'زبون',
+        value: auth.role == UserRole.office
+            ? (auth.isMarketer ? 'مسوق عقاري' : 'مكتب عقاري')
+            : 'زبون',
       ),
       if (auth.role == UserRole.office)
         (

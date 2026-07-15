@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_providers.dart';
 import '../../../core/api/vewo_api_client.dart';
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../routing/app_routes.dart';
 import '../../auth/data/auth_controller.dart';
@@ -104,13 +105,14 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     final scheme = Theme.of(context).colorScheme;
     final tpn = row['thread_public_no'];
     final codeStr = (tpn != null && '$tpn'.isNotEmpty) ? '#$tpn' : '';
+    final title = _titleForRow(row);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          AppBrandStrings.plainShort,
+          title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(
@@ -129,6 +131,22 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
     );
   }
 
+  String _titleForRow(Map<String, dynamic> row) {
+    final candidates = <String>[
+      row['admin_name']?.toString() ?? '',
+      row['office_display_name']?.toString() ?? '',
+      row['customer_display_name']?.toString() ?? '',
+      row['office_name']?.toString() ?? '',
+      row['office_full_name']?.toString() ?? '',
+      row['customer_name']?.toString() ?? '',
+    ];
+    for (final value in candidates) {
+      final v = value.trim();
+      if (v.isNotEmpty) return v;
+    }
+    return AppBrandStrings.plainShort;
+  }
+
   String _subtitleForRow(Map<String, dynamic> row) {
     final preview = row['last_message_preview']?.toString().trim();
     if (preview != null && preview.isNotEmpty) {
@@ -139,7 +157,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
       return 'تواصل مع ${AppBrandStrings.plainShort}';
     }
     if (ttype == 'direct') {
-      return 'زبون ومكتب';
+      return 'محادثة مباشرة';
     }
     return '';
   }
@@ -207,7 +225,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: EdgeInsets.fromLTRB(
+                        0,
+                        8,
+                        0,
+                        AppResponsive.shellContentBottomPadding(context),
+                      ),
                       itemCount: _items.length,
                       separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (context, i) {

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:vewo_shared/vewo_shared.dart' show Iraq;
 import '../../../core/governorates/governorates_provider.dart';
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../routing/app_routes.dart';
 import '../../offices/data/offices_providers.dart';
@@ -14,7 +15,8 @@ class CompoundsListScreen extends ConsumerStatefulWidget {
   const CompoundsListScreen({super.key});
 
   @override
-  ConsumerState<CompoundsListScreen> createState() => _CompoundsListScreenState();
+  ConsumerState<CompoundsListScreen> createState() =>
+      _CompoundsListScreenState();
 }
 
 class _CompoundsListScreenState extends ConsumerState<CompoundsListScreen> {
@@ -38,14 +40,13 @@ class _CompoundsListScreenState extends ConsumerState<CompoundsListScreen> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(compoundsListProvider);
-    final govs = ref.watch(governoratesProvider).valueOrNull ?? Iraq.governorates;
+    final govs =
+        ref.watch(governoratesProvider).valueOrNull ?? Iraq.governorates;
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
-      appBar: AppBar(
-        title: const AppBarBrandTitle('مجمعات سكنية'),
-      ),
+      appBar: AppBar(title: const AppBarBrandTitle('مجمعات سكنية')),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => const Center(child: Text('تعذر تحميل المجمعات')),
@@ -72,7 +73,10 @@ class _CompoundsListScreenState extends ConsumerState<CompoundsListScreen> {
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: AppResponsive.pagePadding(
+              context,
+              accountForShellNav: true,
+            ),
             itemCount: visible.length + 1,
             separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, i) {
@@ -123,13 +127,16 @@ class _CompoundsListScreenState extends ConsumerState<CompoundsListScreen> {
               final hasPhoto = c.photoUrl.trim().isNotEmpty;
               return Card(
                 child: ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   leading: CircleAvatar(
                     radius: 28,
                     backgroundColor: scheme.primaryContainer,
-                    backgroundImage:
-                        hasPhoto ? CachedNetworkImageProvider(c.photoUrl) : null,
+                    backgroundImage: hasPhoto
+                        ? CachedNetworkImageProvider(c.photoUrl)
+                        : null,
                     child: hasPhoto
                         ? null
                         : Icon(
@@ -151,8 +158,8 @@ class _CompoundsListScreenState extends ConsumerState<CompoundsListScreen> {
                       Text(
                         'المنشورات: ${c.postsCount}',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),

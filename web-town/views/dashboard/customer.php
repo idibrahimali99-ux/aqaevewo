@@ -1,4 +1,4 @@
-﻿<?php ob_start(); ?>
+<?php ob_start(); ?>
 <h1>لوحة الزبون</h1>
 <p class="muted">مرحبا <?= e((string) ($user['full_name'] ?? '')) ?>، هنا تتابع طلباتك ومفضلتك ومحادثاتك.</p>
 <div class="dashboard-grid">

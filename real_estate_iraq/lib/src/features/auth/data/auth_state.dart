@@ -14,6 +14,7 @@ class AuthState {
     this.userId,
     this.apiToken,
     this.profilePhotoUrl = '',
+    this.isMarketer = false,
     this.postingTrialUnlimited,
     this.postingListingsRemaining,
   });
@@ -34,6 +35,7 @@ class AuthState {
   /// رمز الجلسة لـ `Authorization: Bearer` بعد تسجيل الدخول أو التسجيل.
   final String? apiToken;
   final String profilePhotoUrl;
+  final bool isMarketer;
 
   /// `null` إذا لم يُرجع الخادم حقول الباقة بعد (قبل تنفيذ الباتش).
   final bool? postingTrialUnlimited;
@@ -54,6 +56,7 @@ class AuthState {
     String? userId,
     String? apiToken,
     String? profilePhotoUrl,
+    bool? isMarketer,
     bool? postingTrialUnlimited,
     int? postingListingsRemaining,
   }) {
@@ -70,6 +73,7 @@ class AuthState {
       userId: userId ?? this.userId,
       apiToken: apiToken ?? this.apiToken,
       profilePhotoUrl: profilePhotoUrl ?? this.profilePhotoUrl,
+      isMarketer: isMarketer ?? this.isMarketer,
       postingTrialUnlimited:
           postingTrialUnlimited ?? this.postingTrialUnlimited,
       postingListingsRemaining:
@@ -90,6 +94,7 @@ class AuthState {
     userId: null,
     apiToken: null,
     profilePhotoUrl: '',
+    isMarketer: false,
     postingTrialUnlimited: null,
     postingListingsRemaining: null,
   );

@@ -157,7 +157,11 @@ class _AdminPropertyRequestsScreenState
               ],
             ),
             const SizedBox(height: 16),
-            _row('الحالة', _statusLabel(item['status'])),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: _statusChip(context, item['status']),
+            ),
+            const SizedBox(height: 12),
             _row('الزبون', item['customer_name']),
             _row('الهاتف', item['phone']),
             _row('النوع', _purpose(item['purpose'])),
@@ -269,14 +273,38 @@ class _AdminPropertyRequestsScreenState
                     separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (context, i) {
                       final item = _items[i];
+                      final statusColor = _statusColor(context, item['status']);
                       return Card(
+                        color: statusColor.withValues(alpha: .08),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(
+                            color: statusColor.withValues(alpha: .35),
+                          ),
+                        ),
                         child: ListTile(
-                          leading: const Icon(Icons.assignment_outlined),
+                          leading: CircleAvatar(
+                            backgroundColor: statusColor.withValues(alpha: .16),
+                            child: Icon(
+                              Icons.assignment_outlined,
+                              color: statusColor,
+                            ),
+                          ),
                           title: Text(
                             '#${item['request_no']} - ${_category(item['category'])}',
                           ),
-                          subtitle: Text(
-                            '${_statusLabel(item['status'])} • ${item['governorate'] ?? ''} • ${item['phone'] ?? ''}',
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                _statusChip(context, item['status']),
+                                Text('${item['governorate'] ?? ''}'),
+                                Text('${item['phone'] ?? ''}'),
+                              ],
+                            ),
                           ),
                           trailing: const Icon(Icons.chevron_left_rounded),
                           onTap: () => _openDetails(item),
@@ -310,6 +338,25 @@ class _AdminPropertyRequestsScreenState
     'closed' => 'مغلق نهائياً',
     _ => 'قيد الانتظار',
   };
+
+  Color _statusColor(BuildContext context, Object? status) {
+    return switch (status?.toString()) {
+      'in_progress' => Colors.orange.shade700,
+      'closed' => Colors.green.shade700,
+      _ => Colors.amber.shade800,
+    };
+  }
+
+  Widget _statusChip(BuildContext context, Object? status) {
+    final color = _statusColor(context, status);
+    return Chip(
+      visualDensity: VisualDensity.compact,
+      label: Text(_statusLabel(status)),
+      backgroundColor: color.withValues(alpha: .14),
+      side: BorderSide(color: color.withValues(alpha: .42)),
+      labelStyle: TextStyle(color: color, fontWeight: FontWeight.w800),
+    );
+  }
 
   String _purpose(Object? v) => v == 'rent' ? 'إيجار' : 'شراء';
 

@@ -27,6 +27,53 @@ final class ApiClient
 
     /**
      * @param array<string,mixed> $query
+     * @return array<string,mixed>
+     */
+    public function delete(string $route, array $query = [], ?string $token = null): array
+    {
+        return $this->request('DELETE', $route, $query, null, $token);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function upload(string $route, string $filePath, string $fileName, ?string $token = null): array
+    {
+        $url = $this->entry . '?' . http_build_query(['r' => $route]);
+        $headers = ['Accept: application/json'];
+        if ($token !== null && $token !== '') {
+            $headers[] = 'Authorization: Bearer ' . $token;
+        }
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_POSTFIELDS => [
+                'file' => new CURLFile($filePath, mime_content_type($filePath) ?: 'application/octet-stream', $fileName),
+            ],
+        ]);
+        $raw = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($raw === false || $raw === '') {
+            return ['ok' => false, 'status' => $status ?: 0, 'error' => $error !== '' ? $error : 'تعذر رفع الملف'];
+        }
+        $decoded = json_decode((string) $raw, true);
+        if (!is_array($decoded)) {
+            return ['ok' => false, 'status' => $status, 'error' => 'استجابة رفع غير مفهومة'];
+        }
+        $decoded['status'] = $status;
+        return $decoded;
+    }
+
+    /**
+     * @param array<string,mixed> $query
      * @param array<string,mixed>|null $body
      * @return array<string,mixed>
      */

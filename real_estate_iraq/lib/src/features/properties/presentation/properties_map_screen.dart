@@ -12,6 +12,7 @@ import '../domain/property.dart';
 import '../data/properties_providers.dart';
 import 'property_card.dart';
 import '../../../core/api/app_bootstrap_provider.dart';
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/location/location_providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_brand_mark.dart';
@@ -180,7 +181,7 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
 
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+            padding: AppResponsive.pagePadding(ctx, top: 10),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -248,9 +249,12 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
       builder: (ctx) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+            padding: AppResponsive.pagePadding(ctx, top: 10),
             child: SizedBox(
-              height: 420,
+              height: (MediaQuery.sizeOf(ctx).height * 0.58).clamp(
+                320.0,
+                520.0,
+              ),
               child: PropertyCard(
                 property: p,
                 showMapPreview: false,
@@ -315,7 +319,7 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
       showDragHandle: true,
       builder: (ctx) => SafeArea(
         child: ListView.separated(
-          padding: const EdgeInsets.all(16),
+          padding: AppResponsive.pagePadding(ctx),
           itemCount: props.length,
           separatorBuilder: (_, _) => const SizedBox(height: 10),
           itemBuilder: (c, i) {

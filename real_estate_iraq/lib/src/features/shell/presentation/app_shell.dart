@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../routing/app_routes.dart';
 import '../../auth/data/auth_controller.dart';
@@ -189,11 +190,21 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
     final slot = _slotFromLocation(location);
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
     final width = MediaQuery.sizeOf(context).width;
-    final navWidth = width * (_collapsed ? 0.78 : 0.92);
-    final navHeight = _collapsed ? 56.0 : 66.0;
-    final bottomGap = bottomInset + (_collapsed ? 8.0 : 12.0);
+    final maxNavWidth = (width - 24).clamp(0.0, 560.0);
+    final minNavWidth = maxNavWidth < 312 ? maxNavWidth : 312.0;
+    final navWidth = (width * (_collapsed ? 0.78 : 0.92)).clamp(
+      minNavWidth,
+      maxNavWidth,
+    );
+    final navHeight = AppResponsive.bottomNavHeight(
+      context,
+      collapsed: _collapsed,
+    );
+    final bottomGap = AppResponsive.floatingNavBottomGap(
+      context,
+      collapsed: _collapsed,
+    );
 
     return Scaffold(
       extendBody: true,

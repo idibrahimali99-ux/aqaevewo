@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../data/property_requests_provider.dart';
 
@@ -23,7 +24,10 @@ class MyPropertyRequestsScreen extends ConsumerWidget {
             }
             return ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
+              padding: AppResponsive.pagePadding(
+                context,
+                accountForShellNav: true,
+              ),
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, i) => _RequestCard(item: items[i]),
@@ -43,47 +47,80 @@ class _RequestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = item['status']?.toString() ?? 'pending';
-    final color = switch (status) {
-      'in_progress' => Colors.orange,
-      'closed' => Colors.green,
-      _ => Theme.of(context).colorScheme.primary,
-    };
+    final color = _statusColor(context, status);
     return Card(
+      color: color.withValues(alpha: .08),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: color.withValues(alpha: .35)),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        padding: const EdgeInsetsDirectional.fromSTEB(0, 0, 14, 0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text(
-                  '#${item['request_no'] ?? ''}',
-                  style: const TextStyle(fontWeight: FontWeight.w900),
+            Container(
+              width: 6,
+              height: 118,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: const BorderRadiusDirectional.horizontal(
+                  start: Radius.circular(18),
                 ),
-                const Spacer(),
-                Chip(
-                  label: Text(_statusLabel(status)),
-                  backgroundColor: color.withValues(alpha: .12),
-                  labelStyle: TextStyle(color: color),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${_purpose(item['purpose'])} - ${_category(item['category'])}',
-            ),
-            Text('المحافظة: ${item['governorate'] ?? ''}'),
-            if ((item['description']?.toString().trim() ?? '').isNotEmpty)
-              Text(
-                item['description'].toString(),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '#${item['request_no'] ?? ''}',
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        const Spacer(),
+                        Chip(
+                          label: Text(_statusLabel(status)),
+                          backgroundColor: color.withValues(alpha: .15),
+                          side: BorderSide(color: color.withValues(alpha: .45)),
+                          labelStyle: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${_purpose(item['purpose'])} - ${_category(item['category'])}',
+                    ),
+                    Text('المحافظة: ${item['governorate'] ?? ''}'),
+                    if ((item['description']?.toString().trim() ?? '')
+                        .isNotEmpty)
+                      Text(
+                        item['description'].toString(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+
+  Color _statusColor(BuildContext context, String status) => switch (status) {
+    'in_progress' => Colors.orange.shade700,
+    'closed' => Colors.green.shade700,
+    _ => Colors.amber.shade800,
+  };
 
   String _statusLabel(String s) => switch (s) {
     'in_progress' => 'قيد التنفيذ',

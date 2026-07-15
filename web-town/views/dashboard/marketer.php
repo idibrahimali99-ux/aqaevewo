@@ -1,4 +1,4 @@
-﻿<?php ob_start(); ?>
+<?php ob_start(); ?>
 <h1>لوحة المسوق العقاري</h1>
 <p class="muted">مرحبا <?= e((string) ($user['office_name'] ?? $user['full_name'] ?? '')) ?>، حسابك معرف كمسوق عقاري داخل النظام.</p>
 <div class="dashboard-grid">

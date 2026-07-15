@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../routing/app_routes.dart';
@@ -22,51 +23,70 @@ class RoleSelectScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
       appBar: AppBar(title: const AppBarBrandTitle('اختيار نوع المستخدم')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _RoleCard(
-              title: UserRole.customer.labelAr,
-              subtitle: 'تصفّح، تواصل مع المسؤول عند الحاجة، المفضّلة — بدون وسيط مع المكتب',
-              icon: Icons.person_outline,
-              isSelected: selected == UserRole.customer,
-              onTap: () {
-                ref.read(registrationMarketerProvider.notifier).state = false;
-                ref.read(authControllerProvider.notifier).setRole(UserRole.customer);
-              },
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: AppResponsive.pagePadding(context),
+          child: ResponsiveCenter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _RoleCard(
+                  title: UserRole.customer.labelAr,
+                  subtitle:
+                      'تصفّح، تواصل مع المسؤول عند الحاجة، المفضّلة — بدون وسيط مع المكتب',
+                  icon: Icons.person_outline,
+                  isSelected: selected == UserRole.customer,
+                  onTap: () {
+                    ref.read(registrationMarketerProvider.notifier).state =
+                        false;
+                    ref
+                        .read(authControllerProvider.notifier)
+                        .setRole(UserRole.customer);
+                  },
+                ),
+                const SizedBox(height: 12),
+                _RoleCard(
+                  title: UserRole.office.labelAr,
+                  subtitle:
+                      'نشر مباشر بعد التفعيل، عنوان وإجازة وصورة للمكتب عند التسجيل',
+                  icon: Icons.business_outlined,
+                  isSelected:
+                      selected == UserRole.office &&
+                      !ref.watch(registrationMarketerProvider),
+                  onTap: () {
+                    ref.read(registrationMarketerProvider.notifier).state =
+                        false;
+                    ref
+                        .read(authControllerProvider.notifier)
+                        .setRole(UserRole.office);
+                  },
+                ),
+                const SizedBox(height: 12),
+                _RoleCard(
+                  title: 'مسوّق عقاري',
+                  subtitle:
+                      'نفس صلاحيات المكتب — تسجيل مبسّط دون إجازة وشعار إلزاميين',
+                  icon: Icons.campaign_outlined,
+                  isSelected:
+                      selected == UserRole.office &&
+                      ref.watch(registrationMarketerProvider),
+                  onTap: () {
+                    ref.read(registrationMarketerProvider.notifier).state =
+                        true;
+                    ref
+                        .read(authControllerProvider.notifier)
+                        .setRole(UserRole.office);
+                  },
+                ),
+                const SizedBox(height: 24),
+                PrimaryButton(
+                  label: 'متابعة',
+                  icon: Icons.check,
+                  onPressed: () => context.push(AppRoutes.login),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            _RoleCard(
-              title: UserRole.office.labelAr,
-              subtitle: 'نشر مباشر بعد التفعيل، عنوان وإجازة وصورة للمكتب عند التسجيل',
-              icon: Icons.business_outlined,
-              isSelected: selected == UserRole.office &&
-                  !ref.watch(registrationMarketerProvider),
-              onTap: () {
-                ref.read(registrationMarketerProvider.notifier).state = false;
-                ref.read(authControllerProvider.notifier).setRole(UserRole.office);
-              },
-            ),
-            const SizedBox(height: 12),
-            _RoleCard(
-              title: 'مسوّق عقاري',
-              subtitle: 'نفس صلاحيات المكتب — تسجيل مبسّط دون إجازة وشعار إلزاميين',
-              icon: Icons.campaign_outlined,
-              isSelected: selected == UserRole.office &&
-                  ref.watch(registrationMarketerProvider),
-              onTap: () {
-                ref.read(registrationMarketerProvider.notifier).state = true;
-                ref.read(authControllerProvider.notifier).setRole(UserRole.office);
-              },
-            ),
-            const Spacer(),
-            PrimaryButton(
-              label: 'متابعة',
-              icon: Icons.check,
-              onPressed: () => context.push(AppRoutes.login),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -116,16 +136,18 @@ class _RoleCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          )),
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -140,4 +162,3 @@ class _RoleCard extends StatelessWidget {
     );
   }
 }
-

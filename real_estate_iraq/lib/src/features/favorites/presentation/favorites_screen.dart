@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../routing/app_routes.dart';
 import '../../favorites/data/favorites_controller.dart';
@@ -28,7 +29,10 @@ class FavoritesScreen extends ConsumerWidget {
           : items.isEmpty
           ? const Center(child: Text('لا توجد منشورات محفوظة بعد'))
           : ListView.separated(
-              padding: const EdgeInsets.all(16),
+              padding: AppResponsive.pagePadding(
+                context,
+                accountForShellNav: true,
+              ),
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (context, i) {

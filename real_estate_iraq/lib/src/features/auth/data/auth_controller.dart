@@ -72,6 +72,11 @@ class AuthController extends Notifier<AuthState> {
     return u['profile_photo_url']?.toString().trim() ?? '';
   }
 
+  bool _isMarketerFromUser(Map<String, dynamic> u) {
+    final raw = u['is_marketer'];
+    return raw == true || raw == 1 || raw?.toString() == '1';
+  }
+
   /// يُرجع قيماً `null` إن لم تُرسل من الـ API (قبل تفعيل أعمدة الباقة في قاعدة البيانات).
   ({bool? trial, int? rem}) _postingQuotaFromUser(Map<String, dynamic> u) {
     if (!u.containsKey('posting_trial_unlimited')) {
@@ -99,14 +104,19 @@ class AuthController extends Notifier<AuthState> {
       final pq = _postingQuotaFromUser(u);
       final officeName = _officeNameFromUser(u);
       final fullName = _fullNameFromUser(u, state.fullName);
+      final isMarketer = _isMarketerFromUser(u);
       state = state.copyWith(
-        displayName: state.role == UserRole.office && officeName.isNotEmpty
+        displayName:
+            state.role == UserRole.office &&
+                !isMarketer &&
+                officeName.isNotEmpty
             ? officeName
             : fullName,
         fullName: fullName,
         officeName: officeName,
         officePhotoUrl: _officePhotoFromUser(u),
         profilePhotoUrl: _profilePhotoFromUser(u),
+        isMarketer: isMarketer,
         postingTrialUnlimited: pq.trial,
         postingListingsRemaining: pq.rem,
       );
@@ -132,10 +142,12 @@ class AuthController extends Notifier<AuthState> {
       final pq = _postingQuotaFromUser(u);
       final fullName = _fullNameFromUser(u, loginValue);
       final officeName = _officeNameFromUser(u);
+      final isMarketer = _isMarketerFromUser(u);
       state = AuthState(
         isAuthenticated: true,
         role: role,
-        displayName: role == UserRole.office && officeName.isNotEmpty
+        displayName:
+            role == UserRole.office && !isMarketer && officeName.isNotEmpty
             ? officeName
             : fullName,
         fullName: fullName,
@@ -144,6 +156,7 @@ class AuthController extends Notifier<AuthState> {
         phone: (u['phone'] as String?)?.trim() ?? '',
         email: (u['email'] as String?)?.trim() ?? '',
         profilePhotoUrl: _profilePhotoFromUser(u),
+        isMarketer: isMarketer,
         officeApproved: role == UserRole.office ? officeApproved : true,
         userId: u['id']?.toString(),
         apiToken: _tokenFromResponse(data),
@@ -215,7 +228,11 @@ class AuthController extends Notifier<AuthState> {
           u['office_approved'] == true || u['office_approved'] == 1;
       final apiOfficeName = (u['office_name'] as String?)?.trim() ?? '';
       final fullNameShown = _fullNameFromUser(u, fullName);
-      final shownName = role == UserRole.office && apiOfficeName.isNotEmpty
+      final isMarketerAccount = _isMarketerFromUser(u);
+      final shownName =
+          role == UserRole.office &&
+              !isMarketerAccount &&
+              apiOfficeName.isNotEmpty
           ? apiOfficeName
           : fullNameShown;
       final pq = _postingQuotaFromUser(u);
@@ -229,6 +246,7 @@ class AuthController extends Notifier<AuthState> {
         phone: (u['phone'] as String?)?.trim() ?? phone,
         email: (u['email'] as String?)?.trim() ?? email.trim(),
         profilePhotoUrl: _profilePhotoFromUser(u),
+        isMarketer: isMarketerAccount,
         officeApproved: role == UserRole.office ? officeApproved : true,
         userId: u['id']?.toString(),
         apiToken: _tokenFromResponse(data),
@@ -263,6 +281,7 @@ class AuthController extends Notifier<AuthState> {
       userId: null,
       apiToken: null,
       profilePhotoUrl: '',
+      isMarketer: false,
       postingTrialUnlimited: null,
       postingListingsRemaining: null,
     );
@@ -301,8 +320,12 @@ class AuthController extends Notifier<AuthState> {
       if (u is Map<String, dynamic>) {
         final apiFullName = _fullNameFromUser(u, name);
         final apiOfficeName = _officeNameFromUser(u);
+        final isMarketer = _isMarketerFromUser(u);
         state = state.copyWith(
-          displayName: state.role == UserRole.office && apiOfficeName.isNotEmpty
+          displayName:
+              state.role == UserRole.office &&
+                  !isMarketer &&
+                  apiOfficeName.isNotEmpty
               ? apiOfficeName
               : apiFullName,
           fullName: apiFullName,
@@ -311,6 +334,7 @@ class AuthController extends Notifier<AuthState> {
           phone: u['phone']?.toString().trim() ?? state.phone,
           email: u['email']?.toString().trim() ?? state.email,
           profilePhotoUrl: _profilePhotoFromUser(u),
+          isMarketer: isMarketer,
         );
       } else {
         state = state.copyWith(

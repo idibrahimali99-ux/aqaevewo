@@ -6,61 +6,72 @@ import '../../../core/api/vewo_api_client.dart';
 
 final _adminGovernoratesProvider =
     FutureProvider<List<({String id, String name})>>((ref) async {
-  try {
-    final api = ref.read(vewoApiClientProvider);
-    final data = await api.getJson('admin_governorates');
-    final raw = data['items'];
-    final out = <({String id, String name})>[];
-    if (raw is List) {
-      for (final e in raw) {
-        if (e is Map<String, dynamic>) {
-          final id = e['id']?.toString().trim() ?? '';
-          final name = e['name']?.toString().trim() ?? '';
-          if (id.length >= 32 && name.isNotEmpty) out.add((id: id, name: name));
-        } else if (e is Map) {
-          final m = Map<String, dynamic>.from(e);
-          final id = m['id']?.toString().trim() ?? '';
-          final name = m['name']?.toString().trim() ?? '';
-          if (id.length >= 32 && name.isNotEmpty) out.add((id: id, name: name));
+      try {
+        final api = ref.read(vewoApiClientProvider);
+        final data = await api.getJson('admin_governorates');
+        final raw = data['items'];
+        final out = <({String id, String name})>[];
+        if (raw is List) {
+          for (final e in raw) {
+            if (e is Map<String, dynamic>) {
+              final id = e['id']?.toString().trim() ?? '';
+              final name = e['name']?.toString().trim() ?? '';
+              if (id.length >= 32 && name.isNotEmpty) {
+                out.add((id: id, name: name));
+              }
+            } else if (e is Map) {
+              final m = Map<String, dynamic>.from(e);
+              final id = m['id']?.toString().trim() ?? '';
+              final name = m['name']?.toString().trim() ?? '';
+              if (id.length >= 32 && name.isNotEmpty) {
+                out.add((id: id, name: name));
+              }
+            }
+          }
         }
-      }
-    }
-    if (out.isNotEmpty) return out;
-  } catch (_) {}
-  return const [];
-});
+        if (out.isNotEmpty) return out;
+      } catch (_) {}
+      return const [];
+    });
 
 final _adminDistrictsProvider = FutureProvider.autoDispose
-    .family<List<({String id, String name})>, String>((ref, governorateId) async {
-  final gid = governorateId.trim();
-  if (gid.length < 32) return const [];
-  try {
-    final api = ref.read(vewoApiClientProvider);
-    final data = await api.getJson(
-      'admin_districts',
-      query: {'governorate_id': gid},
-    );
-    final raw = data['items'];
-    final out = <({String id, String name})>[];
-    if (raw is List) {
-      for (final e in raw) {
-        if (e is Map<String, dynamic>) {
-          final id = e['id']?.toString().trim() ?? '';
-          final name = e['name']?.toString().trim() ?? '';
-          if (id.length >= 32 && name.isNotEmpty) out.add((id: id, name: name));
-        } else if (e is Map) {
-          final m = Map<String, dynamic>.from(e);
-          final id = m['id']?.toString().trim() ?? '';
-          final name = m['name']?.toString().trim() ?? '';
-          if (id.length >= 32 && name.isNotEmpty) out.add((id: id, name: name));
+    .family<List<({String id, String name})>, String>((
+      ref,
+      governorateId,
+    ) async {
+      final gid = governorateId.trim();
+      if (gid.length < 32) return const [];
+      try {
+        final api = ref.read(vewoApiClientProvider);
+        final data = await api.getJson(
+          'admin_districts',
+          query: {'governorate_id': gid},
+        );
+        final raw = data['items'];
+        final out = <({String id, String name})>[];
+        if (raw is List) {
+          for (final e in raw) {
+            if (e is Map<String, dynamic>) {
+              final id = e['id']?.toString().trim() ?? '';
+              final name = e['name']?.toString().trim() ?? '';
+              if (id.length >= 32 && name.isNotEmpty) {
+                out.add((id: id, name: name));
+              }
+            } else if (e is Map) {
+              final m = Map<String, dynamic>.from(e);
+              final id = m['id']?.toString().trim() ?? '';
+              final name = m['name']?.toString().trim() ?? '';
+              if (id.length >= 32 && name.isNotEmpty) {
+                out.add((id: id, name: name));
+              }
+            }
+          }
         }
+        return out;
+      } catch (_) {
+        return const [];
       }
-    }
-    return out;
-  } catch (_) {
-    return const [];
-  }
-});
+    });
 
 class AdminParcelsScreen extends ConsumerStatefulWidget {
   const AdminParcelsScreen({super.key});
@@ -209,11 +220,12 @@ class _AdminParcelsScreenState extends ConsumerState<AdminParcelsScreen> {
 
   Future<void> _openEditor({Map<String, dynamic>? initial}) async {
     final initialGov = (initial?['governorate']?.toString() ?? '').trim();
-    final initialDistrictId =
-        (initial?['district_id']?.toString() ?? '').trim();
+    final initialDistrictId = (initial?['district_id']?.toString() ?? '')
+        .trim();
     String? selectedGovId;
-    var selectedDistrictId =
-        initialDistrictId.length >= 32 ? initialDistrictId : null;
+    var selectedDistrictId = initialDistrictId.length >= 32
+        ? initialDistrictId
+        : null;
     final nameCtrl = TextEditingController(
       text: initial?['parcel_name']?.toString() ?? '',
     );
@@ -251,7 +263,8 @@ class _AdminParcelsScreenState extends ConsumerState<AdminParcelsScreen> {
                 final distAsync = gid != null && gid.length >= 32
                     ? ref.watch(_adminDistrictsProvider(gid))
                     : null;
-                final govVal = selectedGovId != null &&
+                final govVal =
+                    selectedGovId != null &&
                         govs.any((g) => g.id == selectedGovId)
                     ? selectedGovId
                     : null;
@@ -272,7 +285,7 @@ class _AdminParcelsScreenState extends ConsumerState<AdminParcelsScreen> {
                             ),
                           ),
                         DropdownButtonFormField<String>(
-                          value: govVal,
+                          initialValue: govVal,
                           decoration: const InputDecoration(
                             labelText: 'المحافظة',
                             prefixIcon: Icon(Icons.map_outlined),
@@ -288,9 +301,9 @@ class _AdminParcelsScreenState extends ConsumerState<AdminParcelsScreen> {
                           onChanged: govs.isEmpty
                               ? null
                               : (v) => setLocal(() {
-                                    selectedGovId = v;
-                                    selectedDistrictId = null;
-                                  }),
+                                  selectedGovId = v;
+                                  selectedDistrictId = null;
+                                }),
                         ),
                         const SizedBox(height: 10),
                         if (distAsync != null) ...[
@@ -299,7 +312,7 @@ class _AdminParcelsScreenState extends ConsumerState<AdminParcelsScreen> {
                               padding: EdgeInsets.symmetric(vertical: 8),
                               child: LinearProgressIndicator(),
                             ),
-                            error: (_, __) => const SizedBox.shrink(),
+                            error: (_, _) => const SizedBox.shrink(),
                             data: (dlist) {
                               if (dlist.isEmpty) {
                                 return Padding(
@@ -312,16 +325,20 @@ class _AdminParcelsScreenState extends ConsumerState<AdminParcelsScreen> {
                                   ),
                                 );
                               }
-                              final dVal = selectedDistrictId != null &&
-                                      dlist.any((d) => d.id == selectedDistrictId)
+                              final dVal =
+                                  selectedDistrictId != null &&
+                                      dlist.any(
+                                        (d) => d.id == selectedDistrictId,
+                                      )
                                   ? selectedDistrictId
                                   : null;
                               return DropdownButtonFormField<String>(
-                                value: dVal,
+                                initialValue: dVal,
                                 decoration: const InputDecoration(
                                   labelText: 'القضاء أو الناحية',
-                                  prefixIcon:
-                                      Icon(Icons.account_balance_outlined),
+                                  prefixIcon: Icon(
+                                    Icons.account_balance_outlined,
+                                  ),
                                 ),
                                 items: dlist
                                     .map(
@@ -361,8 +378,9 @@ class _AdminParcelsScreenState extends ConsumerState<AdminParcelsScreen> {
                         TextField(
                           controller: sortCtrl,
                           keyboardType: TextInputType.number,
-                          decoration:
-                              const InputDecoration(labelText: 'ترتيب العرض'),
+                          decoration: const InputDecoration(
+                            labelText: 'ترتيب العرض',
+                          ),
                         ),
                         const SizedBox(height: 10),
                         SwitchListTile(
@@ -405,9 +423,7 @@ class _AdminParcelsScreenState extends ConsumerState<AdminParcelsScreen> {
                         if (nameCtrl.text.trim().isEmpty) {
                           if (!ctx.mounted) return;
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            const SnackBar(
-                              content: Text('اكتب اسم المقاطعة'),
-                            ),
+                            const SnackBar(content: Text('اكتب اسم المقاطعة')),
                           );
                           return;
                         }

@@ -1491,12 +1491,44 @@ function admin_property_requests_route(PDO $pdo): void
         $status = trim((string) ($in['status'] ?? ''));
         if ($id === '' || !preg_match('/^[0-9a-fA-F-]{36}$/', $id)) json_error(400, 'id غير صالح');
         if (!in_array($status, ['pending', 'in_progress', 'closed'], true)) json_error(400, 'الحالة غير صالحة');
+        $beforeStmt = $pdo->prepare('SELECT user_id, request_no, status FROM property_requests WHERE id = :id LIMIT 1');
+        $beforeStmt->execute([':id' => $id]);
+        $before = $beforeStmt->fetch(PDO::FETCH_ASSOC);
         $stmt = $pdo->prepare(
             "UPDATE property_requests
              SET status = :s, updated_at = NOW(3), closed_at = CASE WHEN :s2 = 'closed' THEN NOW(3) ELSE closed_at END
              WHERE id = :id LIMIT 1"
         );
         $stmt->execute([':s' => $status, ':s2' => $status, ':id' => $id]);
+        if (is_array($before) && (string) ($before['status'] ?? '') !== $status) {
+            $requestNo = (int) ($before['request_no'] ?? 0);
+            $userId = (string) ($before['user_id'] ?? '');
+            $statusLabel = match ($status) {
+                'pending' => 'قيد الانتظار',
+                'in_progress' => 'قيد المتابعة',
+                'closed' => 'مغلق',
+                default => $status,
+            };
+            $title = 'تحديث طلب العقار';
+            $body = 'تم تغيير حالة طلبك #' . $requestNo . ' إلى: ' . $statusLabel;
+            vewo_app_notification_add(
+                $pdo,
+                $userId,
+                'property_request_status',
+                $title,
+                $body,
+                ['type' => 'property_request', 'request_id' => $id, 'request_no' => $requestNo, 'status' => $status]
+            );
+            try {
+                vewo_fcm_send(
+                    vewo_device_tokens_for_user($pdo, $userId, false),
+                    $title,
+                    $body,
+                    ['type' => 'property_request', 'request_id' => $id, 'request_no' => $requestNo, 'status' => $status]
+                );
+            } catch (Throwable $e) {
+            }
+        }
         echo json_encode(['ok' => true, 'updated' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
         return;
     }
@@ -1921,6 +1953,9 @@ function admin_offices_route(PDO $pdo): void
         $pp = vewo_users_has_profile_photo_column($pdo) ? 'u.profile_photo_url' : "'' AS profile_photo_url";
         $em = vewo_users_has_email_column($pdo) ? 'u.email' : "'' AS email";
         $ov = 'u.office_verified';
+        $officeOnlyFilter = vewo_users_has_is_marketer_column($pdo)
+            ? ' AND COALESCE(u.is_marketer, 0) = 0'
+            : '';
         try {
             $pdo->query('SELECT office_verified FROM users LIMIT 1');
         } catch (Throwable $e) {
@@ -1933,7 +1968,7 @@ function admin_offices_route(PDO $pdo): void
             $sql = "SELECT u.id, u.full_name, u.phone, {$em}, u.office_name, u.office_address, u.office_license_no,
                            u.office_photo_url, {$pp}, {$ov}, {$mkt}, u.created_at
                     FROM users u
-                    WHERE u.role = 'office' AND u.office_approved = 1 AND u.is_active = 1
+                    WHERE u.role = 'office' AND u.office_approved = 1 AND u.is_active = 1{$officeOnlyFilter}
                     ORDER BY {$orderApproved}
                     LIMIT 200";
             try {
@@ -1943,7 +1978,7 @@ function admin_offices_route(PDO $pdo): void
                     "SELECT u.id, u.full_name, u.phone, u.office_name, u.office_address, u.office_license_no,
                             u.office_photo_url, {$mkt}, u.created_at
                      FROM users u
-                     WHERE u.role = 'office' AND u.office_approved = 1 AND u.is_active = 1
+                     WHERE u.role = 'office' AND u.office_approved = 1 AND u.is_active = 1{$officeOnlyFilter}
                      ORDER BY u.created_at DESC LIMIT 200"
                 );
             }
@@ -1951,7 +1986,7 @@ function admin_offices_route(PDO $pdo): void
             $sql = "SELECT u.id, u.full_name, u.phone, {$em}, u.office_name, u.office_address, u.office_license_no,
                            u.office_photo_url, {$pp}, {$mkt}, u.created_at
                     FROM users u
-                    WHERE u.role = 'office' AND u.office_approved = 0 AND u.is_active = 1
+                    WHERE u.role = 'office' AND u.office_approved = 0 AND u.is_active = 1{$officeOnlyFilter}
                     ORDER BY u.created_at DESC LIMIT 100";
             try {
                 $stmt = $pdo->query($sql);
@@ -1960,7 +1995,7 @@ function admin_offices_route(PDO $pdo): void
                     "SELECT u.id, u.full_name, u.phone, u.office_name, u.office_address, u.office_license_no,
                             u.office_photo_url, {$mkt}, u.created_at
                      FROM users u
-                     WHERE u.role = 'office' AND u.office_approved = 0 AND u.is_active = 1
+                     WHERE u.role = 'office' AND u.office_approved = 0 AND u.is_active = 1{$officeOnlyFilter}
                      ORDER BY u.created_at DESC LIMIT 100"
                 );
             }
@@ -3318,12 +3353,16 @@ function public_offices_list_route(PDO $pdo): void
         ? "NULLIF(TRIM(office_name), '')"
         : "NULL";
     $verCol = $hasOfficeVerified ? 'office_verified' : '0 AS office_verified';
+    $marketerFilter = vewo_users_has_is_marketer_column($pdo)
+        ? ' AND COALESCE(is_marketer, 0) = 0'
+        : '';
     $stmt = $pdo->query(
         "SELECT id, full_name, phone, created_at,
                 office_photo_url, office_address, $verCol,
-                COALESCE($nameExpr, full_name) AS display_name
+                COALESCE($nameExpr, full_name) AS display_name,
+                'office' AS account_type
          FROM users
-         WHERE role = 'office' AND office_approved = 1 AND is_active = 1
+         WHERE role = 'office' AND office_approved = 1 AND is_active = 1{$marketerFilter}
          ORDER BY COALESCE($nameExpr, full_name) ASC
          LIMIT 200"
     );
@@ -3370,7 +3409,8 @@ function public_office_detail_route(PDO $pdo): void
     $stmt = $pdo->prepare(
         "SELECT $cols
          FROM users
-         WHERE id = :id AND role = 'office' AND office_approved = 1 AND is_active = 1
+         WHERE id = :id AND role = 'office' AND office_approved = 1 AND is_active = 1"
+         . (vewo_users_has_is_marketer_column($pdo) ? " AND COALESCE(is_marketer, 0) = 0" : "") . "
          LIMIT 1"
     );
     $stmt->execute([':id' => $id]);
@@ -3383,7 +3423,66 @@ function public_office_detail_route(PDO $pdo): void
     }
     $on = trim((string) ($row['office_name'] ?? ''));
     $row['display_name'] = $on !== '' ? $on : (string) ($row['full_name'] ?? '');
+    $row['account_type'] = 'office';
     echo json_encode(['ok' => true, 'office' => $row], JSON_UNESCAPED_UNICODE);
+}
+
+function public_marketers_list_route(PDO $pdo): void
+{
+    if (!vewo_users_has_is_marketer_column($pdo)) {
+        echo json_encode(['ok' => true, 'items' => []], JSON_UNESCAPED_UNICODE);
+        return;
+    }
+    $profilePhoto = vewo_users_has_profile_photo_column($pdo)
+        ? 'profile_photo_url'
+        : "'' AS profile_photo_url";
+    $stmt = $pdo->query(
+        "SELECT id, full_name, phone, created_at,
+                {$profilePhoto}, office_address, office_verified,
+                full_name AS display_name,
+                'marketer' AS account_type
+         FROM users
+         WHERE role = 'office'
+           AND COALESCE(is_marketer, 0) = 1
+           AND office_approved = 1
+           AND is_active = 1
+         ORDER BY full_name ASC
+         LIMIT 200"
+    );
+    $rows = $stmt !== false ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+    echo json_encode(['ok' => true, 'items' => $rows], JSON_UNESCAPED_UNICODE);
+}
+
+function public_marketer_detail_route(PDO $pdo): void
+{
+    $id = trim((string) ($_GET['id'] ?? ''));
+    if ($id === '' || !preg_match('/^[0-9a-fA-F-]{36}$/', $id)) {
+        json_error(400, 'id غير صالح');
+    }
+    if (!vewo_users_has_is_marketer_column($pdo)) {
+        json_error(404, 'المسوق غير موجود أو غير معتمد');
+    }
+    $profilePhoto = vewo_users_has_profile_photo_column($pdo)
+        ? ', profile_photo_url'
+        : ", '' AS profile_photo_url";
+    $stmt = $pdo->prepare(
+        "SELECT id, full_name, phone, office_address, office_verified, created_at{$profilePhoto}
+         FROM users
+         WHERE id = :id
+           AND role = 'office'
+           AND COALESCE(is_marketer, 0) = 1
+           AND office_approved = 1
+           AND is_active = 1
+         LIMIT 1"
+    );
+    $stmt->execute([':id' => $id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        json_error(404, 'المسوق غير موجود أو غير معتمد');
+    }
+    $row['display_name'] = (string) ($row['full_name'] ?? '');
+    $row['account_type'] = 'marketer';
+    echo json_encode(['ok' => true, 'marketer' => $row], JSON_UNESCAPED_UNICODE);
 }
 
 /**

@@ -1,0 +1,1 @@
+<div class="container-xl py-5"><div class="panel-card p-5"><h1>من نحن</h1><p class="lead text-secondary">عقار تاون منصة عقارية عراقية — نسخة الويب متصلة بنفس API وقاعدة بيانات التطبيق.</p></div></div>

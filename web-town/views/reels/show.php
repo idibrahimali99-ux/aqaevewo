@@ -1,0 +1,1 @@
+<div class="container-xl py-5 panel-card"><h1><?= e((string) ($reel['caption'] ?? 'ريل')) ?></h1><?php if (!empty($reel['video_public_url'])): ?><video controls class="w-100 rounded-4" src="<?= e((string) $reel['video_public_url']) ?>"></video><?php endif; ?></div>

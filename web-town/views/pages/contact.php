@@ -1,0 +1,1 @@
+<div class="container-xl py-5"><div class="panel-card p-5"><h1>تواصل معنا</h1><p>الدعم: <a href="tel:<?= e((string) app_config('support_phone')) ?>"><?= e((string) app_config('support_phone')) ?></a></p></div></div>

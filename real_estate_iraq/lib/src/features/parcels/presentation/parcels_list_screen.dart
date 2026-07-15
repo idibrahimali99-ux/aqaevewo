@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:vewo_shared/vewo_shared.dart' show Iraq;
 import '../../../core/governorates/governorates_provider.dart';
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../routing/app_routes.dart';
 import '../../offices/data/offices_providers.dart';
@@ -36,7 +37,8 @@ class _ParcelsListScreenState extends ConsumerState<ParcelsListScreen> {
   @override
   Widget build(BuildContext context) {
     final parcelsAsync = ref.watch(parcelsListProvider);
-    final govs = ref.watch(governoratesProvider).valueOrNull ?? Iraq.governorates;
+    final govs =
+        ref.watch(governoratesProvider).valueOrNull ?? Iraq.governorates;
 
     final scheme = Theme.of(context).colorScheme;
 
@@ -64,7 +66,9 @@ class _ParcelsListScreenState extends ConsumerState<ParcelsListScreen> {
 
           final groups = <String, List<ParcelSummary>>{};
           for (final p in filtered) {
-            final g = p.governorate.trim().isEmpty ? 'بدون محافظة' : p.governorate.trim();
+            final g = p.governorate.trim().isEmpty
+                ? 'بدون محافظة'
+                : p.governorate.trim();
             (groups[g] ??= <ParcelSummary>[]).add(p);
           }
           final orderedGovs = [
@@ -73,7 +77,11 @@ class _ParcelsListScreenState extends ConsumerState<ParcelsListScreen> {
           ];
 
           return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+            padding: AppResponsive.pagePadding(
+              context,
+              top: 12,
+              accountForShellNav: true,
+            ),
             children: [
               Text(
                 'اختر مقاطعة لعرض منشوراتها — تُدار المقاطعات من لوحة الإدارة.',
@@ -165,9 +173,9 @@ class _ParcelsListScreenState extends ConsumerState<ParcelsListScreen> {
                       child: Text(
                         gov,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -0.2,
-                            ),
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.2,
+                        ),
                       ),
                     ),
                     for (final parcel in (groups[gov] ?? const []))
@@ -181,8 +189,9 @@ class _ParcelsListScreenState extends ConsumerState<ParcelsListScreen> {
                             ),
                             leading: CircleAvatar(
                               radius: 28,
-                              backgroundColor:
-                                  Theme.of(context).colorScheme.primaryContainer,
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primaryContainer,
                               child: Icon(
                                 Icons.grid_view_rounded,
                                 color: Theme.of(context).colorScheme.primary,
@@ -190,7 +199,9 @@ class _ParcelsListScreenState extends ConsumerState<ParcelsListScreen> {
                             ),
                             title: Text(
                               parcel.displayName,
-                              style: const TextStyle(fontWeight: FontWeight.w800),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,8 +216,9 @@ class _ParcelsListScreenState extends ConsumerState<ParcelsListScreen> {
                             isThreeLine: true,
                             trailing: const Icon(Icons.chevron_left_rounded),
                             onTap: () {
-                              final title =
-                                  Uri.encodeComponent(parcel.displayName);
+                              final title = Uri.encodeComponent(
+                                parcel.displayName,
+                              );
                               context.push(
                                 '${AppRoutes.parcelProfile}/${parcel.id}?title=$title&posts=${parcel.postsCount}',
                               );

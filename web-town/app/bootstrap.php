@@ -1,9 +1,28 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/Support/helpers.php';
+use App\Core\App;
 
-$sessionName = (string) app_config('session_name', 'web_town_session');
+spl_autoload_register(static function (string $class): void {
+    $prefix = 'App\\';
+    if (!str_starts_with($class, $prefix)) {
+        return;
+    }
+    $relative = str_replace('\\', '/', substr($class, strlen($prefix)));
+    $file = __DIR__ . '/' . $relative . '.php';
+    if (is_file($file)) {
+        require $file;
+    }
+});
+
+require __DIR__ . '/Helpers/functions.php';
+require __DIR__ . '/Helpers/csrf.php';
+require __DIR__ . '/Helpers/auth.php';
+require __DIR__ . '/Helpers/admin.php';
+require __DIR__ . '/Helpers/favorites.php';
+require __DIR__ . '/Helpers/chat.php';
+
+$sessionName = (string) App::config('session_name', 'aqar_town_web');
 session_name($sessionName);
 session_set_cookie_params([
     'lifetime' => 0,
@@ -14,34 +33,13 @@ session_set_cookie_params([
 ]);
 session_start();
 
-require_once __DIR__ . '/Support/csrf.php';
-require_once __DIR__ . '/Services/ApiClient.php';
-require_once __DIR__ . '/Support/auth.php';
-
-function render(string $view, array $data = [], string $layout = 'app'): void
+function request_method(): string
 {
-    extract($data, EXTR_SKIP);
-    $viewFile = dirname(__DIR__) . '/views/' . trim($view, '/') . '.php';
-    if (!is_file($viewFile)) {
-        http_response_code(500);
-        echo 'View not found: ' . e($view);
-        return;
-    }
-
-    ob_start();
-    require $viewFile;
-    $content = ob_get_clean();
-
-    require dirname(__DIR__) . '/views/layouts/' . $layout . '.php';
+    return strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 }
 
 function page_title(string $title = ''): string
 {
-    $app = (string) app_config('app_name', 'ويب تاون');
+    $app = (string) App::config('name', '\u0639\u0642\u0627\u0631 \u062a\u0627\u0648\u0646');
     return $title === '' ? $app : $title . ' | ' . $app;
-}
-
-function request_method(): string
-{
-    return strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 }

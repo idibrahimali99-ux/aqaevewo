@@ -8,6 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/api/vewo_api_client.dart';
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../core/widgets/map_location_picker_sheet.dart';
 import '../../../core/widgets/primary_button.dart';
@@ -392,345 +393,349 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           ),
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () {
-                          if (context.canPop()) {
-                            context.pop();
-                          } else {
-                            context.go(AppRoutes.login);
-                          }
-                        },
-                        icon: const Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          size: 18,
+              padding: AppResponsive.pagePadding(context, top: 8),
+              child: ResponsiveCenter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () {
+                            if (context.canPop()) {
+                              context.pop();
+                            } else {
+                              context.go(AppRoutes.login);
+                            }
+                          },
+                          icon: const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 18,
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                    ],
-                  ),
-                  AppBrandMark(
-                    variant: AppBrandMarkVariant.hero,
-                    showTagline: false,
-                    color: scheme.primary,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'إنشاء حساب',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w900,
+                        const Spacer(),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  _RegisterRoleCards(
-                    selected: ref.watch(authControllerProvider).role,
-                    isMarketer: _isMarketer,
-                    onPick: (role, {required marketer}) {
-                      ref.read(registrationMarketerProvider.notifier).state =
-                          marketer;
-                      ref.read(authControllerProvider.notifier).setRole(role);
-                      setState(() => _isMarketer = marketer);
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  Material(
-                    elevation: 2,
-                    borderRadius: BorderRadius.circular(22),
-                    color: scheme.surface,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 22, 18, 20),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
-                            if (isOffice && !_isMarketer) ...[
+                    AppBrandMark(
+                      variant: AppBrandMarkVariant.hero,
+                      showTagline: false,
+                      color: scheme.primary,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'إنشاء حساب',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 8),
+                    _RegisterRoleCards(
+                      selected: ref.watch(authControllerProvider).role,
+                      isMarketer: _isMarketer,
+                      onPick: (role, {required marketer}) {
+                        ref.read(registrationMarketerProvider.notifier).state =
+                            marketer;
+                        ref.read(authControllerProvider.notifier).setRole(role);
+                        setState(() => _isMarketer = marketer);
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    Material(
+                      elevation: 2,
+                      borderRadius: BorderRadius.circular(22),
+                      color: scheme.surface,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 22, 18, 20),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            children: [
+                              if (isOffice && !_isMarketer) ...[
+                                TextFormField(
+                                  controller: _officeName,
+                                  decoration: const InputDecoration(
+                                    labelText: 'اسم المكتب',
+                                    hintText: 'دار النخيل للعقارات',
+                                    prefixIcon: Icon(Icons.apartment_rounded),
+                                  ),
+                                  validator: (v) {
+                                    final s = (v ?? '').trim();
+                                    if (s.length < 2) return 'اسم المكتب مطلوب';
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 14),
+                              ],
                               TextFormField(
-                                controller: _officeName,
-                                decoration: const InputDecoration(
-                                  labelText: 'اسم المكتب',
-                                  hintText: 'دار النخيل للعقارات',
-                                  prefixIcon: Icon(Icons.apartment_rounded),
+                                controller: _fullName,
+                                decoration: InputDecoration(
+                                  labelText: _isMarketer
+                                      ? 'الاسم الثلاثي'
+                                      : (isOffice
+                                            ? 'اسم ممثل المكتب'
+                                            : 'الاسم الثلاثي'),
+                                  hintText: _isMarketer || !isOffice
+                                      ? 'علي حسن محمد'
+                                      : 'أحمد علي',
+                                  prefixIcon: const Icon(
+                                    Icons.person_outline_rounded,
+                                  ),
                                 ),
                                 validator: (v) {
                                   final s = (v ?? '').trim();
-                                  if (s.length < 2) return 'اسم المكتب مطلوب';
+                                  if (s.isEmpty) return 'الحقل مطلوب';
+                                  if (_isMarketer || !isOffice) {
+                                    final parts = s.split(RegExp(r'\s+'));
+                                    if (parts.length < 3) {
+                                      return 'اكتب الاسم الثلاثي (3 كلمات)';
+                                    }
+                                  } else if (s.length < 3) {
+                                    return 'اسم الممثل قصير جداً';
+                                  }
                                   return null;
                                 },
                               ),
                               const SizedBox(height: 14),
-                            ],
-                            TextFormField(
-                              controller: _fullName,
-                              decoration: InputDecoration(
-                                labelText: _isMarketer
-                                    ? 'الاسم الثلاثي'
-                                    : (isOffice
-                                          ? 'اسم ممثل المكتب'
-                                          : 'الاسم الثلاثي'),
-                                hintText: _isMarketer || !isOffice
-                                    ? 'علي حسن محمد'
-                                    : 'أحمد علي',
-                                prefixIcon: const Icon(
-                                  Icons.person_outline_rounded,
-                                ),
-                              ),
-                              validator: (v) {
-                                final s = (v ?? '').trim();
-                                if (s.isEmpty) return 'الحقل مطلوب';
-                                if (_isMarketer || !isOffice) {
-                                  final parts = s.split(RegExp(r'\s+'));
-                                  if (parts.length < 3) {
-                                    return 'اكتب الاسم الثلاثي (3 كلمات)';
-                                  }
-                                } else if (s.length < 3) {
-                                  return 'اسم الممثل قصير جداً';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 14),
-                            TextFormField(
-                              controller: _iraqiPhone,
-                              keyboardType: TextInputType.phone,
-                              textDirection: TextDirection.ltr,
-                              textAlign: TextAlign.right,
-                              decoration: InputDecoration(
-                                labelText: isOffice
-                                    ? 'رقم الهاتف'
-                                    : 'رقم الهاتف (رقم الزبون)',
-                                hintText: '07XXXXXXXXX',
-                                prefixIcon: const Icon(
-                                  Icons.phone_iphone_rounded,
-                                ),
-                              ),
-                              validator: (v) {
-                                final s = (v ?? '').trim();
-                                if (s.isEmpty) return 'الحقل مطلوب';
-                                if (!RegExp(r'^[0-9]+$').hasMatch(s)) {
-                                  return 'رقم غير صالح';
-                                }
-                                if (s.length != 11) {
-                                  return 'الرقم يجب أن يكون 11 رقم';
-                                }
-                                if (!s.startsWith('07')) {
-                                  return 'يجب أن يبدأ بـ 07';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 14),
-                            TextFormField(
-                              controller: _email,
-                              keyboardType: TextInputType.emailAddress,
-                              textDirection: TextDirection.ltr,
-                              textAlign: TextAlign.right,
-                              decoration: InputDecoration(
-                                labelText: 'البريد الإلكتروني (اختياري)',
-                                hintText: 'name@email.com',
-                                prefixIcon: const Icon(Icons.email_outlined),
-                              ),
-                              validator: (v) {
-                                final s = (v ?? '').trim();
-                                if (s.isEmpty) return null;
-                                final ok = RegExp(
-                                  r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                                ).hasMatch(s);
-                                return ok ? null : 'البريد غير صالح';
-                              },
-                            ),
-                            const SizedBox(height: 14),
-                            TextFormField(
-                              controller: _password,
-                              obscureText: _obscure,
-                              decoration: InputDecoration(
-                                labelText: 'كلمة المرور',
-                                prefixIcon: const Icon(
-                                  Icons.lock_outline_rounded,
-                                ),
-                                suffixIcon: IconButton(
-                                  onPressed: () =>
-                                      setState(() => _obscure = !_obscure),
-                                  icon: Icon(
-                                    _obscure
-                                        ? Icons.visibility_outlined
-                                        : Icons.visibility_off_outlined,
+                              TextFormField(
+                                controller: _iraqiPhone,
+                                keyboardType: TextInputType.phone,
+                                textDirection: TextDirection.ltr,
+                                textAlign: TextAlign.right,
+                                decoration: InputDecoration(
+                                  labelText: isOffice
+                                      ? 'رقم الهاتف'
+                                      : 'رقم الهاتف (رقم الزبون)',
+                                  hintText: '07XXXXXXXXX',
+                                  prefixIcon: const Icon(
+                                    Icons.phone_iphone_rounded,
                                   ),
                                 ),
-                              ),
-                              validator: (v) {
-                                final s = v ?? '';
-                                if (!_isStrongPassword(s)) {
-                                  return 'كلمة مرور ضعيفة — 8 أحرف مع حروف وأرقام';
-                                }
-                                return null;
-                              },
-                            ),
-                            if (isOffice) ...[
-                              const SizedBox(height: 10),
-                              SwitchListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text('مسوّق عقاري'),
-                                value: _isMarketer,
-                                onChanged: (v) {
-                                  ref
-                                          .read(
-                                            registrationMarketerProvider
-                                                .notifier,
-                                          )
-                                          .state =
-                                      v;
-                                  setState(() => _isMarketer = v);
+                                validator: (v) {
+                                  final s = (v ?? '').trim();
+                                  if (s.isEmpty) return 'الحقل مطلوب';
+                                  if (!RegExp(r'^[0-9]+$').hasMatch(s)) {
+                                    return 'رقم غير صالح';
+                                  }
+                                  if (s.length != 11) {
+                                    return 'الرقم يجب أن يكون 11 رقم';
+                                  }
+                                  if (!s.startsWith('07')) {
+                                    return 'يجب أن يبدأ بـ 07';
+                                  }
+                                  return null;
                                 },
                               ),
-                            ],
-                            if (isOffice && !_isMarketer) ...[
-                              const SizedBox(height: 18),
-                              Text(
-                                'بيانات المكتب (مطلوبة)',
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 14),
                               TextFormField(
-                                controller: _officeAddress,
-                                maxLines: 2,
-                                decoration: const InputDecoration(
-                                  labelText: 'عنوان المكتب',
-                                  prefixIcon: Icon(Icons.place_outlined),
+                                controller: _email,
+                                keyboardType: TextInputType.emailAddress,
+                                textDirection: TextDirection.ltr,
+                                textAlign: TextAlign.right,
+                                decoration: InputDecoration(
+                                  labelText: 'البريد الإلكتروني (اختياري)',
+                                  hintText: 'name@email.com',
+                                  prefixIcon: const Icon(Icons.email_outlined),
                                 ),
-                              ),
-                              const SizedBox(height: 10),
-                              OutlinedButton.icon(
-                                onPressed: _loading
-                                    ? null
-                                    : _openOfficeMapPicker,
-                                icon: const Icon(Icons.map_outlined),
-                                label: Text(
-                                  _officeMapLocation == null
-                                      ? 'تحديد الموقع على الخريطة (اختياري)'
-                                      : 'تم تحديد الموقع — تعديل',
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              TextFormField(
-                                controller: _officeLicense,
-                                decoration: const InputDecoration(
-                                  labelText: 'رقم الإجازة',
-                                  prefixIcon: Icon(Icons.badge_outlined),
-                                ),
+                                validator: (v) {
+                                  final s = (v ?? '').trim();
+                                  if (s.isEmpty) return null;
+                                  final ok = RegExp(
+                                    r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                                  ).hasMatch(s);
+                                  return ok ? null : 'البريد غير صالح';
+                                },
                               ),
                               const SizedBox(height: 14),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  'شعار المكتب (صورة)',
-                                  style: Theme.of(context).textTheme.titleSmall
-                                      ?.copyWith(fontWeight: FontWeight.w700),
+                              TextFormField(
+                                controller: _password,
+                                obscureText: _obscure,
+                                decoration: InputDecoration(
+                                  labelText: 'كلمة المرور',
+                                  prefixIcon: const Icon(
+                                    Icons.lock_outline_rounded,
+                                  ),
+                                  suffixIcon: IconButton(
+                                    onPressed: () =>
+                                        setState(() => _obscure = !_obscure),
+                                    icon: Icon(
+                                      _obscure
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                    ),
+                                  ),
                                 ),
+                                validator: (v) {
+                                  final s = v ?? '';
+                                  if (!_isStrongPassword(s)) {
+                                    return 'كلمة مرور ضعيفة — 8 أحرف مع حروف وأرقام';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              if (isOffice) ...[
+                                const SizedBox(height: 10),
+                                SwitchListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('مسوّق عقاري'),
+                                  value: _isMarketer,
+                                  onChanged: (v) {
+                                    ref
+                                            .read(
+                                              registrationMarketerProvider
+                                                  .notifier,
+                                            )
+                                            .state =
+                                        v;
+                                    setState(() => _isMarketer = v);
+                                  },
+                                ),
+                              ],
+                              if (isOffice && !_isMarketer) ...[
+                                const SizedBox(height: 18),
+                                Text(
+                                  'بيانات المكتب (مطلوبة)',
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
+                                const SizedBox(height: 10),
+                                TextFormField(
+                                  controller: _officeAddress,
+                                  maxLines: 2,
+                                  decoration: const InputDecoration(
+                                    labelText: 'عنوان المكتب',
+                                    prefixIcon: Icon(Icons.place_outlined),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                OutlinedButton.icon(
+                                  onPressed: _loading
+                                      ? null
+                                      : _openOfficeMapPicker,
+                                  icon: const Icon(Icons.map_outlined),
+                                  label: Text(
+                                    _officeMapLocation == null
+                                        ? 'تحديد الموقع على الخريطة (اختياري)'
+                                        : 'تم تحديد الموقع — تعديل',
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: _officeLicense,
+                                  decoration: const InputDecoration(
+                                    labelText: 'رقم الإجازة',
+                                    prefixIcon: Icon(Icons.badge_outlined),
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    'شعار المكتب (صورة)',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                OutlinedButton.icon(
+                                  onPressed: _uploadingPhoto
+                                      ? null
+                                      : _showPhotoSourceSheet,
+                                  icon: _uploadingPhoto
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.add_photo_alternate_outlined,
+                                        ),
+                                  label: Text(
+                                    _officePhotoPublicUrl == null
+                                        ? 'رفع صورة'
+                                        : 'تغيير الصورة',
+                                  ),
+                                ),
+                                if (_officePhotoPublicUrl != null) ...[
+                                  const SizedBox(height: 10),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: SizedBox(
+                                      height: 120,
+                                      width: double.infinity,
+                                      child: CachedNetworkImage(
+                                        imageUrl: _officePhotoPublicUrl!,
+                                        fit: BoxFit.cover,
+                                        errorWidget: (_, _, _) => const Icon(
+                                          Icons.broken_image_outlined,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                              if (isOffice && _isMarketer)
+                                const SizedBox(height: 14),
+                              const SizedBox(height: 16),
+                              Text(
+                                _isMarketer
+                                    ? 'الصورة الشخصية (مطلوبة)'
+                                    : 'الصورة الشخصية (اختياري)',
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w800),
                               ),
                               const SizedBox(height: 8),
                               OutlinedButton.icon(
                                 onPressed: _uploadingPhoto
                                     ? null
-                                    : _showPhotoSourceSheet,
-                                icon: _uploadingPhoto
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Icon(
-                                        Icons.add_photo_alternate_outlined,
+                                    : () => _showPhotoSourceSheet(
+                                        forProfile: true,
                                       ),
+                                icon: const Icon(
+                                  Icons.face_retouching_natural_outlined,
+                                ),
                                 label: Text(
-                                  _officePhotoPublicUrl == null
-                                      ? 'رفع صورة'
-                                      : 'تغيير الصورة',
+                                  _profilePhotoPublicUrl == null
+                                      ? 'رفع صورة شخصية'
+                                      : 'تغيير الصورة الشخصية',
                                 ),
                               ),
-                              if (_officePhotoPublicUrl != null) ...[
-                                const SizedBox(height: 10),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: SizedBox(
-                                    height: 120,
-                                    width: double.infinity,
-                                    child: CachedNetworkImage(
-                                      imageUrl: _officePhotoPublicUrl!,
-                                      fit: BoxFit.cover,
-                                      errorWidget: (_, _, _) => const Icon(
-                                        Icons.broken_image_outlined,
-                                      ),
-                                    ),
+                              if (_profilePhotoPublicUrl != null) ...[
+                                const SizedBox(height: 8),
+                                CircleAvatar(
+                                  radius: 40,
+                                  backgroundImage: CachedNetworkImageProvider(
+                                    _profilePhotoPublicUrl!,
                                   ),
                                 ),
                               ],
-                            ],
-                            if (isOffice && _isMarketer)
-                              const SizedBox(height: 14),
-                            const SizedBox(height: 16),
-                            Text(
-                              _isMarketer
-                                  ? 'الصورة الشخصية (مطلوبة)'
-                                  : 'الصورة الشخصية (اختياري)',
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w800),
-                            ),
-                            const SizedBox(height: 8),
-                            OutlinedButton.icon(
-                              onPressed: _uploadingPhoto
-                                  ? null
-                                  : () =>
-                                        _showPhotoSourceSheet(forProfile: true),
-                              icon: const Icon(
-                                Icons.face_retouching_natural_outlined,
-                              ),
-                              label: Text(
-                                _profilePhotoPublicUrl == null
-                                    ? 'رفع صورة شخصية'
-                                    : 'تغيير الصورة الشخصية',
-                              ),
-                            ),
-                            if (_profilePhotoPublicUrl != null) ...[
-                              const SizedBox(height: 8),
-                              CircleAvatar(
-                                radius: 40,
-                                backgroundImage: CachedNetworkImageProvider(
-                                  _profilePhotoPublicUrl!,
-                                ),
+                              const SizedBox(height: 22),
+                              PrimaryButton(
+                                label: 'إنشاء الحساب',
+                                icon: Icons.person_add_alt_1_rounded,
+                                isLoading: _loading,
+                                onPressed: _submit,
                               ),
                             ],
-                            const SizedBox(height: 22),
-                            PrimaryButton(
-                              label: 'إنشاء الحساب',
-                              icon: Icons.person_add_alt_1_rounded,
-                              isLoading: _loading,
-                              onPressed: _submit,
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextButton(
-                    onPressed: () {
-                      if (context.canPop()) {
-                        context.pop();
-                      } else {
-                        context.go(AppRoutes.login);
-                      }
-                    },
-                    child: const Text('لديك حساب؟ تسجيل الدخول'),
-                  ),
-                ],
+                    const SizedBox(height: 14),
+                    TextButton(
+                      onPressed: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go(AppRoutes.login);
+                        }
+                      },
+                      child: const Text('لديك حساب؟ تسجيل الدخول'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

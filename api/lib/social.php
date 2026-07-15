@@ -29,6 +29,21 @@ function vewo_posting_packages_table_exists(PDO $pdo): bool
     }
 }
 
+function vewo_users_has_posting_subscription_columns(PDO $pdo): bool
+{
+    try {
+        $chk = $pdo->query(
+            "SELECT COUNT(*) FROM information_schema.columns
+             WHERE table_schema = DATABASE() AND table_name = 'users'
+               AND column_name IN ('posting_subscription_days','posting_subscription_expires_at')"
+        );
+
+        return $chk !== false && (int) $chk->fetchColumn() >= 2;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 function vewo_properties_has_synthetic_likes(PDO $pdo): bool
 {
     try {
@@ -273,6 +288,9 @@ function admin_assign_posting_package_route(PDO $pdo): void
     $remaining = isset($in['posting_listings_remaining']) ? (int) $in['posting_listings_remaining'] : null;
     $packageId = trim((string) ($in['posting_package_id'] ?? $in['package_id'] ?? ''));
     $marketerApproved = isset($in['marketer_approved']) ? ((int) $in['marketer_approved'] === 1 ? 1 : 0) : null;
+    $activeAccount = isset($in['is_active']) ? ((int) $in['is_active'] === 1 ? 1 : 0) : null;
+    $subscriptionDays = isset($in['subscription_days']) ? max(0, (int) $in['subscription_days']) : null;
+    $subscriptionExpiresAt = trim((string) ($in['subscription_expires_at'] ?? ''));
 
     $sets = [];
     $params = [':id' => $userId];
@@ -310,6 +328,27 @@ function admin_assign_posting_package_route(PDO $pdo): void
     if ($marketerApproved !== null && vewo_users_has_is_marketer_column($pdo)) {
         $sets[] = 'office_approved = :oa';
         $params[':oa'] = $marketerApproved;
+    }
+    if ($activeAccount !== null) {
+        $sets[] = 'is_active = :active';
+        $params[':active'] = $activeAccount;
+    }
+    if (vewo_users_has_posting_subscription_columns($pdo)) {
+        if ($subscriptionDays !== null) {
+            $sets[] = 'posting_subscription_days = :sub_days';
+            $params[':sub_days'] = $subscriptionDays > 0 ? $subscriptionDays : null;
+            if ($subscriptionExpiresAt === '' && $subscriptionDays > 0) {
+                $sets[] = 'posting_subscription_expires_at = DATE_ADD(NOW(), INTERVAL :sub_days_exp DAY)';
+                $params[':sub_days_exp'] = $subscriptionDays;
+            }
+        }
+        if ($subscriptionExpiresAt !== '') {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $subscriptionExpiresAt)) {
+                json_error(400, 'تاريخ الانتهاء غير صالح');
+            }
+            $sets[] = 'posting_subscription_expires_at = :sub_exp';
+            $params[':sub_exp'] = $subscriptionExpiresAt . ' 23:59:59';
+        }
     }
     if ($sets === []) {
         json_error(400, 'لا شيء لتحديثه');
@@ -377,9 +416,16 @@ function admin_marketers_list_route(PDO $pdo): void
     $pkgCol = vewo_users_has_posting_quota_columns($pdo)
         ? 'u.posting_trial_unlimited, u.posting_listings_remaining, u.posting_package_id,'
         : '';
+    $subCol = vewo_users_has_posting_subscription_columns($pdo)
+        ? 'u.posting_subscription_days, u.posting_subscription_expires_at,'
+        : '';
+    $emailCol = function_exists('vewo_users_has_email_column') && vewo_users_has_email_column($pdo)
+        ? 'u.email'
+        : "'' AS email";
     $stmt = $pdo->query(
-        "SELECT u.id, u.full_name, u.phone, u.email, u.office_name, u.office_approved,
+        "SELECT u.id, u.full_name, u.phone, {$emailCol}, u.office_name, u.office_approved, u.is_active,
                 {$pkgCol}
+                {$subCol}
                 COALESCE(u.follower_count,0) AS follower_count,
                 COALESCE(u.synthetic_follower_boost,0) AS synthetic_follower_boost
          FROM users u

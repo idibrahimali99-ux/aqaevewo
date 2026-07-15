@@ -1,0 +1,8 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+  <rect width="900" height="600" fill="#fff7df"/>
+  <path d="M120 430h660v60H120z" fill="#f6b60c" opacity=".45"/>
+  <path d="M210 410V235l240-135 240 135v175" fill="#fff" stroke="#222" stroke-width="18" stroke-linejoin="round"/>
+  <path d="M320 410V285h95v125M485 410V285h95v125" fill="#f6b60c" stroke="#222" stroke-width="14" stroke-linejoin="round"/>
+  <circle cx="450" cy="215" r="34" fill="#f6b60c" stroke="#222" stroke-width="12"/>
+  <text x="450" y="535" text-anchor="middle" font-family="Arial" font-size="38" font-weight="700" fill="#222">WEB TOWN</text>
+</svg>

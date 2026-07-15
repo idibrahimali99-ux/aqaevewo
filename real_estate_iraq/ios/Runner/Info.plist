@@ -74,7 +74,18 @@
 	<string>نحتاج الوصول للمعرض لاختيار صور وفيديو العقار.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>نستخدم موقعك لعرض الخريطة وتحديد موقع العقار بدقة.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>نستخدم موقعك لعرض الخريطة وتحديد موقع العقار بدقة.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>نستخدم الميكروفون لتسجيل الرسائل الصوتية داخل المحادثة.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>نحتاج حفظ الريلز والفيديوهات في الاستوديو.</string>
+	<key>io.flutter.embedded_views_preview</key>
+	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>fetch</string>
+	</array>
 </dict>
 </plist>

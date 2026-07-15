@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/api/api_providers.dart';
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/local_video_preview.dart';
 import '../../../core/widgets/vewo_media_watermark.dart';
 
@@ -359,137 +360,207 @@ class _FinalReelPreviewDialogState extends State<_FinalReelPreviewDialog> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Dialog(
-      insetPadding: const EdgeInsets.all(18),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'معاينة الريل النهائي قبل النشر',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: AspectRatio(
-                aspectRatio: 9 / 16,
-                child: !_ready
-                    ? ColoredBox(
-                        color: Colors.black,
-                        child: Center(
-                          child: _error == null
-                              ? const CircularProgressIndicator()
-                              : Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Text(
-                                    _error!,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                        ),
-                      )
-                    : GestureDetector(
-                        onTap: _togglePlayback,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            FittedBox(
-                              fit: BoxFit.cover,
-                              child: SizedBox(
-                                width: _controller.value.size.width,
-                                height: _controller.value.size.height,
-                                child: VideoPlayer(_controller),
-                              ),
-                            ),
-                            const VewoReelWatermark(),
-                            if (!_controller.value.isPlaying)
-                              const Center(
-                                child: CircleAvatar(
-                                  radius: 30,
-                                  backgroundColor: Colors.black54,
-                                  child: Icon(
-                                    Icons.play_arrow_rounded,
-                                    color: Colors.white,
-                                    size: 42,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-              ),
-            ),
-            if (_ready) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  IconButton.filledTonal(
-                    onPressed: _togglePlayback,
-                    icon: Icon(
-                      _controller.value.isPlaying
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
-                    ),
-                  ),
-                  Expanded(
-                    child: Slider(
-                      min: 0,
-                      max: _controller.value.duration.inMilliseconds
-                          .clamp(1, double.infinity)
-                          .toDouble(),
-                      value: _controller.value.position.inMilliseconds
-                          .clamp(
-                            0,
-                            _controller.value.duration.inMilliseconds.clamp(
-                              1,
-                              1 << 31,
-                            ),
-                          )
-                          .toDouble(),
-                      onChanged: (v) =>
-                          _controller.seekTo(Duration(milliseconds: v.round())),
-                    ),
-                  ),
-                  Text(
-                    '${_time(_controller.value.position)} / ${_time(_controller.value.duration)}',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 12),
-            Row(
+    final media = MediaQuery.of(context);
+    final availableWidth = media.size.width - 32;
+    final availableHeight =
+        media.size.height -
+        media.viewPadding.top -
+        media.viewPadding.bottom -
+        32;
+    final dialogWidth = availableWidth >= 520 ? 520.0 : availableWidth;
+    final dialogHeight = availableHeight >= 760 ? 760.0 : availableHeight;
+    final videoMaxHeight = (dialogHeight * 0.58).clamp(240.0, 500.0);
+
+    return SafeArea(
+      child: Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: dialogWidth,
+            maxHeight: dialogHeight,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('إعادة القص'),
+                Text(
+                  'معاينة الريل النهائي قبل النشر',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(height: 12),
                 Expanded(
-                  child: FilledButton(
-                    onPressed: _ready
-                        ? () => Navigator.pop(context, true)
-                        : null,
-                    child: const Text('نشر'),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight: videoMaxHeight,
+                              maxWidth: AppResponsive.isTablet(context)
+                                  ? 300
+                                  : double.infinity,
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: AspectRatio(
+                                aspectRatio: 9 / 16,
+                                child: !_ready
+                                    ? ColoredBox(
+                                        color: Colors.black,
+                                        child: Center(
+                                          child: _error == null
+                                              ? const CircularProgressIndicator()
+                                              : Padding(
+                                                  padding: const EdgeInsets.all(
+                                                    16,
+                                                  ),
+                                                  child: Text(
+                                                    _error!,
+                                                    textAlign: TextAlign.center,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                    ),
+                                                  ),
+                                                ),
+                                        ),
+                                      )
+                                    : GestureDetector(
+                                        onTap: _togglePlayback,
+                                        child: Stack(
+                                          fit: StackFit.expand,
+                                          children: [
+                                            FittedBox(
+                                              fit: BoxFit.cover,
+                                              child: SizedBox(
+                                                width: _controller
+                                                    .value
+                                                    .size
+                                                    .width,
+                                                height: _controller
+                                                    .value
+                                                    .size
+                                                    .height,
+                                                child: VideoPlayer(_controller),
+                                              ),
+                                            ),
+                                            const VewoReelWatermark(),
+                                            if (!_controller.value.isPlaying)
+                                              const Center(
+                                                child: CircleAvatar(
+                                                  radius: 30,
+                                                  backgroundColor:
+                                                      Colors.black54,
+                                                  child: Icon(
+                                                    Icons.play_arrow_rounded,
+                                                    color: Colors.white,
+                                                    size: 42,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_ready) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              IconButton.filledTonal(
+                                onPressed: _togglePlayback,
+                                icon: Icon(
+                                  _controller.value.isPlaying
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded,
+                                ),
+                              ),
+                              Expanded(
+                                child: Slider(
+                                  min: 0,
+                                  max: _controller.value.duration.inMilliseconds
+                                      .clamp(1, double.infinity)
+                                      .toDouble(),
+                                  value: _controller
+                                      .value
+                                      .position
+                                      .inMilliseconds
+                                      .clamp(
+                                        0,
+                                        _controller
+                                            .value
+                                            .duration
+                                            .inMilliseconds
+                                            .clamp(1, 1 << 31),
+                                      )
+                                      .toDouble(),
+                                  onChanged: (v) => _controller.seekTo(
+                                    Duration(milliseconds: v.round()),
+                                  ),
+                                ),
+                              ),
+                              Flexible(
+                                child: Text(
+                                  '${_time(_controller.value.position)} / ${_time(_controller.value.duration)}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: scheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SafeArea(
+                  top: false,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final stacked = constraints.maxWidth < 340;
+                      final retry = OutlinedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('إعادة القص'),
+                      );
+                      final publish = FilledButton(
+                        onPressed: _ready
+                            ? () => Navigator.pop(context, true)
+                            : null,
+                        child: const Text('نشر الريلز'),
+                      );
+                      if (stacked) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [retry, const SizedBox(height: 8), publish],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(child: retry),
+                          const SizedBox(width: 10),
+                          Expanded(child: publish),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

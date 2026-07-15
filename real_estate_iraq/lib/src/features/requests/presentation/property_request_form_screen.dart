@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/governorates/governorates_provider.dart';
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../auth/data/auth_controller.dart';
 import '../data/property_requests_provider.dart';
@@ -114,120 +115,120 @@ class _PropertyRequestFormScreenState
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: AppResponsive.pagePadding(context, accountForShellNav: true),
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'املأ تفاصيل العقار المطلوب',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
+            ResponsiveCenter(
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'املأ تفاصيل العقار المطلوب',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment(value: 'sale', label: Text('شراء')),
-                        ButtonSegment(value: 'rent', label: Text('إيجار')),
-                      ],
-                      selected: {_purpose},
-                      onSelectionChanged: (v) =>
-                          setState(() => _purpose = v.first),
-                    ),
-                    const SizedBox(height: 14),
-                    DropdownButtonFormField<String>(
-                      initialValue: _category,
-                      decoration: const InputDecoration(
-                        labelText: 'القسم',
-                        prefixIcon: Icon(Icons.category_outlined),
+                      const SizedBox(height: 12),
+                      SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(value: 'sale', label: Text('شراء')),
+                          ButtonSegment(value: 'rent', label: Text('إيجار')),
+                        ],
+                        selected: {_purpose},
+                        onSelectionChanged: (v) =>
+                            setState(() => _purpose = v.first),
                       ),
-                      items: [
-                        for (final c in _categories)
-                          DropdownMenuItem(value: c.$1, child: Text(c.$2)),
-                      ],
-                      onChanged: (v) => setState(() => _category = v ?? 'land'),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(child: _numberField(_areaMin, 'المساحة من')),
-                        const SizedBox(width: 10),
-                        Expanded(child: _numberField(_areaMax, 'إلى')),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(child: _numberField(_priceMin, 'السعر من')),
-                        const SizedBox(width: 10),
-                        Expanded(child: _numberField(_priceMax, 'إلى')),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    govs.when(
-                      loading: () => const LinearProgressIndicator(),
-                      error: (_, _) => const SizedBox.shrink(),
-                      data: (items) => DropdownButtonFormField<String>(
-                        initialValue: _governorate,
+                      const SizedBox(height: 14),
+                      DropdownButtonFormField<String>(
+                        initialValue: _category,
                         decoration: const InputDecoration(
-                          labelText: 'المحافظة',
-                          prefixIcon: Icon(Icons.location_city_outlined),
+                          labelText: 'القسم',
+                          prefixIcon: Icon(Icons.category_outlined),
                         ),
                         items: [
-                          for (final g in items)
-                            DropdownMenuItem(value: g, child: Text(g)),
+                          for (final c in _categories)
+                            DropdownMenuItem(value: c.$1, child: Text(c.$2)),
                         ],
-                        validator: (v) =>
-                            v == null || v.isEmpty ? 'اختر المحافظة' : null,
-                        onChanged: (v) => setState(() => _governorate = v),
+                        onChanged: (v) =>
+                            setState(() => _category = v ?? 'land'),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: _phone,
-                      keyboardType: TextInputType.phone,
-                      textDirection: TextDirection.ltr,
-                      decoration: const InputDecoration(
-                        labelText: 'رقم الموبايل',
-                        hintText: '07XXXXXXXXX',
-                        prefixIcon: Icon(Icons.phone_iphone_rounded),
+                      const SizedBox(height: 14),
+                      _ResponsiveFieldPair(
+                        first: _numberField(_areaMin, 'المساحة من'),
+                        second: _numberField(_areaMax, 'إلى'),
                       ),
-                      validator: (v) {
-                        final s = v?.trim() ?? '';
-                        return RegExp(r'^07[0-9]{9}$').hasMatch(s)
-                            ? null
-                            : 'رقم عراقي صحيح مطلوب';
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: _description,
-                      minLines: 4,
-                      maxLines: 8,
-                      maxLength: 7000,
-                      decoration: const InputDecoration(
-                        labelText: 'وصف الطلب',
-                        alignLabelWithHint: true,
-                        prefixIcon: Icon(Icons.notes_outlined),
+                      const SizedBox(height: 14),
+                      _ResponsiveFieldPair(
+                        first: _numberField(_priceMin, 'السعر من'),
+                        second: _numberField(_priceMax, 'إلى'),
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    FilledButton.icon(
-                      onPressed: _saving ? null : _submit,
-                      icon: _saving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.send_rounded),
-                      label: const Text('إرسال الطلب'),
-                    ),
-                  ],
+                      const SizedBox(height: 14),
+                      govs.when(
+                        loading: () => const LinearProgressIndicator(),
+                        error: (_, _) => const SizedBox.shrink(),
+                        data: (items) => DropdownButtonFormField<String>(
+                          initialValue: _governorate,
+                          decoration: const InputDecoration(
+                            labelText: 'المحافظة',
+                            prefixIcon: Icon(Icons.location_city_outlined),
+                          ),
+                          items: [
+                            for (final g in items)
+                              DropdownMenuItem(value: g, child: Text(g)),
+                          ],
+                          validator: (v) =>
+                              v == null || v.isEmpty ? 'اختر المحافظة' : null,
+                          onChanged: (v) => setState(() => _governorate = v),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: _phone,
+                        keyboardType: TextInputType.phone,
+                        textDirection: TextDirection.ltr,
+                        decoration: const InputDecoration(
+                          labelText: 'رقم الموبايل',
+                          hintText: '07XXXXXXXXX',
+                          prefixIcon: Icon(Icons.phone_iphone_rounded),
+                        ),
+                        validator: (v) {
+                          final s = v?.trim() ?? '';
+                          return RegExp(r'^07[0-9]{9}$').hasMatch(s)
+                              ? null
+                              : 'رقم عراقي صحيح مطلوب';
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: _description,
+                        minLines: 4,
+                        maxLines: 8,
+                        maxLength: 7000,
+                        decoration: const InputDecoration(
+                          labelText: 'وصف الطلب',
+                          alignLabelWithHint: true,
+                          prefixIcon: Icon(Icons.notes_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      FilledButton.icon(
+                        onPressed: _saving ? null : _submit,
+                        icon: _saving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.send_rounded),
+                        label: const Text('إرسال الطلب'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -243,6 +244,31 @@ class _PropertyRequestFormScreenState
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       decoration: InputDecoration(labelText: label),
+    );
+  }
+}
+
+class _ResponsiveFieldPair extends StatelessWidget {
+  const _ResponsiveFieldPair({required this.first, required this.second});
+
+  final Widget first;
+  final Widget second;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 360) {
+          return Column(children: [first, const SizedBox(height: 12), second]);
+        }
+        return Row(
+          children: [
+            Expanded(child: first),
+            const SizedBox(width: 10),
+            Expanded(child: second),
+          ],
+        );
+      },
     );
   }
 }

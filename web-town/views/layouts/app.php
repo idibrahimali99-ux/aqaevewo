@@ -3,6 +3,7 @@
 $title = page_title((string) ($title ?? ''));
 $description = (string) ($description ?? 'ويب تاون، منصة عقارية عراقية احترافية لعرض العقارات والمكاتب والمسوقين.');
 $user = auth_user();
+$isAdminConsole = str_starts_with(current_path(), '/dashboard/admin');
 ?>
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -19,8 +20,9 @@ $user = auth_user();
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= e(asset_url('css/app.css')) ?>">
 </head>
-<body>
-<div class="site-shell">
+<body class="<?= $isAdminConsole ? 'admin-console-body' : '' ?>">
+<div class="site-shell <?= $isAdminConsole ? 'admin-site-shell' : '' ?>">
+    <?php if (!$isAdminConsole): ?>
     <header class="topbar">
         <a class="brand" href="<?= e(url('/')) ?>" aria-label="Web Town">
             <span class="brand-mark">WT</span>
@@ -44,11 +46,13 @@ $user = auth_user();
             <?php endif; ?>
         </div>
     </header>
+    <?php endif; ?>
 
     <main>
         <?= $content ?>
     </main>
 
+    <?php if (!$isAdminConsole): ?>
     <footer class="footer">
         <div>
             <strong>ويب تاون</strong>
@@ -56,6 +60,7 @@ $user = auth_user();
         </div>
         <a href="tel:<?= e((string) app_config('support_phone')) ?>">الدعم: <?= e((string) app_config('support_phone')) ?></a>
     </footer>
+    <?php endif; ?>
 </div>
 <script src="<?= e(asset_url('js/app.js')) ?>"></script>
 </body>

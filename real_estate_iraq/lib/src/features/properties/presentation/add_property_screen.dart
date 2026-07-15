@@ -16,6 +16,7 @@ import '../../../core/media/vewo_image_watermark_burn.dart';
 import 'package:vewo_shared/vewo_shared.dart' show Iraq;
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../core/governorates/governorates_provider.dart';
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/api/api_providers.dart';
 import '../../../core/widgets/local_video_preview.dart';
 import '../../../core/widgets/map_location_picker_sheet.dart';
@@ -131,30 +132,38 @@ class _InlineStepAction extends StatelessWidget {
         label: const Text('التالي'),
       );
     }
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: loading ? null : onPreview,
-            icon: const Icon(Icons.visibility_outlined),
-            label: const Text('معاينة'),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: loading ? null : onPublish,
-            icon: loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.publish_rounded),
-            label: Text(loading ? 'جاري النشر…' : 'نشر'),
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final preview = OutlinedButton.icon(
+          onPressed: loading ? null : onPreview,
+          icon: const Icon(Icons.visibility_outlined),
+          label: const Text('معاينة'),
+        );
+        final publish = FilledButton.icon(
+          onPressed: loading ? null : onPublish,
+          icon: loading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.publish_rounded),
+          label: Text(loading ? 'جاري النشر…' : 'نشر'),
+        );
+        if (constraints.maxWidth < 310) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [preview, const SizedBox(height: 8), publish],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: preview),
+            const SizedBox(width: 10),
+            Expanded(child: publish),
+          ],
+        );
+      },
     );
   }
 }
@@ -1005,6 +1014,10 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final bottomActionInset = AppResponsive.shellContentBottomPadding(
+      context,
+      extra: 10,
+    );
 
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
@@ -1075,25 +1088,39 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
                   ),
                   Expanded(
                     child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 132),
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: EdgeInsets.fromLTRB(
+                        AppResponsive.pageHorizontalPadding(context),
+                        0,
+                        AppResponsive.pageHorizontalPadding(context),
+                        bottomActionInset + 72,
+                      ),
                       children: [
-                        Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          color: scheme.primaryContainer.withValues(
-                            alpha: 0.35,
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(
-                              'يُرسل للمراجعة ثم يُنشر في القسم المناسب بعد موافقة الإدارة.',
-                              style: TextStyle(
-                                color: scheme.onPrimaryContainer,
-                                fontWeight: FontWeight.w600,
+                        ResponsiveCenter(
+                          child: Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            color: scheme.primaryContainer.withValues(
+                              alpha: 0.35,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                'يُرسل للمراجعة ثم يُنشر في القسم المناسب بعد موافقة الإدارة.',
+                                style: TextStyle(
+                                  color: scheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                        ..._buildStepBody(context),
+                        ResponsiveCenter(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: _buildStepBody(context),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1103,9 +1130,10 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
             PositionedDirectional(
               start: 0,
               end: 0,
-              bottom: 0,
+              bottom: AppResponsive.floatingNavBottomGap(context),
               child: SafeArea(
                 top: false,
+                bottom: false,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: scheme.surface,
@@ -1123,26 +1151,46 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
                     ),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                    child: Row(
-                      children: [
-                        if (_step > 0) ...[
-                          OutlinedButton(
-                            onPressed: _loading ? null : _back,
-                            child: const Text('رجوع'),
-                          ),
-                          const SizedBox(width: 10),
-                        ],
-                        Expanded(
-                          child: _InlineStepAction(
+                    padding: EdgeInsets.fromLTRB(
+                      AppResponsive.pageHorizontalPadding(context),
+                      10,
+                      AppResponsive.pageHorizontalPadding(context),
+                      12,
+                    ),
+                    child: ResponsiveCenter(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final actions = _InlineStepAction(
                             isLastStep: _step >= _lastStepIndex,
                             loading: _loading,
                             onNext: () async => _next(),
                             onPreview: _openPreview,
                             onPublish: _publish,
-                          ),
-                        ),
-                      ],
+                          );
+                          if (_step == 0) return actions;
+                          final back = OutlinedButton(
+                            onPressed: _loading ? null : _back,
+                            child: const Text('رجوع'),
+                          );
+                          if (constraints.maxWidth < 360) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                actions,
+                                const SizedBox(height: 8),
+                                back,
+                              ],
+                            );
+                          }
+                          return Row(
+                            children: [
+                              back,
+                              const SizedBox(width: 10),
+                              Expanded(child: actions),
+                            ],
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),

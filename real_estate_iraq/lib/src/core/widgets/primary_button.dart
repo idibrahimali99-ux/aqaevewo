@@ -33,9 +33,12 @@ class _PrimaryButtonState extends State<PrimaryButton> {
         duration: const Duration(milliseconds: 110),
         curve: Curves.easeOut,
         child: SizedBox(
-          height: 52,
           width: double.infinity,
           child: FilledButton.icon(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            ),
             onPressed: widget.isLoading ? null : widget.onPressed,
             icon: widget.isLoading
                 ? const SizedBox(

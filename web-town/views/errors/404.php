@@ -1,8 +1,1 @@
-﻿<section class="auth-wrap">
-    <div class="auth-card">
-        <span class="eyebrow">404</span>
-        <h1>الصفحة غير موجودة</h1>
-        <p class="muted">الرابط غير صحيح أو تم نقل الصفحة.</p>
-        <a class="btn primary" href="<?= e(url('/')) ?>">العودة للرئيسية</a>
-    </div>
-</section>
+<div class="container-xl py-5 text-center"><div class="panel-card p-5"><h1>404</h1><p class="text-secondary">الصفحة غير موجودة</p><a class="btn btn-primary rounded-pill" href="<?= e(url('/')) ?>">العودة للرئيسية</a></div></div>

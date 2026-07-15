@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../core/api/api_providers.dart';
 import '../../../routing/app_routes.dart';
@@ -10,18 +11,18 @@ import '../data/offices_providers.dart';
 import '../../properties/data/office_properties_provider.dart';
 import '../../properties/presentation/property_card.dart';
 
-final officeReelsProvider =
-    FutureProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, officeId) async {
-  final data = await ref
-      .read(vewoApiClientProvider)
-      .getJson('reels/list', query: {'owner_id': officeId, 'limit': '20'});
-  final raw = data['items'];
-  if (raw is! List) return const [];
-  return raw
-      .whereType<Map>()
-      .map((e) => Map<String, dynamic>.from(e))
-      .toList(growable: false);
-});
+final officeReelsProvider = FutureProvider.autoDispose
+    .family<List<Map<String, dynamic>>, String>((ref, officeId) async {
+      final data = await ref
+          .read(vewoApiClientProvider)
+          .getJson('reels/list', query: {'owner_id': officeId, 'limit': '20'});
+      final raw = data['items'];
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList(growable: false);
+    });
 
 class OfficeProfileScreen extends ConsumerWidget {
   const OfficeProfileScreen({super.key, required this.officeId});
@@ -39,15 +40,17 @@ class OfficeProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
-      appBar: AppBar(
-        title: AppBarBrandTitle(title),
-      ),
+      appBar: AppBar(title: AppBarBrandTitle(title)),
       body: propsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => const Center(child: Text('تعذر تحميل الإعلانات')),
         data: (items) {
           return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            padding: AppResponsive.pagePadding(
+              context,
+              top: 8,
+              accountForShellNav: true,
+            ),
             children: [
               detailAsync.when(
                 data: (d) {
@@ -68,15 +71,18 @@ class OfficeProfileScreen extends ConsumerWidget {
                                 child: CachedNetworkImage(
                                   imageUrl: d.photoUrl,
                                   fit: BoxFit.cover,
-                                  errorWidget: (_, _, _) => const Icon(Icons.apartment_rounded),
+                                  errorWidget: (_, _, _) =>
+                                      const Icon(Icons.apartment_rounded),
                                 ),
                               ),
                             )
                           else
                             CircleAvatar(
                               radius: 36,
-                              child: Icon(Icons.apartment_rounded,
-                                  color: Theme.of(context).colorScheme.primary),
+                              child: Icon(
+                                Icons.apartment_rounded,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                             ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -88,17 +94,24 @@ class OfficeProfileScreen extends ConsumerWidget {
                                     Expanded(
                                       child: Text(
                                         d.displayName,
-                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
                                               fontWeight: FontWeight.w900,
                                             ),
                                       ),
                                     ),
                                     if (d.officeVerified)
                                       Padding(
-                                        padding: const EdgeInsets.only(right: 4),
+                                        padding: const EdgeInsets.only(
+                                          right: 4,
+                                        ),
                                         child: Icon(
                                           Icons.verified_rounded,
-                                          color: Theme.of(context).colorScheme.primary,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
                                           size: 22,
                                         ),
                                       ),
@@ -110,7 +123,8 @@ class OfficeProfileScreen extends ConsumerWidget {
                                   const SizedBox(height: 6),
                                   Text(
                                     d.address,
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.4),
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(height: 1.4),
                                   ),
                                 ],
                               ],
@@ -137,9 +151,8 @@ class OfficeProfileScreen extends ConsumerWidget {
                     children: [
                       Text(
                         'ريلز المكتب',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w900,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 10),
                       SizedBox(
@@ -147,12 +160,28 @@ class OfficeProfileScreen extends ConsumerWidget {
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: reels.length,
-                          separatorBuilder: (context, index) => const SizedBox(width: 10),
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(width: 10),
                           itemBuilder: (context, index) {
                             final r = reels[index];
-                            final caption = (r['caption']?.toString() ?? '').trim();
+                            final caption = (r['caption']?.toString() ?? '')
+                                .trim();
+                            final reelId = r['id']?.toString() ?? '';
                             return InkWell(
-                              onTap: () => context.push(AppRoutes.reels),
+                              onTap: () {
+                                final query =
+                                    {
+                                          'owner_id': officeId,
+                                          if (reelId.isNotEmpty)
+                                            'reel_id': reelId,
+                                        }.entries
+                                        .map(
+                                          (e) =>
+                                              '${e.key}=${Uri.encodeComponent(e.value)}',
+                                        )
+                                        .join('&');
+                                context.push('${AppRoutes.reels}?$query');
+                              },
                               borderRadius: BorderRadius.circular(18),
                               child: Container(
                                 width: 110,
@@ -198,15 +227,17 @@ class OfficeProfileScreen extends ConsumerWidget {
               ),
               Text(
                 'منشورات المكتب',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 10),
               if (items.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 32),
-                  child: Center(child: Text('لا توجد منشورات معتمدة لهذا المكتب بعد.')),
+                  child: Center(
+                    child: Text('لا توجد منشورات معتمدة لهذا المكتب بعد.'),
+                  ),
                 )
               else
                 ...items.map(
@@ -216,7 +247,9 @@ class OfficeProfileScreen extends ConsumerWidget {
                       height: 270,
                       child: PropertyCard(
                         property: p,
-                        onTap: () => context.push('${AppRoutes.propertyDetails}/${p.id}'),
+                        onTap: () => context.push(
+                          '${AppRoutes.propertyDetails}/${p.id}',
+                        ),
                       ),
                     ),
                   ),

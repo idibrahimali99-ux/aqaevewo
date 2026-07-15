@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_providers.dart';
 import '../../../core/api/vewo_api_client.dart';
+import '../../../core/theme/admin_theme.dart';
 import '../../auth/auth_providers.dart';
 import '../../reports/presentation/admin_reports_screen.dart';
 
@@ -159,116 +160,107 @@ class _AdminOverviewTabState extends ConsumerState<AdminOverviewTab> {
           ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
         ),
         const SizedBox(height: 18),
-        _StatTile(
-          icon: Icons.apartment_rounded,
-          title: 'منشورات بانتظار المراجعة',
-          value: _loading ? '…' : _v(_pendingProps),
-          subtitle: 'اضغط للانتقال إلى قسم المنشورات',
-          onTap: () => widget.onOpenSection(7),
-        ),
-        const SizedBox(height: 12),
-        _StatTile(
-          icon: Icons.storefront_rounded,
-          title: 'مكاتب بانتظار الموافقة',
-          value: _loading ? '…' : _v(_pendingOffices),
-          subtitle: 'اضغط للانتقال إلى قسم المكاتب',
-          onTap: () => widget.onOpenSection(3),
-        ),
-        const SizedBox(height: 12),
-        _StatTile(
-          icon: Icons.people_outline_rounded,
-          title: 'مستخدمون نشطون',
-          value: _loading ? '…' : _v(_activeUsers),
-          subtitle: 'إجمالي الحسابات النشطة',
-          onTap: () => widget.onOpenSection(10),
-        ),
-        const SizedBox(height: 12),
-        _StatTile(
-          icon: Icons.person_outline_rounded,
-          title: 'حسابات شخصية',
-          value: _loading ? '…' : _v(_activeCustomers),
-          subtitle: 'اضغط للانتقال إلى المستخدمين',
-          onTap: () => widget.onOpenSection(10),
-        ),
-        const SizedBox(height: 12),
-        _StatTile(
-          icon: Icons.store_mall_directory_outlined,
-          title: 'مكاتب نشطة',
-          value: _loading ? '…' : _v(_activeOffices),
-          subtitle: 'اضغط للانتقال إلى قسم المكاتب',
-          onTap: () => widget.onOpenSection(3),
-        ),
-        const SizedBox(height: 12),
-        _StatTile(
-          icon: Icons.badge_outlined,
-          title: 'موظفو لوحة',
-          value: _loading ? '…' : _v(_activeStaff),
-          subtitle: 'موظفون بصلاحيات محددة',
-          onTap: () => widget.onOpenSection(10),
-        ),
-        const SizedBox(height: 12),
-        _StatTile(
-          icon: Icons.admin_panel_settings_outlined,
-          title: 'أدمن رئيسي',
-          value: _loading ? '…' : _v(_activeAdmins),
-          subtitle: 'حسابات بصلاحيات كاملة',
-          onTap: () => widget.onOpenSection(10),
-        ),
-        const SizedBox(height: 12),
-        _StatTile(
-          icon: Icons.forum_outlined,
-          title: 'محادثات',
-          value: _loading ? '…' : _v(_threads),
-          subtitle: 'اضغط للانتقال إلى المحادثات',
-          onTap: () => widget.onOpenSection(9),
-        ),
-        const SizedBox(height: 12),
-        _StatTile(
-          icon: Icons.mark_chat_unread_outlined,
-          title: 'محادثات غير مقروءة',
-          value: _loading ? '…' : _v(_unreadThreads),
-          subtitle: 'تحتاج متابعة',
-          onTap: () => widget.onOpenSection(9),
-        ),
-        const SizedBox(height: 12),
-        _StatTile(
-          icon: Icons.video_collection_outlined,
-          title: 'ريلز بانتظار المراجعة',
-          value: _loading ? '…' : _v(_pendingReels),
-          subtitle: 'اضغط للانتقال إلى الريلز',
-          onTap: () => widget.onOpenSection(8),
-        ),
-        const SizedBox(height: 12),
-        _StatTile(
-          icon: Icons.verified_outlined,
-          title: 'ريلز منشورة',
-          value: _loading ? '…' : _v(_approvedReels),
-          subtitle: 'معتمدة في التطبيق',
-          onTap: () => widget.onOpenSection(8),
-        ),
-        const SizedBox(height: 12),
-        _StatTile(
-          icon: Icons.visibility_outlined,
-          title: 'إجمالي مشاهدات المنشورات',
-          value: _loading ? '…' : _v(_totalPropertyViews),
-          subtitle: 'من عمود المشاهدات في قاعدة البيانات',
-          onTap: () => widget.onOpenSection(7),
-        ),
-        const SizedBox(height: 12),
-        _StatTile(
-          icon: Icons.play_circle_outline_rounded,
-          title: 'إجمالي مشاهدات الريلز (عرض)',
-          value: _loading ? '…' : _v(_totalReelViews),
-          subtitle: 'بعد تطبيق patch الريلز',
-          onTap: () => widget.onOpenSection(8),
-        ),
-        const SizedBox(height: 12),
-        _StatTile(
-          icon: Icons.local_fire_department_rounded,
-          title: 'بيع عاجل نشط',
-          value: _loading ? '…' : '${_urgentSaleItems.length}',
-          subtitle: 'يعرض العدّاد ويمكن إلغاء العاجل من هنا',
-          onTap: () {},
+        _OverviewGrid(
+          children: [
+            _StatTile(
+              icon: Icons.apartment_rounded,
+              title: 'منشورات بانتظار المراجعة',
+              value: _loading ? '…' : _v(_pendingProps),
+              subtitle: 'قسم المنشورات',
+              onTap: () => widget.onOpenSection(7),
+            ),
+            _StatTile(
+              icon: Icons.storefront_rounded,
+              title: 'مكاتب بانتظار الموافقة',
+              value: _loading ? '…' : _v(_pendingOffices),
+              subtitle: 'قسم المكاتب',
+              onTap: () => widget.onOpenSection(3),
+            ),
+            _StatTile(
+              icon: Icons.people_outline_rounded,
+              title: 'مستخدمون نشطون',
+              value: _loading ? '…' : _v(_activeUsers),
+              subtitle: 'قسم المستخدمين',
+              onTap: () => widget.onOpenSection(11),
+            ),
+            _StatTile(
+              icon: Icons.person_outline_rounded,
+              title: 'حسابات شخصية',
+              value: _loading ? '…' : _v(_activeCustomers),
+              subtitle: 'قسم المستخدمين',
+              onTap: () => widget.onOpenSection(11),
+            ),
+            _StatTile(
+              icon: Icons.store_mall_directory_outlined,
+              title: 'مكاتب نشطة',
+              value: _loading ? '…' : _v(_activeOffices),
+              subtitle: 'قسم المكاتب',
+              onTap: () => widget.onOpenSection(3),
+            ),
+            _StatTile(
+              icon: Icons.badge_outlined,
+              title: 'موظفو لوحة',
+              value: _loading ? '…' : _v(_activeStaff),
+              subtitle: 'قسم المستخدمين',
+              onTap: () => widget.onOpenSection(11),
+            ),
+            _StatTile(
+              icon: Icons.admin_panel_settings_outlined,
+              title: 'أدمن رئيسي',
+              value: _loading ? '…' : _v(_activeAdmins),
+              subtitle: 'قسم المستخدمين',
+              onTap: () => widget.onOpenSection(11),
+            ),
+            _StatTile(
+              icon: Icons.forum_outlined,
+              title: 'محادثات',
+              value: _loading ? '…' : _v(_threads),
+              subtitle: 'قسم المحادثات',
+              onTap: () => widget.onOpenSection(10),
+            ),
+            _StatTile(
+              icon: Icons.mark_chat_unread_outlined,
+              title: 'محادثات غير مقروءة',
+              value: _loading ? '…' : _v(_unreadThreads),
+              subtitle: 'تحتاج متابعة',
+              onTap: () => widget.onOpenSection(10),
+            ),
+            _StatTile(
+              icon: Icons.video_collection_outlined,
+              title: 'ريلز بانتظار المراجعة',
+              value: _loading ? '…' : _v(_pendingReels),
+              subtitle: 'قسم الريلز',
+              onTap: () => widget.onOpenSection(8),
+            ),
+            _StatTile(
+              icon: Icons.verified_outlined,
+              title: 'ريلز منشورة',
+              value: _loading ? '…' : _v(_approvedReels),
+              subtitle: 'معتمدة في التطبيق',
+              onTap: () => widget.onOpenSection(8),
+            ),
+            _StatTile(
+              icon: Icons.visibility_outlined,
+              title: 'مشاهدات المنشورات',
+              value: _loading ? '…' : _v(_totalPropertyViews),
+              subtitle: 'قسم المنشورات',
+              onTap: () => widget.onOpenSection(7),
+            ),
+            _StatTile(
+              icon: Icons.play_circle_outline_rounded,
+              title: 'مشاهدات الريلز',
+              value: _loading ? '…' : _v(_totalReelViews),
+              subtitle: 'قسم الريلز',
+              onTap: () => widget.onOpenSection(8),
+            ),
+            _StatTile(
+              icon: Icons.local_fire_department_rounded,
+              title: 'بيع عاجل نشط',
+              value: _loading ? '…' : '${_urgentSaleItems.length}',
+              subtitle: 'قائمة البيع العاجل',
+              onTap: () {},
+            ),
+          ],
         ),
         if (_urgentSaleItems.isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -329,6 +321,48 @@ class _AdminOverviewTabState extends ConsumerState<AdminOverviewTab> {
   }
 }
 
+class _OverviewGrid extends StatelessWidget {
+  const _OverviewGrid({required this.children});
+
+  final List<Widget> children;
+
+  static const int _columns = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final gap = width >= 960
+            ? 20.0
+            : width >= 600
+            ? 14.0
+            : 10.0;
+        final itemWidth = (width - (gap * (_columns - 1))) / _columns;
+        const tileHeightFactor = 1.48;
+        final tileHeight = itemWidth * tileHeightFactor;
+        final rows = (children.length + _columns - 1) ~/ _columns;
+        final gridHeight = (tileHeight * rows) + (gap * (rows - 1));
+
+        return SizedBox(
+          height: gridHeight,
+          child: GridView.builder(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: _columns,
+              mainAxisSpacing: gap,
+              crossAxisSpacing: gap,
+              childAspectRatio: itemWidth / tileHeight,
+            ),
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: children.length,
+            itemBuilder: (context, index) => children[index],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _StatTile extends StatelessWidget {
   const _StatTile({
     required this.icon,
@@ -347,79 +381,96 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Card(
-      elevation: 1.5,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: scheme.primary.withValues(alpha: 0.14),
-                child: Icon(icon, color: scheme.primary, size: 25),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 3,
-                      overflow: TextOverflow.visible,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        height: 1.15,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        height: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                constraints: const BoxConstraints(minWidth: 58, minHeight: 50),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer.withValues(alpha: 0.75),
-                  borderRadius: BorderRadius.circular(999),
-                  boxShadow: [
-                    BoxShadow(
-                      color: scheme.primary.withValues(alpha: 0.14),
-                      blurRadius: 18,
-                      spreadRadius: 1,
-                    ),
-                  ],
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: scheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w900,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? scheme.surface : AdminTheme.surfaceLight;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(19),
+        border: Border.all(
+          color: isDark
+              ? scheme.outline.withValues(alpha: 0.35)
+              : AdminTheme.border.withValues(alpha: 0.85),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(19),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AdminTheme.brandPrimary.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: AdminTheme.brandPrimary,
+                    size: 22,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 10),
+                Container(
+                  width: 48,
+                  height: 48,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: AdminTheme.brandPrimary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AdminTheme.textPrimary,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    height: 1.2,
+                    color: isDark ? scheme.onSurface : AdminTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    height: 1.15,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

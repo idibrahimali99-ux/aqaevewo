@@ -39,7 +39,9 @@ class _AdminPostingPackagesScreenState
       _error = null;
     });
     try {
-      final data = await ref.read(vewoApiClientProvider).getJson('admin/posting-packages');
+      final data = await ref
+          .read(vewoApiClientProvider)
+          .getJson('admin/posting-packages');
       final raw = data['items'];
       final list = <Map<String, dynamic>>[];
       if (raw is List) {
@@ -137,10 +139,11 @@ class _AdminPostingPackagesScreenState
                       DropdownMenuItem(
                         value: u['id']?.toString(),
                         child: Text(
-                          (u['office_name']?.toString().trim().isNotEmpty == true
-                                  ? u['office_name']
-                                  : u['full_name'])
-                              ?.toString() ??
+                          (u['office_name']?.toString().trim().isNotEmpty ==
+                                          true
+                                      ? u['office_name']
+                                      : u['full_name'])
+                                  ?.toString() ??
                               '—',
                         ),
                       ),
@@ -172,9 +175,7 @@ class _AdminPostingPackagesScreenState
                   TextField(
                     controller: remCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'متبقي للنشر',
-                    ),
+                    decoration: const InputDecoration(labelText: 'متبقي للنشر'),
                   ),
               ],
             ),
@@ -196,29 +197,41 @@ class _AdminPostingPackagesScreenState
     );
     final remaining = int.tryParse(remCtrl.text.trim()) ?? 0;
     remCtrl.dispose();
-    if (ok != true || userId == null || userId!.isEmpty || !mounted) return;
+    final selectedUserId = userId;
+    if (ok != true ||
+        selectedUserId == null ||
+        selectedUserId.isEmpty ||
+        !mounted) {
+      return;
+    }
     try {
-      await ref.read(vewoApiClientProvider).postJson('admin/assign-package', {
-        'user_id': userId,
+      final body = <String, dynamic>{
+        'user_id': selectedUserId,
         'posting_trial_unlimited': unlimited,
         if (!unlimited) 'posting_listings_remaining': remaining,
-        if (packageId != null) 'posting_package_id': packageId,
-      });
+      };
+      if (packageId != null) body['posting_package_id'] = packageId;
+      await ref
+          .read(vewoApiClientProvider)
+          .postJson('admin/assign-package', body);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم تعيين الباقة بنجاح')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم تعيين الباقة بنجاح')));
     } on VewoApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
   List<Map<String, dynamic>> _filtered() => _packagesForTab();
 
-  Future<void> _upsert({Map<String, dynamic>? initial, String? forceApplies}) async {
+  Future<void> _upsert({
+    Map<String, dynamic>? initial,
+    String? forceApplies,
+  }) async {
     final id = initial?['id']?.toString() ?? '';
     final nameCtrl = TextEditingController(
       text: initial?['name_ar']?.toString() ?? '',
@@ -255,7 +268,7 @@ class _AdminPostingPackagesScreenState
                 ),
               if (forceApplies == null)
                 DropdownButtonFormField<String>(
-                  value: applies,
+                  initialValue: applies,
                   decoration: const InputDecoration(labelText: 'ينطبق على'),
                   items: const [
                     DropdownMenuItem(value: 'office', child: Text('مكاتب')),
@@ -303,9 +316,9 @@ class _AdminPostingPackagesScreenState
       await _load();
     } on VewoApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -364,9 +377,9 @@ class _AdminPostingPackagesScreenState
               Expanded(
                 child: Text(
                   'إدارة قوالب الباقات',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
               FilledButton.tonalIcon(
@@ -388,7 +401,7 @@ class _AdminPostingPackagesScreenState
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
             itemCount: rows.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (context, i) {
               final p = rows[i];
               final lim = p['listing_limit'];

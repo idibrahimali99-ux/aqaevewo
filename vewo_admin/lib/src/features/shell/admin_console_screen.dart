@@ -75,6 +75,27 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
     if (scaffold?.isDrawerOpen ?? false) {
       Navigator.of(context).pop();
     }
+    if (scaffold?.isEndDrawerOpen ?? false) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _openNotifications() {
+    _scaffoldKey.currentState?.openEndDrawer();
+  }
+
+  void _handleNotificationTarget(String key, String target, int currentCount) {
+    acknowledgeAdminNotification(ref, key, currentCount);
+    if (_scaffoldKey.currentState?.isEndDrawerOpen ?? false) {
+      Navigator.of(context).pop();
+    }
+    final targetIndex = switch (target) {
+      'chats' => 10,
+      'properties' => 7,
+      'offices' => 3,
+      _ => 0,
+    };
+    _select(targetIndex);
   }
 
   void _applySectionParam(BuildContext context) {
@@ -152,30 +173,12 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
           (entry) => entry.key == _index,
         );
         final effectiveIndex = visibleSelectedIndex < 0 ? 0 : _index;
-        final rail = NavigationRail(
-          extended: wide,
-          selectedIndex: visibleSelectedIndex < 0 ? 0 : visibleSelectedIndex,
-          onDestinationSelected: (visibleIndex) =>
-              _select(visibleDestinations[visibleIndex].key),
-          labelType: wide
-              ? NavigationRailLabelType.none
-              : NavigationRailLabelType.selected,
-          leading: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 12, 8, 20),
-            child: Icon(
-              Icons.shield_moon_outlined,
-              color: scheme.primary,
-              size: 32,
-            ),
-          ),
-          destinations: [
-            for (final entry in visibleDestinations)
-              NavigationRailDestination(
-                icon: Icon(entry.value.icon),
-                selectedIcon: Icon(entry.value.icon, color: scheme.primary),
-                label: Text(entry.value.label),
-              ),
-          ],
+        final sideMenu = _AdminSideMenu(
+          sessionName: session.fullName ?? 'admin',
+          entries: visibleDestinations,
+          selectedIndex: _index,
+          onSelect: _select,
+          compact: constraints.maxWidth < 1180,
         );
 
         final body = ColoredBox(
@@ -222,58 +225,46 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
           actions: [
             IconButton(
               tooltip: 'الإشعارات',
-              onPressed: () async {
-                final res = await Navigator.of(context).push<String>(
-                  MaterialPageRoute(
-                    builder: (_) => const AdminNotificationsScreen(),
-                  ),
-                );
-                if (!mounted || res == null) return;
-                if (res == 'chats') _select(9);
-                if (res == 'properties') _select(7);
-                if (res == 'offices') _select(3);
-              },
-              icon: ref
-                  .watch(adminNotifCountsProvider)
-                  .when(
-                    loading: () => const Icon(Icons.notifications_none_rounded),
-                    error: (_, _) =>
-                        const Icon(Icons.notifications_none_rounded),
-                    data: (c) {
-                      final total = adminNotifTotal(c);
-                      if (total <= 0) {
-                        return const Icon(Icons.notifications_none_rounded);
-                      }
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          const Icon(Icons.notifications_none_rounded),
-                          Positioned(
-                            top: -2,
-                            right: -2,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                total > 99 ? '99+' : '$total',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 10,
-                                ),
-                              ),
+              onPressed: _openNotifications,
+              icon: ref.watch(adminNotifCountsProvider).when(
+                loading: () => const Icon(Icons.notifications_none_rounded),
+                error: (_, _) => const Icon(Icons.notifications_none_rounded),
+                data: (c) {
+                  final ack = ref.watch(adminNotifAcknowledgedProvider);
+                  final total = adminNotifVisibleTotal(c, ack);
+                  if (total <= 0) {
+                    return const Icon(Icons.notifications_none_rounded);
+                  }
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(Icons.notifications_none_rounded),
+                      Positioned(
+                        top: -2,
+                        right: -2,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDC2626),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            total > 99 ? '99+' : '$total',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 10,
                             ),
                           ),
-                        ],
-                      );
-                    },
-                  ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
             IconButton(
               tooltip: '${themeController.label} — اضغط للتبديل',
@@ -319,11 +310,27 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
           ],
         );
 
+        final notificationsDrawer = Drawer(
+          width:
+              ((constraints.maxWidth < 360
+                      ? constraints.maxWidth * 0.92
+                      : constraints.maxWidth * 0.88)
+                  .clamp(280.0, 420.0)
+                  .toDouble()),
+          child: SafeArea(
+            child: AdminNotificationsPanel(
+              onOpenTarget: _handleNotificationTarget,
+            ),
+          ),
+        );
+
         final shell = wide
             ? Scaffold(
+                key: _scaffoldKey,
+                endDrawer: notificationsDrawer,
                 body: Row(
                   children: [
-                    rail,
+                    sideMenu,
                     VerticalDivider(
                       width: 1,
                       thickness: 1,
@@ -346,26 +353,16 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
                 appBar: appBar,
                 drawer: Drawer(
                   child: SafeArea(
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                      children: [
-                        const ListTile(
-                          title: Text(
-                            'الأقسام',
-                            style: TextStyle(fontWeight: FontWeight.w900),
-                          ),
-                        ),
-                        for (final entry in visibleDestinations)
-                          ListTile(
-                            leading: Icon(entry.value.icon),
-                            title: Text(entry.value.label),
-                            selected: entry.key == _index,
-                            onTap: () => _select(entry.key),
-                          ),
-                      ],
+                    child: _AdminSideMenu(
+                      sessionName: session.fullName ?? 'admin',
+                      entries: visibleDestinations,
+                      selectedIndex: _index,
+                      onSelect: _select,
+                      inDrawer: true,
                     ),
                   ),
                 ),
+                endDrawer: notificationsDrawer,
                 body: body,
               );
 
@@ -387,4 +384,232 @@ class _NavDest {
   final IconData icon;
   final String label;
   final String? permission;
+}
+
+class _AdminSideMenu extends StatelessWidget {
+  const _AdminSideMenu({
+    required this.sessionName,
+    required this.entries,
+    required this.selectedIndex,
+    required this.onSelect,
+    this.compact = false,
+    this.inDrawer = false,
+  });
+
+  final String sessionName;
+  final List<MapEntry<int, _NavDest>> entries;
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
+  final bool compact;
+  final bool inDrawer;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final width = inDrawer ? double.infinity : (compact ? 92.0 : 286.0);
+    return SizedBox(
+      width: width,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          border: BorderDirectional(
+            end: BorderSide(
+              color: scheme.outlineVariant.withValues(alpha: 0.8),
+            ),
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  compact && !inDrawer ? 10 : 16,
+                  16,
+                  compact && !inDrawer ? 10 : 16,
+                  12,
+                ),
+                child: _AdminBrandHeader(
+                  name: sessionName,
+                  compact: compact && !inDrawer,
+                ),
+              ),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(10, 6, 10, 18),
+                  itemCount: entries.length,
+                  separatorBuilder: (_, index) {
+                    final current = entries[index].value.permission;
+                    final next = index + 1 < entries.length
+                        ? entries[index + 1].value.permission
+                        : current;
+                    final split =
+                        current != next &&
+                        (current == null ||
+                            next == 'properties' ||
+                            next == 'chats' ||
+                            next == 'users' ||
+                            next == 'settings');
+                    return SizedBox(height: split ? 14 : 6);
+                  },
+                  itemBuilder: (context, i) {
+                    final entry = entries[i];
+                    final selected = entry.key == selectedIndex;
+                    return _AdminNavTile(
+                      icon: entry.value.icon,
+                      label: entry.value.label,
+                      selected: selected,
+                      compact: compact && !inDrawer,
+                      onTap: () => onSelect(entry.key),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminBrandHeader extends StatelessWidget {
+  const _AdminBrandHeader({required this.name, required this.compact});
+
+  final String name;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: EdgeInsets.all(compact ? 10 : 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [
+            scheme.primary.withValues(alpha: 0.22),
+            scheme.surfaceContainerHighest.withValues(alpha: 0.68),
+          ],
+        ),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.22)),
+      ),
+      child: compact
+          ? Icon(Icons.shield_moon_outlined, color: scheme.primary, size: 30)
+          : Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: scheme.primary,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    Icons.admin_panel_settings_rounded,
+                    color: scheme.onPrimary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'لوحة عقار تاون',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _AdminNavTile extends StatelessWidget {
+  const _AdminNavTile({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.compact,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final bool compact;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final fg = selected ? scheme.onPrimary : scheme.onSurfaceVariant;
+    final bg = selected ? scheme.primary : Colors.transparent;
+    final child = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 0 : 12,
+        vertical: compact ? 12 : 11,
+      ),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: scheme.primary.withValues(alpha: 0.28),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ]
+            : null,
+      ),
+      child: compact
+          ? Icon(icon, color: fg)
+          : Row(
+              children: [
+                Icon(icon, color: fg, size: 22),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: fg,
+                      fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+    return Tooltip(
+      message: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: child,
+        ),
+      ),
+    );
+  }
 }

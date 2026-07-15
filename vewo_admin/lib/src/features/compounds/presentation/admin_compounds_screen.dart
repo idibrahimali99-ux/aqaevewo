@@ -8,67 +8,79 @@ import '../../../core/api/vewo_api_client.dart';
 
 final _adminGovernoratesProvider =
     FutureProvider<List<({String id, String name})>>((ref) async {
-  try {
-    final api = ref.read(vewoApiClientProvider);
-    final data = await api.getJson('admin_governorates');
-    final raw = data['items'];
-    final out = <({String id, String name})>[];
-    if (raw is List) {
-      for (final e in raw) {
-        if (e is Map<String, dynamic>) {
-          final id = e['id']?.toString().trim() ?? '';
-          final name = e['name']?.toString().trim() ?? '';
-          if (id.length >= 32 && name.isNotEmpty) out.add((id: id, name: name));
-        } else if (e is Map) {
-          final m = Map<String, dynamic>.from(e);
-          final id = m['id']?.toString().trim() ?? '';
-          final name = m['name']?.toString().trim() ?? '';
-          if (id.length >= 32 && name.isNotEmpty) out.add((id: id, name: name));
+      try {
+        final api = ref.read(vewoApiClientProvider);
+        final data = await api.getJson('admin_governorates');
+        final raw = data['items'];
+        final out = <({String id, String name})>[];
+        if (raw is List) {
+          for (final e in raw) {
+            if (e is Map<String, dynamic>) {
+              final id = e['id']?.toString().trim() ?? '';
+              final name = e['name']?.toString().trim() ?? '';
+              if (id.length >= 32 && name.isNotEmpty) {
+                out.add((id: id, name: name));
+              }
+            } else if (e is Map) {
+              final m = Map<String, dynamic>.from(e);
+              final id = m['id']?.toString().trim() ?? '';
+              final name = m['name']?.toString().trim() ?? '';
+              if (id.length >= 32 && name.isNotEmpty) {
+                out.add((id: id, name: name));
+              }
+            }
+          }
         }
-      }
-    }
-    if (out.isNotEmpty) return out;
-  } catch (_) {}
-  return const [];
-});
+        if (out.isNotEmpty) return out;
+      } catch (_) {}
+      return const [];
+    });
 
 final _adminDistrictsProvider = FutureProvider.autoDispose
-    .family<List<({String id, String name})>, String>((ref, governorateId) async {
-  final gid = governorateId.trim();
-  if (gid.length < 32) return const [];
-  try {
-    final api = ref.read(vewoApiClientProvider);
-    final data = await api.getJson(
-      'admin_districts',
-      query: {'governorate_id': gid},
-    );
-    final raw = data['items'];
-    final out = <({String id, String name})>[];
-    if (raw is List) {
-      for (final e in raw) {
-        if (e is Map<String, dynamic>) {
-          final id = e['id']?.toString().trim() ?? '';
-          final name = e['name']?.toString().trim() ?? '';
-          if (id.length >= 32 && name.isNotEmpty) out.add((id: id, name: name));
-        } else if (e is Map) {
-          final m = Map<String, dynamic>.from(e);
-          final id = m['id']?.toString().trim() ?? '';
-          final name = m['name']?.toString().trim() ?? '';
-          if (id.length >= 32 && name.isNotEmpty) out.add((id: id, name: name));
+    .family<List<({String id, String name})>, String>((
+      ref,
+      governorateId,
+    ) async {
+      final gid = governorateId.trim();
+      if (gid.length < 32) return const [];
+      try {
+        final api = ref.read(vewoApiClientProvider);
+        final data = await api.getJson(
+          'admin_districts',
+          query: {'governorate_id': gid},
+        );
+        final raw = data['items'];
+        final out = <({String id, String name})>[];
+        if (raw is List) {
+          for (final e in raw) {
+            if (e is Map<String, dynamic>) {
+              final id = e['id']?.toString().trim() ?? '';
+              final name = e['name']?.toString().trim() ?? '';
+              if (id.length >= 32 && name.isNotEmpty) {
+                out.add((id: id, name: name));
+              }
+            } else if (e is Map) {
+              final m = Map<String, dynamic>.from(e);
+              final id = m['id']?.toString().trim() ?? '';
+              final name = m['name']?.toString().trim() ?? '';
+              if (id.length >= 32 && name.isNotEmpty) {
+                out.add((id: id, name: name));
+              }
+            }
+          }
         }
+        return out;
+      } catch (_) {
+        return const [];
       }
-    }
-    return out;
-  } catch (_) {
-    return const [];
-  }
-});
+    });
 
 class AdminCompoundsScreen extends ConsumerStatefulWidget {
   const AdminCompoundsScreen({super.key});
 
   @override
-  ConsumerState<AdminCompoundsScreen> createState() => _AdminCompoundsScreenState();
+  ConsumerState<AdminCompoundsScreen> createState() =>
+      _AdminCompoundsScreenState();
 }
 
 class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
@@ -133,7 +145,8 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'تعذر التحميل — نفّذ patch_compounds_mysql.sql و patch_follows_packages_engagement_mysql.sql';
+        _error =
+            'تعذر التحميل — نفّذ patch_compounds_mysql.sql و patch_follows_packages_engagement_mysql.sql';
         _loading = false;
       });
     }
@@ -160,15 +173,16 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
         'sort_order': sortOrder,
         'is_active': isActive ? 1 : 0,
         if (districtId.trim().length >= 32) 'district_id': districtId.trim(),
-        if (districtName.trim().isNotEmpty) 'district_name': districtName.trim(),
+        if (districtName.trim().isNotEmpty)
+          'district_name': districtName.trim(),
       });
       if (!mounted) return;
       await _load();
     } on VewoApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -177,7 +191,9 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('حذف المجمع'),
-        content: const Text('هل تريد حذف هذا المجمع؟ لا يمكن الحذف إن وُجدت منشورات.'),
+        content: const Text(
+          'هل تريد حذف هذا المجمع؟ لا يمكن الحذف إن وُجدت منشورات.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -201,19 +217,20 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
       await _load();
     } on VewoApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
   Future<void> _openEditor({Map<String, dynamic>? initial}) async {
     final initialGov = (initial?['governorate']?.toString() ?? '').trim();
-    final initialDistrictId =
-        (initial?['district_id']?.toString() ?? '').trim();
+    final initialDistrictId = (initial?['district_id']?.toString() ?? '')
+        .trim();
     String? selectedGovId;
-    var selectedDistrictId =
-        initialDistrictId.length >= 32 ? initialDistrictId : null;
+    var selectedDistrictId = initialDistrictId.length >= 32
+        ? initialDistrictId
+        : null;
     final nameCtrl = TextEditingController(
       text: initial?['compound_name']?.toString() ?? '',
     );
@@ -253,7 +270,8 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
                 final distAsync = gid != null && gid.length >= 32
                     ? ref.watch(_adminDistrictsProvider(gid))
                     : null;
-                final govVal = selectedGovId != null &&
+                final govVal =
+                    selectedGovId != null &&
                         govs.any((g) => g.id == selectedGovId)
                     ? selectedGovId
                     : null;
@@ -277,7 +295,7 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
                               ),
                             ),
                           DropdownButtonFormField<String>(
-                            value: govVal,
+                            initialValue: govVal,
                             decoration: const InputDecoration(
                               labelText: 'المحافظة',
                               prefixIcon: Icon(Icons.map_outlined),
@@ -293,9 +311,9 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
                             onChanged: govs.isEmpty
                                 ? null
                                 : (v) => setLocal(() {
-                                      selectedGovId = v;
-                                      selectedDistrictId = null;
-                                    }),
+                                    selectedGovId = v;
+                                    selectedDistrictId = null;
+                                  }),
                           ),
                           const SizedBox(height: 10),
                           if (distAsync != null) ...[
@@ -304,17 +322,20 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
                                 padding: EdgeInsets.symmetric(vertical: 8),
                                 child: LinearProgressIndicator(),
                               ),
-                              error: (_, __) => const SizedBox.shrink(),
+                              error: (_, _) => const SizedBox.shrink(),
                               data: (dlist) {
                                 if (dlist.isEmpty) {
                                   return const SizedBox.shrink();
                                 }
-                                final dVal = selectedDistrictId != null &&
-                                        dlist.any((d) => d.id == selectedDistrictId)
+                                final dVal =
+                                    selectedDistrictId != null &&
+                                        dlist.any(
+                                          (d) => d.id == selectedDistrictId,
+                                        )
                                     ? selectedDistrictId
                                     : null;
                                 return DropdownButtonFormField<String>(
-                                  value: dVal,
+                                  initialValue: dVal,
                                   decoration: const InputDecoration(
                                     labelText: 'القضاء / الناحية',
                                   ),
@@ -349,8 +370,9 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
                                 child: CachedNetworkImage(
                                   imageUrl: photoUrl,
                                   fit: BoxFit.cover,
-                                  errorWidget: (_, _, _) =>
-                                      const Icon(Icons.image_not_supported_outlined),
+                                  errorWidget: (_, _, _) => const Icon(
+                                    Icons.image_not_supported_outlined,
+                                  ),
                                 ),
                               ),
                             ),
@@ -384,8 +406,8 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
                                                 'file',
                                                 file.path,
                                               );
-                                          final url =
-                                              data['public_url']?.toString();
+                                          final url = data['public_url']
+                                              ?.toString();
                                           if (url == null || url.isEmpty) {
                                             throw VewoApiException(
                                               'لم يُرجع السيرفر رابط الصورة',
@@ -395,14 +417,16 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
                                           setLocal(() {});
                                         } on VewoApiException catch (e) {
                                           if (!ctx.mounted) return;
-                                          ScaffoldMessenger.of(ctx)
-                                              .showSnackBar(
+                                          ScaffoldMessenger.of(
+                                            ctx,
+                                          ).showSnackBar(
                                             SnackBar(content: Text(e.message)),
                                           );
                                         } catch (_) {
                                           if (!ctx.mounted) return;
-                                          ScaffoldMessenger.of(ctx)
-                                              .showSnackBar(
+                                          ScaffoldMessenger.of(
+                                            ctx,
+                                          ).showSnackBar(
                                             const SnackBar(
                                               content: Text('تعذر رفع الصورة'),
                                             ),
@@ -429,8 +453,9 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
                           TextField(
                             controller: sortCtrl,
                             keyboardType: TextInputType.number,
-                            decoration:
-                                const InputDecoration(labelText: 'ترتيب العرض'),
+                            decoration: const InputDecoration(
+                              labelText: 'ترتيب العرض',
+                            ),
                           ),
                           SwitchListTile(
                             title: const Text('مفعّل'),
@@ -486,8 +511,9 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
       var districtName = initial?['district_name']?.toString() ?? '';
       if (selectedDistrictId != null && selectedGovId != null) {
         try {
-          final dlist =
-              await ref.read(_adminDistrictsProvider(selectedGovId!).future);
+          final dlist = await ref.read(
+            _adminDistrictsProvider(selectedGovId!).future,
+          );
           for (final d in dlist) {
             if (d.id == selectedDistrictId) {
               districtName = d.name;
@@ -562,7 +588,7 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 88),
                   itemCount: rows.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, i) {
                     final c = rows[i];
                     final id = c['id']?.toString() ?? '';
@@ -574,15 +600,16 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
                     final count = cntRaw is num
                         ? cntRaw.toInt()
                         : int.tryParse(cntRaw?.toString() ?? '0') ?? 0;
-                    final followers = (c['follower_count'] is num
+                    final followers =
+                        (c['follower_count'] is num
                             ? (c['follower_count'] as num).toInt()
                             : int.tryParse('${c['follower_count']}') ?? 0) +
                         (c['synthetic_follower_boost'] is num
                             ? (c['synthetic_follower_boost'] as num).toInt()
                             : int.tryParse(
-                                  '${c['synthetic_follower_boost']}',
-                                ) ??
-                                0);
+                                    '${c['synthetic_follower_boost']}',
+                                  ) ??
+                                  0);
                     final active =
                         c['is_active'] == 1 || c['is_active'] == true;
                     return ListTile(
@@ -597,7 +624,9 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
                                   fit: BoxFit.cover,
                                   errorWidget: (_, _, _) => Icon(
                                     Icons.apartment_rounded,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                   ),
                                 ),
                               ),
@@ -630,8 +659,9 @@ class _AdminCompoundsScreenState extends ConsumerState<AdminCompoundsScreen> {
                               Icons.delete_outline,
                               color: Theme.of(context).colorScheme.error,
                             ),
-                            onPressed:
-                                id.isEmpty || count > 0 ? null : () => _delete(id),
+                            onPressed: id.isEmpty || count > 0
+                                ? null
+                                : () => _delete(id),
                           ),
                         ],
                       ),

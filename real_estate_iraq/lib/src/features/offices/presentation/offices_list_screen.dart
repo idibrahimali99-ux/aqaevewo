@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../routing/app_routes.dart';
 import '../data/offices_providers.dart';
@@ -17,9 +18,7 @@ class OfficesListScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
-      appBar: AppBar(
-        title: const AppBarBrandTitle('مكاتب عقارية'),
-      ),
+      appBar: AppBar(title: const AppBarBrandTitle('مكاتب عقارية')),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => const Center(child: Text('تعذر تحميل المكاتب')),
@@ -37,7 +36,10 @@ class OfficesListScreen extends ConsumerWidget {
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: AppResponsive.pagePadding(
+              context,
+              accountForShellNav: true,
+            ),
             itemCount: items.length,
             separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, i) {
@@ -45,14 +47,24 @@ class OfficesListScreen extends ConsumerWidget {
               final hasPhoto = o.photoUrl.isNotEmpty;
               return Card(
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   leading: CircleAvatar(
                     radius: 28,
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                    backgroundImage: hasPhoto ? CachedNetworkImageProvider(o.photoUrl) : null,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer,
+                    backgroundImage: hasPhoto
+                        ? CachedNetworkImageProvider(o.photoUrl)
+                        : null,
                     child: hasPhoto
                         ? null
-                        : Icon(Icons.apartment_rounded, color: Theme.of(context).colorScheme.primary),
+                        : Icon(
+                            Icons.apartment_rounded,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                   ),
                   title: Row(
                     children: [
@@ -85,7 +97,8 @@ class OfficesListScreen extends ConsumerWidget {
                   ),
                   isThreeLine: o.address.isNotEmpty,
                   trailing: const Icon(Icons.chevron_left_rounded),
-                  onTap: () => context.push('${AppRoutes.officeProfile}/${o.id}'),
+                  onTap: () =>
+                      context.push('${AppRoutes.officeProfile}/${o.id}'),
                 ),
               );
             },

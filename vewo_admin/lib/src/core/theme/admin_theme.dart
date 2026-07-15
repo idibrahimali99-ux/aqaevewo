@@ -82,6 +82,47 @@ class AdminTheme {
         },
       ),
       scaffoldBackgroundColor: scaffoldDark,
+      drawerTheme: const DrawerThemeData(
+        backgroundColor: surfaceDark,
+        surfaceTintColor: Colors.transparent,
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: scheme.onSurfaceVariant,
+        textColor: scheme.onSurface,
+        selectedColor: scheme.primary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: surfaceHighDark,
+        selectedColor: scheme.primary.withValues(alpha: 0.18),
+        side: BorderSide(color: scheme.outline.withValues(alpha: 0.45)),
+        labelStyle: TextStyle(
+          color: scheme.onSurface,
+          fontWeight: FontWeight.w700,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: surfaceHighDark,
+        contentTextStyle: TextStyle(
+          color: scheme.onSurface,
+          fontWeight: FontWeight.w700,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      dataTableTheme: DataTableThemeData(
+        headingRowColor: WidgetStatePropertyAll(
+          scheme.primary.withValues(alpha: 0.10),
+        ),
+        headingTextStyle: TextStyle(
+          color: scheme.onSurface,
+          fontWeight: FontWeight.w900,
+        ),
+        dataTextStyle: TextStyle(color: scheme.onSurface),
+        dividerThickness: 0.7,
+      ),
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: surfaceHighDark,
         selectedIconTheme: IconThemeData(color: scheme.primary, size: 26),
@@ -190,6 +231,46 @@ class AdminTheme {
       fontFamily: GoogleFonts.tajawal().fontFamily,
       textTheme: _textTheme(scheme, Brightness.light),
       scaffoldBackgroundColor: scaffoldLight,
+      drawerTheme: const DrawerThemeData(
+        backgroundColor: surfaceLight,
+        surfaceTintColor: Colors.transparent,
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: scheme.onSurfaceVariant,
+        textColor: scheme.onSurface,
+        selectedColor: scheme.primary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: scaffoldLight,
+        selectedColor: brandPrimary.withValues(alpha: 0.18),
+        side: const BorderSide(color: border),
+        labelStyle: const TextStyle(
+          color: textPrimary,
+          fontWeight: FontWeight.w700,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: textPrimary,
+        contentTextStyle: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      dataTableTheme: DataTableThemeData(
+        headingRowColor: WidgetStatePropertyAll(
+          brandPrimary.withValues(alpha: 0.12),
+        ),
+        headingTextStyle: const TextStyle(
+          color: textPrimary,
+          fontWeight: FontWeight.w900,
+        ),
+        dividerThickness: 0.7,
+      ),
       appBarTheme: AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 0.5,

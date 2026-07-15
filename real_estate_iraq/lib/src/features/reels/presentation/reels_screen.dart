@@ -6,6 +6,7 @@ import 'package:video_player/video_player.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/api/vewo_api_client.dart';
 import '../../../core/api/api_providers.dart';
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../routing/app_routes.dart';
@@ -15,11 +16,17 @@ import '../../../core/widgets/vewo_media_watermark.dart';
 import 'reel_create_sheet.dart';
 
 class ReelsScreen extends ConsumerStatefulWidget {
-  const ReelsScreen({super.key, this.openComposer = false, this.initialReelId});
+  const ReelsScreen({
+    super.key,
+    this.openComposer = false,
+    this.initialReelId,
+    this.ownerId,
+  });
 
   /// عند `?compose=1` تُفتح ورقة نشر الريل بعد التحميل.
   final bool openComposer;
   final String? initialReelId;
+  final String? ownerId;
 
   @override
   ConsumerState<ReelsScreen> createState() => _ReelsScreenState();
@@ -67,7 +74,15 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
       _error = null;
     });
     try {
-      final data = await ref.read(vewoApiClientProvider).getJson('reels/list');
+      final ownerId = widget.ownerId?.trim();
+      final data = await ref
+          .read(vewoApiClientProvider)
+          .getJson(
+            'reels/list',
+            query: ownerId != null && ownerId.isNotEmpty
+                ? {'owner_id': ownerId}
+                : null,
+          );
       final raw = data['items'];
       final list = <Map<String, dynamic>>[];
       if (raw is List) {
@@ -89,9 +104,16 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
               .getJson('reels/detail', query: {'id': targetId});
           final item = detail['item'];
           if (item is Map<String, dynamic>) {
-            list.insert(0, item);
+            final itemOwner = item['owner_user_id']?.toString();
+            if (ownerId == null || ownerId.isEmpty || itemOwner == ownerId) {
+              list.insert(0, item);
+            }
           } else if (item is Map) {
-            list.insert(0, Map<String, dynamic>.from(item));
+            final map = Map<String, dynamic>.from(item);
+            final itemOwner = map['owner_user_id']?.toString();
+            if (ownerId == null || ownerId.isEmpty || itemOwner == ownerId) {
+              list.insert(0, map);
+            }
           }
         } catch (_) {}
       }
@@ -366,6 +388,13 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomSafe = AppResponsive.shellContentBottomPadding(
+      context,
+      extra: 4,
+    );
+    final progressBottom = bottomSafe;
+    final captionBottom = bottomSafe + 52;
+    final actionBottom = bottomSafe + 68;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -421,7 +450,7 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
         Positioned(
           left: 16,
           right: 76,
-          bottom: 138,
+          bottom: captionBottom,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -448,7 +477,7 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
           Positioned(
             left: 14,
             right: 14,
-            bottom: 86,
+            bottom: progressBottom,
             child: AnimatedBuilder(
               animation: _controller,
               builder: (context, _) {
@@ -516,7 +545,7 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
           ),
         Positioned(
           right: 10,
-          bottom: 154,
+          bottom: actionBottom,
           child: Column(
             children: [
               _ReelAction(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../routing/app_routes.dart';
@@ -95,129 +96,134 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0, end: 1),
-                          duration: const Duration(milliseconds: 450),
-                          curve: Curves.easeOutBack,
-                          builder: (context, v, child) => Transform.scale(
-                            scale: 0.85 + 0.15 * v,
-                            child: Opacity(opacity: v, child: child),
+              padding: AppResponsive.pagePadding(context, top: 12),
+              child: ResponsiveCenter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0, end: 1),
+                            duration: const Duration(milliseconds: 450),
+                            curve: Curves.easeOutBack,
+                            builder: (context, v, child) => Transform.scale(
+                              scale: 0.85 + 0.15 * v,
+                              child: Opacity(opacity: v, child: child),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                AppBrandMark(
+                                  variant: AppBrandMarkVariant.hero,
+                                  showTagline: false,
+                                  color: scheme.primary,
+                                ),
+                              ],
+                            ),
                           ),
+                        ),
+                        TextButton(
+                          onPressed: () => context.go(AppRoutes.home),
+                          child: const Text('تصفح كضيف'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    const _AccountTypeChooser(),
+                    const SizedBox(height: 14),
+                    Material(
+                      elevation: 2,
+                      shadowColor: scheme.primary.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(22),
+                      color: scheme.surface,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 22, 18, 20),
+                        child: Form(
+                          key: _formKey,
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              AppBrandMark(
-                                variant: AppBrandMarkVariant.hero,
-                                showTagline: false,
-                                color: scheme.primary,
+                              TextFormField(
+                                controller: _login,
+                                keyboardType: TextInputType.emailAddress,
+                                textDirection: TextDirection.ltr,
+                                textAlign: TextAlign.right,
+                                decoration: const InputDecoration(
+                                  labelText: 'رقم الهاتف أو البريد الإلكتروني',
+                                  hintText: '07XXXXXXXXX أو name@email.com',
+                                  prefixIcon: Icon(
+                                    Icons.alternate_email_rounded,
+                                  ),
+                                ),
+                                validator: (v) {
+                                  final s = (v ?? '').trim();
+                                  if (s.isEmpty) return 'الحقل مطلوب';
+                                  if (s.contains('@')) {
+                                    final ok = RegExp(
+                                      r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                                    ).hasMatch(s);
+                                    return ok ? null : 'البريد غير صالح';
+                                  }
+                                  if (!RegExp(r'^07[0-9]{9}$').hasMatch(s)) {
+                                    return 'رقم الهاتف يجب أن يبدأ بـ 07 ويتكون من 11 رقم';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _password,
+                                obscureText: _obscure,
+                                decoration: InputDecoration(
+                                  labelText: 'كلمة المرور',
+                                  prefixIcon: const Icon(
+                                    Icons.lock_outline_rounded,
+                                  ),
+                                  suffixIcon: IconButton(
+                                    onPressed: () =>
+                                        setState(() => _obscure = !_obscure),
+                                    icon: Icon(
+                                      _obscure
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                    ),
+                                  ),
+                                ),
+                                validator: (v) => (v == null || v.length < 4)
+                                    ? 'كلمة مرور غير صالحة'
+                                    : null,
+                              ),
+                              Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: TextButton.icon(
+                                  onPressed: _openForgotPasswordWhatsApp,
+                                  icon: const Icon(Icons.lock_reset_rounded),
+                                  label: const Text('هل نسيت كلمة السر؟'),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              PrimaryButton(
+                                label: 'دخول',
+                                icon: Icons.login_rounded,
+                                isLoading: _loading,
+                                onPressed: _submit,
+                              ),
+                              const SizedBox(height: 14),
+                              OutlinedButton.icon(
+                                onPressed: () =>
+                                    context.push(AppRoutes.register),
+                                icon: const Icon(Icons.person_add_alt_rounded),
+                                label: const Text('إنشاء حساب جديد'),
                               ),
                             ],
                           ),
                         ),
                       ),
-                      TextButton(
-                        onPressed: () => context.go(AppRoutes.home),
-                        child: const Text('تصفح كضيف'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const _AccountTypeChooser(),
-                  const SizedBox(height: 14),
-                  Material(
-                    elevation: 2,
-                    shadowColor: scheme.primary.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(22),
-                    color: scheme.surface,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 22, 18, 20),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            TextFormField(
-                              controller: _login,
-                              keyboardType: TextInputType.emailAddress,
-                              textDirection: TextDirection.ltr,
-                              textAlign: TextAlign.right,
-                              decoration: const InputDecoration(
-                                labelText: 'رقم الهاتف أو البريد الإلكتروني',
-                                hintText: '07XXXXXXXXX أو name@email.com',
-                                prefixIcon: Icon(Icons.alternate_email_rounded),
-                              ),
-                              validator: (v) {
-                                final s = (v ?? '').trim();
-                                if (s.isEmpty) return 'الحقل مطلوب';
-                                if (s.contains('@')) {
-                                  final ok = RegExp(
-                                    r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                                  ).hasMatch(s);
-                                  return ok ? null : 'البريد غير صالح';
-                                }
-                                if (!RegExp(r'^07[0-9]{9}$').hasMatch(s)) {
-                                  return 'رقم الهاتف يجب أن يبدأ بـ 07 ويتكون من 11 رقم';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 14),
-                            TextFormField(
-                              controller: _password,
-                              obscureText: _obscure,
-                              decoration: InputDecoration(
-                                labelText: 'كلمة المرور',
-                                prefixIcon: const Icon(
-                                  Icons.lock_outline_rounded,
-                                ),
-                                suffixIcon: IconButton(
-                                  onPressed: () =>
-                                      setState(() => _obscure = !_obscure),
-                                  icon: Icon(
-                                    _obscure
-                                        ? Icons.visibility_outlined
-                                        : Icons.visibility_off_outlined,
-                                  ),
-                                ),
-                              ),
-                              validator: (v) => (v == null || v.length < 4)
-                                  ? 'كلمة مرور غير صالحة'
-                                  : null,
-                            ),
-                            Align(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: TextButton.icon(
-                                onPressed: _openForgotPasswordWhatsApp,
-                                icon: const Icon(Icons.lock_reset_rounded),
-                                label: const Text('هل نسيت كلمة السر؟'),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            PrimaryButton(
-                              label: 'دخول',
-                              icon: Icons.login_rounded,
-                              isLoading: _loading,
-                              onPressed: _submit,
-                            ),
-                            const SizedBox(height: 14),
-                            OutlinedButton.icon(
-                              onPressed: () => context.push(AppRoutes.register),
-                              icon: const Icon(Icons.person_add_alt_rounded),
-                              label: const Text('إنشاء حساب جديد'),
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

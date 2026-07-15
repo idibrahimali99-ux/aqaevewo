@@ -3,13 +3,16 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/app_bootstrap_provider.dart';
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_brand_mark.dart';
+import '../../../core/widgets/notification_badge.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../routing/app_routes.dart';
 import '../../auth/data/auth_controller.dart';
@@ -24,6 +27,11 @@ import '../../notifications/presentation/notifications_screen.dart';
 import '../../offices/data/offices_providers.dart';
 
 final homeRefreshSignalProvider = StateProvider<int>((ref) => 0);
+
+double _cw(num value) => value.w.clamp(0.0, value.toDouble()).toDouble();
+double _ch(num value) => value.h.clamp(0.0, value.toDouble()).toDouble();
+double _cr(num value) => value.r.clamp(0.0, value.toDouble()).toDouble();
+double _csp(num value) => value.sp.clamp(0.0, value.toDouble()).toDouble();
 
 /// إعلانات ذات `slot` للصفحة الرئيسية فقط (أو بدون تحديد = الرئيسية).
 bool _promoVisibleOnHome(HomePromotion p) {
@@ -130,55 +138,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               actions: [
                 IconButton(
                   tooltip: 'الإشعارات',
-                  onPressed: () {
+                  onPressed: () async {
                     if (!auth.isAuthenticated) {
                       context.push(AppRoutes.login);
                       return;
                     }
-                    context.push(AppRoutes.notifications);
+                    await context.push(AppRoutes.notifications);
+                    ref.invalidate(appNotifCountsProvider);
                   },
-                  icon: ref
-                      .watch(appNotifCountsProvider)
-                      .when(
-                        loading: () =>
-                            const Icon(Icons.notifications_none_rounded),
-                        error: (_, _) =>
-                            const Icon(Icons.notifications_none_rounded),
-                        data: (m) {
-                          final total = sumAppNotifCounts(m);
-                          if (total <= 0) {
-                            return const Icon(Icons.notifications_none_rounded);
-                          }
-                          return Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              const Icon(Icons.notifications_none_rounded),
-                              Positioned(
-                                top: -2,
-                                right: -2,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.mapPin,
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    total > 99 ? '99+' : '$total',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
+                  icon: ref.watch(appNotifCountsProvider).when(
+                    loading: () => const Icon(Icons.notifications_none_rounded),
+                    error: (_, _) =>
+                        const Icon(Icons.notifications_none_rounded),
+                    data: (m) => NotificationIconWithBadge(
+                      count: sumAppNotifCounts(m),
+                      style: NotificationBadgeStyle.onBrandHeader,
+                    ),
+                  ),
                 ),
                 IconButton(
                   tooltip: 'المحفوظات',
@@ -189,16 +165,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ],
             ),
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 14, 16, 0),
-                child: _HomePromotionsBlock(),
+                padding: EdgeInsets.fromLTRB(_cw(14), _ch(12), _cw(14), 0),
+                child: const _HomePromotionsBlock(),
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            SliverToBoxAdapter(child: SizedBox(height: _ch(7))),
             const SliverToBoxAdapter(child: _QuickNavRow()),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              padding: EdgeInsets.fromLTRB(_cw(14), _ch(3), _cw(14), _ch(10)),
               sliver: SliverToBoxAdapter(
                 child: _HomeSearchPanel(
                   onSearch: (q) => _openSearch(context, q),
@@ -206,13 +182,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             SliverToBoxAdapter(child: _UrgentSaleSection(items: allProperties)),
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: _OfficePostingQuotaStrip(),
+                padding: EdgeInsets.fromLTRB(_cw(14), 0, _cw(14), _ch(7)),
+                child: const _OfficePostingQuotaStrip(),
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            SliverToBoxAdapter(child: SizedBox(height: _ch(7))),
             if (propertiesLoading && mostViewed.isEmpty)
               const SliverToBoxAdapter(
                 child: Padding(
@@ -221,19 +197,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               )
             else ...[
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: SectionHeader(title: 'الأكثر مشاهدة'),
+                  padding: EdgeInsets.symmetric(horizontal: _cw(14)),
+                  child: const SectionHeader(title: 'الأكثر مشاهدة'),
                 ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 6)),
+              SliverToBoxAdapter(child: SizedBox(height: _ch(5))),
               SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: EdgeInsets.symmetric(horizontal: _cw(14)),
                       child: _PropertySlider(items: mostViewed),
                     ),
                     if (mostViewed.length == 5)
@@ -253,24 +229,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const SizedBox(height: 10),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: SectionHeader(title: 'الأقرب إليك'),
+                      SizedBox(height: _ch(8)),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: _cw(14)),
+                        child: const SectionHeader(title: 'الأقرب إليك'),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: _ch(8)),
                       _PropertySlider(items: near),
-                      const SizedBox(height: 10),
+                      SizedBox(height: _ch(8)),
                     ],
                   );
                 },
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 6)),
+            SliverToBoxAdapter(child: SizedBox(height: _ch(5))),
             const SliverToBoxAdapter(child: _ParcelsHub()),
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            SliverToBoxAdapter(child: SizedBox(height: _ch(10))),
             const SliverToBoxAdapter(child: _CompoundsHub()),
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            SliverToBoxAdapter(child: SizedBox(height: _ch(10))),
             SliverToBoxAdapter(
               child: _CategorySection(
                 title: 'أراضي',
@@ -313,13 +289,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 moreQuery: 'cat=compound',
               ),
             ),
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 10, 16, 0),
-                child: _HomePropertyNewsBlock(),
+                padding: EdgeInsets.fromLTRB(_cw(14), _ch(8), _cw(14), 0),
+                child: const _HomePropertyNewsBlock(),
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 128)),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: AppResponsive.shellContentBottomPadding(context),
+              ),
+            ),
           ],
         ),
       ),
@@ -727,33 +707,34 @@ class _UrgentSaleSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.symmetric(horizontal: _cw(14)),
           child: Row(
             children: [
-              const Text('🔥', style: TextStyle(fontSize: 28)),
-              const SizedBox(width: 8),
+              Text('🔥', style: TextStyle(fontSize: _csp(24))),
+              SizedBox(width: _cw(7)),
               Text(
                 'البيع العاجل',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  fontSize: _csp(21),
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: _ch(7)),
         SizedBox(
-          height: 424,
+          height: _ch(356),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: _cw(14)),
             itemCount: urgent.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            separatorBuilder: (_, _) => SizedBox(width: _cw(9)),
             itemBuilder: (context, index) =>
                 _UrgentSaleCard(property: urgent[index]),
           ),
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: _ch(12)),
       ],
     );
   }
@@ -767,7 +748,7 @@ class _UrgentSaleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 238,
+      width: _cw(214),
       child: PropertyCard(
         property: property,
         onTap: () =>
@@ -958,16 +939,21 @@ class _HomeSearchPanelState extends ConsumerState<_HomeSearchPanel> {
           child: Material(
             elevation: 10,
             shadowColor: AppColors.brandPrimary.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(_cr(24)),
             color: scheme.surface,
             child: Container(
-              height: 64,
+              height: _ch(52),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
+                borderRadius: BorderRadius.circular(_cr(24)),
                 color: Colors.white,
                 border: Border.all(color: AppColors.borderLight),
               ),
-              padding: const EdgeInsetsDirectional.fromSTEB(10, 6, 6, 6),
+              padding: EdgeInsetsDirectional.fromSTEB(
+                _cw(8),
+                _ch(4),
+                _cw(4),
+                _ch(4),
+              ),
               child: Row(
                 children: [
                   IconButton(
@@ -977,9 +963,9 @@ class _HomeSearchPanelState extends ConsumerState<_HomeSearchPanel> {
                     ),
                     onPressed: () =>
                         context.push('${AppRoutes.search}?filter=1'),
-                    icon: const Icon(Icons.tune_rounded, size: 30),
+                    icon: Icon(Icons.tune_rounded, size: _cr(24)),
                   ),
-                  const SizedBox(width: 6),
+                  SizedBox(width: _cw(4)),
                   Expanded(
                     child: TextField(
                       controller: _query,
@@ -994,12 +980,17 @@ class _HomeSearchPanelState extends ConsumerState<_HomeSearchPanel> {
                                 alpha: 0.72,
                               ),
                               fontWeight: FontWeight.w800,
+                              fontSize: _csp(13),
                             ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 12,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: _cw(8),
+                          vertical: _ch(9),
                         ),
+                      ),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontSize: _csp(13),
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
@@ -1008,35 +999,43 @@ class _HomeSearchPanelState extends ConsumerState<_HomeSearchPanel> {
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: _cw(8)),
         Material(
           elevation: 8,
           shadowColor: AppColors.frameGold.withValues(alpha: 0.18),
           color: AppColors.mapPin,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(_cr(18)),
           child: InkWell(
             onTap: _submit,
-            borderRadius: BorderRadius.circular(22),
-            child: const SizedBox(
-              width: 56,
-              height: 56,
-              child: Icon(Icons.search_rounded, color: AppColors.onBrand),
+            borderRadius: BorderRadius.circular(_cr(18)),
+            child: SizedBox(
+              width: _cw(52),
+              height: _ch(52),
+              child: Icon(
+                Icons.search_rounded,
+                color: AppColors.onBrand,
+                size: _cr(24),
+              ),
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: _cw(8)),
         Material(
           elevation: 8,
           shadowColor: AppColors.frameGold.withValues(alpha: 0.18),
           color: AppColors.frameGold,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(_cr(18)),
           child: InkWell(
             onTap: () => context.push(AppRoutes.propertiesMap),
-            borderRadius: BorderRadius.circular(22),
-            child: const SizedBox(
-              width: 56,
-              height: 56,
-              child: Icon(Icons.location_on, color: AppColors.onBrand),
+            borderRadius: BorderRadius.circular(_cr(18)),
+            child: SizedBox(
+              width: _cw(52),
+              height: _ch(52),
+              child: Icon(
+                Icons.location_on,
+                color: AppColors.onBrand,
+                size: _cr(25),
+              ),
             ),
           ),
         ),
@@ -1147,12 +1146,12 @@ class _QuickNavRow extends ConsumerWidget {
       data: (data) => data.homeSections,
       orElse: () => const <HomeSectionConfig>[],
     );
-    final items = serverItems.isNotEmpty ? serverItems : _defaultHomeSections;
+    final items = _homeSectionsWithRequiredItems(serverItems);
     return SizedBox(
-      height: 88,
+      height: _ch(82),
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
+        padding: EdgeInsets.symmetric(horizontal: _cw(12), vertical: _ch(3)),
         children: [
           _RequestPropertyChip(
             onTap: () => context.push(AppRoutes.requestProperty),
@@ -1170,6 +1169,26 @@ class _QuickNavRow extends ConsumerWidget {
   }
 }
 
+List<HomeSectionConfig> _homeSectionsWithRequiredItems(
+  List<HomeSectionConfig> serverItems,
+) {
+  if (serverItems.isEmpty) return _defaultHomeSections;
+  final hasMarketers = serverItems.any((item) => item.key == 'marketers');
+  if (hasMarketers) return serverItems;
+  final merged = <HomeSectionConfig>[...serverItems, _marketersHomeSection]
+    ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+  return merged;
+}
+
+const _marketersHomeSection = HomeSectionConfig(
+  key: 'marketers',
+  label: 'المسوقين',
+  iconName: 'person',
+  routeTarget: AppRoutes.marketers,
+  sortOrder: 15,
+  isActive: true,
+);
+
 const _defaultHomeSections = <HomeSectionConfig>[
   HomeSectionConfig(
     key: 'offices',
@@ -1179,6 +1198,7 @@ const _defaultHomeSections = <HomeSectionConfig>[
     sortOrder: 10,
     isActive: true,
   ),
+  _marketersHomeSection,
   HomeSectionConfig(
     key: 'parcels',
     label: 'المقاطعات',
@@ -1253,6 +1273,8 @@ IconData _homeSectionIcon(String iconName) {
       return Icons.vpn_key_rounded;
     case 'land':
       return Icons.park_outlined;
+    case 'person':
+      return Icons.person_pin_circle_rounded;
     case 'sale':
       return Icons.sell_rounded;
     case 'shop':
@@ -1278,18 +1300,18 @@ class _RequestPropertyChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsetsDirectional.only(end: 12),
+      padding: EdgeInsetsDirectional.only(end: _cw(10)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(_cr(18)),
         child: SizedBox(
-          width: 104,
+          width: _cw(92),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 104,
-                height: 66,
+                width: _cw(92),
+                height: _ch(58),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [
@@ -1300,68 +1322,68 @@ class _RequestPropertyChip extends StatelessWidget {
                     begin: Alignment.topRight,
                     end: Alignment.bottomLeft,
                   ),
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(_cr(18)),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.88),
-                    width: 1.3,
+                    width: _cw(1.1),
                   ),
                   boxShadow: [
                     BoxShadow(
                       color: AppColors.frameGold.withValues(alpha: 0.34),
-                      blurRadius: 20,
-                      offset: const Offset(0, 9),
+                      blurRadius: _cr(16),
+                      offset: Offset(0, _ch(7)),
                     ),
                     BoxShadow(
                       color: AppColors.brandPrimary.withValues(alpha: 0.12),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      blurRadius: _cr(10),
+                      offset: Offset(0, _ch(3)),
                     ),
                   ],
                 ),
                 child: Stack(
                   children: [
                     PositionedDirectional(
-                      top: 7,
-                      end: 8,
+                      top: _ch(6),
+                      end: _cw(7),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: _cw(5),
+                          vertical: _ch(1.5),
                         ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.22),
-                          borderRadius: BorderRadius.circular(999),
+                          borderRadius: BorderRadius.circular(_cr(999)),
                         ),
-                        child: const Text(
+                        child: Text(
                           'طلب',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 9,
+                            fontSize: _csp(8),
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                       ),
                     ),
-                    const Center(
+                    Center(
                       child: Icon(
                         Icons.real_estate_agent_rounded,
                         color: Colors.white,
-                        size: 31,
+                        size: _cr(27),
                       ),
                     ),
-                    const PositionedDirectional(
-                      start: 10,
-                      bottom: 7,
+                    PositionedDirectional(
+                      start: _cw(9),
+                      bottom: _ch(6),
                       child: Icon(
                         Icons.arrow_back_rounded,
                         color: Colors.white,
-                        size: 17,
+                        size: _cr(15),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 5),
+              SizedBox(height: _ch(4)),
               Text(
                 'اطلب عقارك',
                 maxLines: 1,
@@ -1370,7 +1392,7 @@ class _RequestPropertyChip extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w900,
                   color: AppColors.brandPrimary,
-                  fontSize: 11.8,
+                  fontSize: _csp(10.6),
                 ),
               ),
               Text(
@@ -1380,7 +1402,7 @@ class _RequestPropertyChip extends StatelessWidget {
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                   color: AppColors.frameGold,
-                  fontSize: 9,
+                  fontSize: _csp(8),
                   height: 1,
                 ),
               ),
@@ -1409,50 +1431,50 @@ class _QuickNavChip extends StatelessWidget {
   Widget build(BuildContext context) {
     const gold = AppColors.frameGold;
     return Padding(
-      padding: const EdgeInsetsDirectional.only(end: 9),
+      padding: EdgeInsetsDirectional.only(end: _cw(8)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(_cr(15)),
         child: SizedBox(
-          width: 70,
+          width: _cw(62),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 74,
-                height: 66,
+                width: _cw(62),
+                height: _ch(58),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(_cr(15)),
                   border: Border.all(
                     color: gold.withValues(alpha: 0.28),
-                    width: 1.1,
+                    width: _cw(1),
                   ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.055),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      blurRadius: _cr(8),
+                      offset: Offset(0, _ch(3)),
                     ),
                     BoxShadow(
                       color: gold.withValues(alpha: 0.08),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
+                      blurRadius: _cr(14),
+                      offset: Offset(0, _ch(6)),
                     ),
                   ],
                 ),
                 child: Center(
                   child: Container(
-                    width: 38,
-                    height: 38,
+                    width: _cw(32),
+                    height: _cw(32),
                     decoration: BoxDecoration(
                       color: gold.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(_cr(13)),
                     ),
                     child: assetPath == null
-                        ? Icon(icon, size: 26, color: gold)
+                        ? Icon(icon, size: _cr(22), color: gold)
                         : Padding(
-                            padding: const EdgeInsets.all(10),
+                            padding: EdgeInsets.all(_cw(8)),
                             child: ColorFiltered(
                               colorFilter: const ColorFilter.mode(
                                 gold,
@@ -1462,14 +1484,14 @@ class _QuickNavChip extends StatelessWidget {
                                 assetPath!,
                                 fit: BoxFit.contain,
                                 errorBuilder: (_, _, _) =>
-                                    Icon(icon, size: 25, color: gold),
+                                    Icon(icon, size: _cr(21), color: gold),
                               ),
                             ),
                           ),
                   ),
                 ),
               ),
-              const SizedBox(height: 5),
+              SizedBox(height: _ch(4)),
               Text(
                 label,
                 maxLines: 1,
@@ -1478,7 +1500,7 @@ class _QuickNavChip extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w900,
                   color: AppColors.brandPrimary,
-                  fontSize: 11.5,
+                  fontSize: _csp(10.2),
                 ),
               ),
             ],
@@ -1608,7 +1630,7 @@ class _AdsAutoCarouselState extends State<_AdsAutoCarousel> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(
-          height: 196,
+          height: _ch(176),
           child: PageView.builder(
             controller: _pageController,
             itemCount: n,
@@ -1617,11 +1639,14 @@ class _AdsAutoCarouselState extends State<_AdsAutoCarousel> {
             itemBuilder: (context, i) {
               final p = widget.promotions[i];
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+                padding: EdgeInsets.symmetric(
+                  horizontal: _cw(4),
+                  vertical: _ch(4),
+                ),
                 child: Material(
                   elevation: 8,
                   shadowColor: scheme.primary.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(_cr(20)),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
                     onTap: () => _onPromotionTap(context, p),
@@ -1647,9 +1672,9 @@ class _AdsAutoCarouselState extends State<_AdsAutoCarousel> {
                           ),
                         ),
                         Positioned(
-                          left: 14,
-                          right: 14,
-                          bottom: 14,
+                          left: _cw(12),
+                          right: _cw(12),
+                          bottom: _ch(12),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1661,16 +1686,20 @@ class _AdsAutoCarouselState extends State<_AdsAutoCarousel> {
                                     ?.copyWith(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w900,
+                                      fontSize: _csp(14),
                                     ),
                               ),
                               if (p.subtitle.isNotEmpty) ...[
-                                const SizedBox(height: 4),
+                                SizedBox(height: _ch(3)),
                                 Text(
                                   p.subtitle,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: Colors.white70),
+                                      ?.copyWith(
+                                        color: Colors.white70,
+                                        fontSize: _csp(11),
+                                      ),
                                 ),
                               ],
                             ],
@@ -1685,18 +1714,18 @@ class _AdsAutoCarouselState extends State<_AdsAutoCarousel> {
           ),
         ),
         if (n > 1) ...[
-          const SizedBox(height: 10),
+          SizedBox(height: _ch(8)),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(n, (i) {
               final active = i == _index;
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 280),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: active ? 22 : 7,
-                height: 7,
+                margin: EdgeInsets.symmetric(horizontal: _cw(2.5)),
+                width: active ? _cw(20) : _cw(6),
+                height: _ch(6),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(_cr(8)),
                   color: active ? scheme.primary : scheme.outlineVariant,
                 ),
               );
@@ -1820,15 +1849,15 @@ class _PropertySlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 424,
+      height: _ch(356),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: items.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        separatorBuilder: (_, _) => SizedBox(width: _cw(9)),
         itemBuilder: (context, index) {
           final p = items[index];
           return SizedBox(
-            width: 238,
+            width: _cw(214),
             child: PropertyCard(
               property: p,
               onTap: () => context.push('${AppRoutes.propertyDetails}/${p.id}'),

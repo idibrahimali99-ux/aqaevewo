@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../routing/app_routes.dart';
@@ -26,10 +27,8 @@ class CompoundProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _CompoundProfileScreenState extends ConsumerState<CompoundProfileScreen> {
-  ({String compoundId, String title}) get _scope => (
-        compoundId: widget.compoundId,
-        title: widget.title,
-      );
+  ({String compoundId, String title}) get _scope =>
+      (compoundId: widget.compoundId, title: widget.title);
 
   @override
   void initState() {
@@ -54,8 +53,8 @@ class _CompoundProfileScreenState extends ConsumerState<CompoundProfileScreen> {
     final countLabel = items.isNotEmpty
         ? '${items.length}'
         : (widget.expectedPostsCount != null && widget.expectedPostsCount! > 0
-            ? '${widget.expectedPostsCount} (جاري التحديث)'
-            : '0');
+              ? '${widget.expectedPostsCount} (جاري التحديث)'
+              : '0');
 
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -64,7 +63,11 @@ class _CompoundProfileScreenState extends ConsumerState<CompoundProfileScreen> {
         onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: AppResponsive.pagePadding(
+            context,
+            top: 8,
+            accountForShellNav: true,
+          ),
           children: [
             Card(
               margin: const EdgeInsets.only(bottom: 16),
@@ -89,15 +92,14 @@ class _CompoundProfileScreenState extends ConsumerState<CompoundProfileScreen> {
                         children: [
                           Text(
                             widget.title,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
+                            style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(fontWeight: FontWeight.w900),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             'عدد المنشورات: $countLabel',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
                                   color: AppColors.brandPrimary,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -121,11 +123,16 @@ class _CompoundProfileScreenState extends ConsumerState<CompoundProfileScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.wifi_off_rounded, size: 48, color: scheme.primary),
+                      Icon(
+                        Icons.wifi_off_rounded,
+                        size: 48,
+                        color: scheme.primary,
+                      ),
                       const SizedBox(height: 12),
                       Text(
                         'تعذر تحميل المنشورات',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
                               fontWeight: FontWeight.w800,
                               color: AppColors.brandPrimary,
                             ),
@@ -153,8 +160,8 @@ class _CompoundProfileScreenState extends ConsumerState<CompoundProfileScreen> {
                         : 'لا توجد منشورات لهذا المجمع بعد.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               )
@@ -164,9 +171,8 @@ class _CompoundProfileScreenState extends ConsumerState<CompoundProfileScreen> {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: PropertyCard(
                     property: p,
-                    onTap: () => context.push(
-                      '${AppRoutes.propertyDetails}/${p.id}',
-                    ),
+                    onTap: () =>
+                        context.push('${AppRoutes.propertyDetails}/${p.id}'),
                   ),
                 ),
           ],

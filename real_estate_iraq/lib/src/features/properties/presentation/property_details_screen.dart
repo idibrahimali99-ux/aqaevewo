@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:vewo_shared/vewo_shared.dart' show IQDFormatter;
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_brand_mark.dart';
@@ -166,7 +167,13 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       appBar: AppBar(title: const AppBarBrandTitle('تفاصيل العقار')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: EdgeInsets.fromLTRB(
+          AppResponsive.pageHorizontalPadding(context),
+          8,
+          AppResponsive.pageHorizontalPadding(context),
+          24,
+        ),
         children: [
           _MediaGallery(
             images: property.images,
@@ -459,8 +466,15 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
         ],
       ),
       bottomNavigationBar: SafeArea(
+        top: false,
+        bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          padding: EdgeInsets.fromLTRB(
+            AppResponsive.pageHorizontalPadding(context),
+            10,
+            AppResponsive.pageHorizontalPadding(context),
+            AppResponsive.shellContentBottomPadding(context, extra: 4),
+          ),
           child: Row(
             children: [
               Expanded(

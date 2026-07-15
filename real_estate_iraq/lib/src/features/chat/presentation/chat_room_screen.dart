@@ -17,6 +17,7 @@ import '../../reels/data/reel_detail_provider.dart';
 
 import '../../../core/api/api_providers.dart';
 import '../../../core/api/vewo_api_client.dart';
+import '../../../core/layout/app_responsive.dart';
 import '../../auth/data/auth_controller.dart';
 import '../../auth/domain/user_role.dart';
 import '../../properties/data/properties_providers.dart';
@@ -124,6 +125,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   bool _awaitingAdminReply = false;
   String? _customerLastReadAt;
   String? _adminLastReadAt;
+  String? _peerTitle;
   Map<String, dynamic>? _reelContext;
   bool get _isNewFlow => widget.chatId == 'new' || widget.chatId == 'support';
 
@@ -200,6 +202,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         _threadId = tid;
         _threadMode = mode;
         if (tpn != null && tpn > 0) _threadPublicNo = tpn;
+        _peerTitle = _peerTitleFromResponse(data);
         _reelContext = reelCtx;
         _opening = false;
         _loading = false;
@@ -211,24 +214,6 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         try {
           await _sendRaw('مرحباً، أريد طلب عقار.');
         } catch (_) {}
-      } else if (_reelContext != null) {
-        final cap = _reelContext!['caption']?.toString().trim() ?? '';
-        final intro = cap.isNotEmpty
-            ? 'مرحباً، استفسار من الريلز: $cap'
-            : 'مرحباً، استفسار من قسم الريلز';
-        try {
-          await _sendRaw(intro);
-        } catch (_) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'لم يُرسل الإشعار التلقائي — يمكنك الكتابة يدوياً',
-                ),
-              ),
-            );
-          }
-        }
       }
     } on VewoApiException catch (e) {
       if (!mounted) return;
@@ -293,6 +278,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         _awaitingAdminReply = awaiting;
         _customerLastReadAt = data['customer_last_read_at']?.toString();
         _adminLastReadAt = data['admin_last_read_at']?.toString();
+        _peerTitle = _peerTitleFromResponse(data) ?? _peerTitle;
         _messages = list;
         if (reelCtx != null) _reelContext = reelCtx;
         if (!silent) _loading = false;
@@ -315,6 +301,34 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         _loading = false;
       });
     }
+  }
+
+  String? _peerTitleFromResponse(Map<String, dynamic> data) {
+    final auth = ref.read(authControllerProvider);
+    final myId = auth.userId ?? '';
+    final customerId = data['customer_user_id']?.toString() ?? '';
+    final officeId = data['office_user_id']?.toString() ?? '';
+    final candidates = <String>[];
+    if (officeId == myId) {
+      candidates.add(data['customer_display_name']?.toString() ?? '');
+    } else if (customerId == myId) {
+      candidates.add(data['office_display_name']?.toString() ?? '');
+    }
+    candidates.addAll([
+      data['peer'] is Map
+          ? ((data['peer'] as Map)['full_name']?.toString() ?? '')
+          : '',
+      data['admin'] is Map
+          ? ((data['admin'] as Map)['full_name']?.toString() ?? '')
+          : '',
+      data['office_display_name']?.toString() ?? '',
+      data['customer_display_name']?.toString() ?? '',
+    ]);
+    for (final candidate in candidates) {
+      final value = candidate.trim();
+      if (value.isNotEmpty) return value;
+    }
+    return null;
   }
 
   void _scrollToEnd() {
@@ -555,7 +569,9 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   Widget build(BuildContext context) {
     final myId = ref.watch(authControllerProvider).userId;
     final threadNo = _threadPublicNo;
-    final title = _isNewFlow ? AppBrandStrings.plainShort : 'محادثة';
+    final title = _peerTitle?.trim().isNotEmpty == true
+        ? _peerTitle!.trim()
+        : (_isNewFlow ? AppBrandStrings.plainShort : 'محادثة');
 
     final propertyId = widget.propertyId;
     final propAsync = propertyId != null && propertyId.isNotEmpty
@@ -864,9 +880,19 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                     ),
                   ),
                 ),
-                SafeArea(
+                AnimatedPadding(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(context).bottom > 0
+                        ? 8
+                        : AppResponsive.shellContentBottomPadding(
+                            context,
+                            extra: 0,
+                          ),
+                  ),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [

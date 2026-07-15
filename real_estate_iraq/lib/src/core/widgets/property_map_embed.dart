@@ -33,6 +33,8 @@ class _PropertyMapEmbedState extends State<PropertyMapEmbed> {
     super.initState();
     createAqarTownMapMarker(size: 52).then((icon) {
       if (mounted) setState(() => _markerIcon = icon);
+    }).catchError((_) {
+      // نبقى على العلامة الافتراضية — لا نُسقط الشاشة على iOS.
     });
   }
 

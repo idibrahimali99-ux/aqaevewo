@@ -43,6 +43,7 @@ class _ReelContextBannerState extends State<ReelContextBanner> {
     final publisher = widget.reel['publisher_display']?.toString().trim() ?? '';
     final propertyId = widget.reel['property_id']?.toString().trim();
     final reelId = widget.reel['id']?.toString() ?? '';
+    final ownerId = widget.reel['owner_user_id']?.toString().trim() ?? '';
     final shortReelId = reelId.length > 8 ? reelId.substring(0, 8) : reelId;
     final shortPropertyId = propertyId != null && propertyId.length > 8
         ? propertyId.substring(0, 8)
@@ -50,7 +51,7 @@ class _ReelContextBannerState extends State<ReelContextBanner> {
 
     void openLinked() {
       if (reelId.isNotEmpty) {
-        context.push('${AppRoutes.reels}?reel_id=$reelId');
+        context.go(_reelRoute(reelId: reelId, ownerId: ownerId));
         return;
       }
       if (propertyId != null && propertyId.isNotEmpty) {
@@ -176,8 +177,8 @@ class _ReelContextBannerState extends State<ReelContextBanner> {
                           ),
                         if (reelId.isNotEmpty)
                           TextButton.icon(
-                            onPressed: () => context.push(
-                              '${AppRoutes.reels}?reel_id=$reelId',
+                            onPressed: () => context.go(
+                              _reelRoute(reelId: reelId, ownerId: ownerId),
                             ),
                             icon: const Icon(
                               Icons.video_collection_outlined,
@@ -195,5 +196,15 @@ class _ReelContextBannerState extends State<ReelContextBanner> {
         ),
       ),
     );
+  }
+
+  String _reelRoute({required String reelId, required String ownerId}) {
+    return Uri(
+      path: AppRoutes.reels,
+      queryParameters: {
+        'reel_id': reelId,
+        if (ownerId.isNotEmpty) 'owner_id': ownerId,
+      },
+    ).toString();
   }
 }

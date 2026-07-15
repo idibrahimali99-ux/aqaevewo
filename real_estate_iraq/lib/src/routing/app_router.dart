@@ -19,6 +19,8 @@ import '../features/chat/presentation/chat_room_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/requests/presentation/my_property_requests_screen.dart';
 import '../features/requests/presentation/property_request_form_screen.dart';
+import '../features/marketers/presentation/marketer_profile_screen.dart';
+import '../features/marketers/presentation/marketers_list_screen.dart';
 import '../features/offices/presentation/offices_list_screen.dart';
 import '../features/offices/presentation/office_profile_screen.dart';
 import '../features/parcels/presentation/parcel_profile_screen.dart';
@@ -50,6 +52,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           loc == AppRoutes.home ||
           loc == AppRoutes.search ||
           loc == AppRoutes.reels ||
+          loc == AppRoutes.marketers ||
           loc == AppRoutes.offices ||
           loc == AppRoutes.parcels ||
           loc == AppRoutes.compounds ||
@@ -57,6 +60,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           loc.startsWith('${AppRoutes.parcelProfile}/') ||
           loc.startsWith('${AppRoutes.compoundProfile}/') ||
           loc.startsWith('${AppRoutes.officeProfile}/') ||
+          loc.startsWith('${AppRoutes.marketerProfile}/') ||
           loc.startsWith(AppRoutes.propertyDetails) ||
           loc.startsWith('${AppRoutes.newsDetail}/');
 
@@ -114,6 +118,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => ReelsScreen(
               openComposer: state.uri.queryParameters['compose'] == '1',
               initialReelId: state.uri.queryParameters['reel_id'],
+              ownerId: state.uri.queryParameters['owner_id'],
             ),
           ),
           GoRoute(
@@ -127,6 +132,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.offices,
             builder: (_, _) => const OfficesListScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.marketers,
+            builder: (_, _) => const MarketersListScreen(),
+          ),
+          GoRoute(
+            path: '${AppRoutes.marketerProfile}/:marketerId',
+            builder: (context, state) => MarketerProfileScreen(
+              marketerId: state.pathParameters['marketerId']!,
+            ),
           ),
           GoRoute(
             path: AppRoutes.parcels,

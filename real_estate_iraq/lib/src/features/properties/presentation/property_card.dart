@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
@@ -23,6 +24,11 @@ IconData _propertyCategoryIcon(PropertyCategory c) => switch (c) {
   PropertyCategory.compound => Icons.domain_outlined,
   PropertyCategory.villa => Icons.villa_outlined,
 };
+
+double _cw(num value) => value.w.clamp(0.0, value.toDouble()).toDouble();
+double _ch(num value) => value.h.clamp(0.0, value.toDouble()).toDouble();
+double _cr(num value) => value.r.clamp(0.0, value.toDouble()).toDouble();
+double _csp(num value) => value.sp.clamp(0.0, value.toDouble()).toDouble();
 
 class PropertyCard extends ConsumerWidget {
   const PropertyCard({
@@ -141,7 +147,7 @@ class PropertyCard extends ConsumerWidget {
       elevation: 3,
       shadowColor: Colors.black.withValues(alpha: 0.07),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(_cr(14)),
         side: const BorderSide(color: AppColors.cardBorder),
       ),
       clipBehavior: Clip.antiAlias,
@@ -151,7 +157,7 @@ class PropertyCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             AspectRatio(
-              aspectRatio: 1.74,
+              aspectRatio: 1.64,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -180,31 +186,31 @@ class PropertyCard extends ConsumerWidget {
                   ),
                   Positioned.directional(
                     textDirection: Directionality.of(context),
-                    top: 10,
-                    end: 10,
+                    top: _ch(8),
+                    end: _cw(8),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: AppColors.frameGold.withValues(alpha: 0.96),
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(_cr(999)),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.14),
-                            blurRadius: 14,
-                            offset: const Offset(0, 6),
+                            blurRadius: _cr(10),
+                            offset: Offset(0, _ch(4)),
                           ),
                         ],
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 11,
-                          vertical: 6,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: _cw(9),
+                          vertical: _ch(4),
                         ),
                         child: Text(
                           purposeAr,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w900,
-                            fontSize: 12,
+                            fontSize: _csp(10.5),
                           ),
                         ),
                       ),
@@ -213,8 +219,8 @@ class PropertyCard extends ConsumerWidget {
                   if (property.publicNo != null)
                     Positioned.directional(
                       textDirection: Directionality.of(context),
-                      top: 8,
-                      start: 8,
+                      top: _ch(7),
+                      start: _cw(7),
                       child: GestureDetector(
                         onTap: () {
                           Clipboard.setData(
@@ -226,29 +232,29 @@ class PropertyCard extends ConsumerWidget {
                         },
                         child: Material(
                           color: Colors.black.withValues(alpha: 0.56),
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(_cr(12)),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 5,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: _cw(7),
+                              vertical: _ch(4),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
                                   '#${property.publicNo}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w900,
-                                    fontSize: 12,
+                                    fontSize: _csp(10.5),
                                     letterSpacing: 0.3,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                const Icon(
+                                SizedBox(width: _cw(3)),
+                                Icon(
                                   Icons.copy_rounded,
                                   color: Colors.white70,
-                                  size: 15,
+                                  size: _cr(13),
                                 ),
                               ],
                             ),
@@ -259,22 +265,22 @@ class PropertyCard extends ConsumerWidget {
                   if (_showPendingStrip)
                     Positioned.directional(
                       textDirection: Directionality.of(context),
-                      top: 62,
-                      end: 14,
+                      top: _ch(48),
+                      end: _cw(10),
                       child: Material(
                         color: AppColors.warningLight.withValues(alpha: 0.92),
-                        borderRadius: BorderRadius.circular(10),
-                        child: const Padding(
+                        borderRadius: BorderRadius.circular(_cr(9)),
+                        child: Padding(
                           padding: EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
+                            horizontal: _cw(8),
+                            vertical: _ch(4),
                           ),
                           child: Text(
                             'قيد المراجعة',
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w900,
-                              fontSize: 11,
+                              fontSize: _csp(9.5),
                             ),
                           ),
                         ),
@@ -283,22 +289,22 @@ class PropertyCard extends ConsumerWidget {
                   if (_showRejectedStrip)
                     Positioned.directional(
                       textDirection: Directionality.of(context),
-                      top: 62,
-                      end: 14,
+                      top: _ch(48),
+                      end: _cw(10),
                       child: Material(
                         color: scheme.error.withValues(alpha: 0.92),
-                        borderRadius: BorderRadius.circular(10),
-                        child: const Padding(
+                        borderRadius: BorderRadius.circular(_cr(9)),
+                        child: Padding(
                           padding: EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
+                            horizontal: _cw(8),
+                            vertical: _ch(4),
                           ),
                           child: Text(
                             'مرفوض',
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w900,
-                              fontSize: 11,
+                              fontSize: _csp(9.5),
                             ),
                           ),
                         ),
@@ -310,15 +316,15 @@ class PropertyCard extends ConsumerWidget {
                       right: 0,
                       bottom: 0,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        padding: EdgeInsets.symmetric(vertical: _ch(7)),
                         color: scheme.primary,
-                        child: const Text(
+                        child: Text(
                           'تم البيع',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w900,
-                            fontSize: 13,
+                            fontSize: _csp(11),
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -328,7 +334,7 @@ class PropertyCard extends ConsumerWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              padding: EdgeInsets.fromLTRB(_cw(8), _ch(6), _cw(8), _ch(8)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -340,15 +346,15 @@ class PropertyCard extends ConsumerWidget {
                         child: Align(
                           alignment: AlignmentDirectional.centerStart,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 5,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: _cw(7),
+                              vertical: _ch(3),
                             ),
                             decoration: BoxDecoration(
                               color: AppColors.frameGold.withValues(
                                 alpha: 0.10,
                               ),
-                              borderRadius: BorderRadius.circular(999),
+                              borderRadius: BorderRadius.circular(_cr(999)),
                             ),
                             child: Text(
                               priceLabel,
@@ -359,12 +365,13 @@ class PropertyCard extends ConsumerWidget {
                                     fontWeight: FontWeight.w900,
                                     color: AppColors.frameGold,
                                     letterSpacing: -0.3,
+                                    fontSize: _csp(12),
                                   ),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: _cw(6)),
                       Expanded(
                         flex: 6,
                         child: Text(
@@ -379,13 +386,14 @@ class PropertyCard extends ConsumerWidget {
                                 fontWeight: FontWeight.w900,
                                 height: 1.25,
                                 color: AppColors.textPrimary,
+                                fontSize: _csp(13),
                               ),
                         ),
                       ),
                     ],
                   ),
                   if (_negotiableFlag && property.priceIqd > 0) ...[
-                    const SizedBox(height: 6),
+                    SizedBox(height: _ch(4)),
                     Align(
                       alignment: AlignmentDirectional.centerStart,
                       child: _SoftPill(
@@ -395,16 +403,16 @@ class PropertyCard extends ConsumerWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 6),
+                  SizedBox(height: _ch(5)),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
                         Icons.location_on_outlined,
-                        size: 19,
+                        size: _cr(16),
                         color: AppColors.mapPin,
                       ),
-                      const SizedBox(width: 7),
+                      SizedBox(width: _cw(5)),
                       Expanded(
                         child: Text(
                           loc,
@@ -414,13 +422,14 @@ class PropertyCard extends ConsumerWidget {
                               ?.copyWith(
                                 color: AppColors.dataText,
                                 fontWeight: FontWeight.w700,
+                                fontSize: _csp(11),
                               ),
                         ),
                       ),
                     ],
                   ),
                   if (compoundName != null && compoundName.isNotEmpty) ...[
-                    const SizedBox(height: 6),
+                    SizedBox(height: _ch(4)),
                     Align(
                       alignment: AlignmentDirectional.centerStart,
                       child: _SoftPill(
@@ -431,7 +440,7 @@ class PropertyCard extends ConsumerWidget {
                     ),
                   ],
                   if (_publishedLabel != null) ...[
-                    const SizedBox(height: 6),
+                    SizedBox(height: _ch(4)),
                     Align(
                       alignment: AlignmentDirectional.centerStart,
                       child: Text(
@@ -439,13 +448,14 @@ class PropertyCard extends ConsumerWidget {
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: AppColors.dataText,
                           fontWeight: FontWeight.w800,
+                          fontSize: _csp(10),
                         ),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 6),
+                  SizedBox(height: _ch(5)),
                   Divider(height: 1, color: border),
-                  const SizedBox(height: 6),
+                  SizedBox(height: _ch(5)),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -466,19 +476,19 @@ class PropertyCard extends ConsumerWidget {
                     ],
                   ),
                   if (property.publisherLabel.isNotEmpty) ...[
-                    const SizedBox(height: 6),
+                    SizedBox(height: _ch(4)),
                     Row(
                       children: [
                         Icon(
                           property.publisherVerified
                               ? Icons.verified_rounded
                               : Icons.person_outline_rounded,
-                          size: 16,
+                          size: _cr(14),
                           color: property.publisherVerified
                               ? scheme.primary
                               : scheme.onSurfaceVariant,
                         ),
-                        const SizedBox(width: 6),
+                        SizedBox(width: _cw(5)),
                         Expanded(
                           child: Text(
                             property.publisherLabel,
@@ -488,13 +498,14 @@ class PropertyCard extends ConsumerWidget {
                                 ?.copyWith(
                                   fontWeight: FontWeight.w700,
                                   color: scheme.onSurfaceVariant,
+                                  fontSize: _csp(10),
                                 ),
                           ),
                         ),
                       ],
                     ),
                   ],
-                  const SizedBox(height: 6),
+                  SizedBox(height: _ch(5)),
                   Row(
                     children: [
                       Expanded(
@@ -505,7 +516,7 @@ class PropertyCard extends ConsumerWidget {
                           onTap: shareProperty,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: _cw(6)),
                       Expanded(
                         child: _PropertyInlineAction(
                           icon: isSaved
@@ -524,7 +535,7 @@ class PropertyCard extends ConsumerWidget {
                   if (_showRejectedStrip &&
                       !viewerIsOffice &&
                       (_rejectionNote ?? '').isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: _ch(6)),
                     Text(
                       _rejectionNote ?? '',
                       maxLines: 3,
@@ -566,14 +577,14 @@ class _PropertyInlineAction extends StatelessWidget {
     final child = Tooltip(
       message: tooltip,
       child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        height: _ch(28),
+        padding: EdgeInsets.symmetric(horizontal: _cw(7)),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected
               ? AppColors.frameGold.withValues(alpha: 0.16)
               : scheme.surfaceContainerHighest.withValues(alpha: 0.75),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(_cr(10)),
           border: Border.all(
             color: selected
                 ? AppColors.frameGold.withValues(alpha: 0.5)
@@ -587,9 +598,9 @@ class _PropertyInlineAction extends StatelessWidget {
             Icon(
               icon,
               color: selected ? AppColors.frameGold : AppColors.textPrimary,
-              size: 17,
+              size: _cr(14),
             ),
-            const SizedBox(width: 5),
+            SizedBox(width: _cw(4)),
             Flexible(
               child: Text(
                 label,
@@ -598,6 +609,7 @@ class _PropertyInlineAction extends StatelessWidget {
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: selected ? AppColors.frameGold : AppColors.textPrimary,
                   fontWeight: FontWeight.w900,
+                  fontSize: _csp(10),
                 ),
               ),
             ),
@@ -606,7 +618,7 @@ class _PropertyInlineAction extends StatelessWidget {
       ),
     );
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(_cr(10)),
       onTap: onTap,
       child: child,
     );
@@ -632,8 +644,8 @@ class _PropertyMainStat extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 5),
+        Icon(icon, color: color, size: _cr(22)),
+        SizedBox(height: _ch(3)),
         Text(
           value,
           maxLines: 1,
@@ -641,14 +653,16 @@ class _PropertyMainStat extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w900,
             color: scheme.onSurface,
+            fontSize: _csp(12),
           ),
         ),
-        const SizedBox(height: 2),
+        SizedBox(height: _ch(1)),
         Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: scheme.onSurfaceVariant,
             fontWeight: FontWeight.w700,
+            fontSize: _csp(10),
           ),
         ),
       ],
@@ -670,22 +684,25 @@ class _SoftPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: EdgeInsets.symmetric(horizontal: _cw(8), vertical: _ch(4)),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(_cr(999)),
         border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 5),
+          Icon(icon, size: _cr(13), color: color),
+          SizedBox(width: _cw(4)),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: color,
               fontWeight: FontWeight.w900,
+              fontSize: _csp(10),
             ),
           ),
         ],

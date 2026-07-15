@@ -1,0 +1,1 @@
+<div class="container-xl py-5 panel-card"><h1><?= e((string) ($news['title'] ?? '')) ?></h1><?php if (!empty($news['image_url'])): ?><img class="w-100 rounded-4 mb-3" src="<?= e((string) $news['image_url']) ?>" alt=""><?php endif; ?><div><?= nl2br(e((string) ($news['body'] ?? ''))) ?></div></div>

@@ -1,0 +1,283 @@
+.admin-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+.admin-tab {
+  display: inline-flex;
+  align-items: center;
+  padding: .55rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--admin-line);
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: .9rem;
+}
+.admin-tab.active {
+  background: var(--admin-primary);
+  border-color: var(--admin-primary);
+  color: #1d1a13;
+}
+.admin-inline-search {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+  min-width: min(100%, 320px);
+}
+.admin-inline-search input {
+  flex: 1;
+  border: 1px solid var(--admin-line);
+  border-radius: 999px;
+  padding: .45rem .85rem;
+}
+.admin-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.admin-entity-card, .admin-property-card, .admin-reel-card {
+  background: #fff;
+  border: 1px solid var(--admin-line);
+  border-radius: 1.25rem;
+  overflow: hidden;
+  box-shadow: 0 14px 40px rgba(21,18,13,.06);
+}
+.admin-entity-card { padding: 1rem; }
+.admin-entity-head {
+  display: flex;
+  gap: .85rem;
+  align-items: center;
+  margin-bottom: .85rem;
+}
+.admin-entity-avatar, .admin-thumb-lg {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  object-fit: cover;
+  border: 1px solid var(--admin-line);
+  flex-shrink: 0;
+}
+.admin-thumb-lg { width: 72px; height: 72px; }
+.admin-entity-meta {
+  display: grid;
+  gap: .35rem;
+  font-size: .9rem;
+  margin-bottom: .85rem;
+}
+.admin-entity-actions {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+.admin-property-grid, .admin-reels-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.admin-property-media, .admin-reel-media {
+  position: relative;
+  aspect-ratio: 4/3;
+  background: #f5f0e6;
+}
+.admin-property-media img, .admin-reel-media video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.admin-property-no {
+  position: absolute;
+  top: .75rem;
+  right: .75rem;
+  background: rgba(0,0,0,.65);
+  color: #fff;
+  padding: .2rem .55rem;
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 800;
+}
+.admin-property-body { padding: 1rem; }
+.admin-property-price {
+  color: #9a7200;
+  font-weight: 900;
+  margin: .35rem 0;
+}
+.admin-reel-placeholder {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  color: #9a7200;
+}
+.admin-property-open {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.admin-property-open:hover .admin-property-media img {
+  transform: scale(1.03);
+}
+.admin-property-media img {
+  transition: transform .25s ease;
+}
+.property-detail-full .property-detail-price {
+  color: #9a7200;
+  font-size: 1.6rem;
+  font-weight: 900;
+}
+.property-spec-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .65rem;
+}
+.property-spec-item {
+  padding: .65rem .75rem;
+  border-radius: .85rem;
+  background: #faf7ef;
+  border: 1px solid var(--admin-line, #e6dcc8);
+}
+.property-spec-item span {
+  display: block;
+  font-size: .75rem;
+  color: #8a8172;
+}
+.property-owner-card,
+.property-description {
+  padding: .85rem 1rem;
+  border-radius: 1rem;
+  background: #faf7ef;
+  border: 1px solid var(--admin-line, #e6dcc8);
+}
+.property-detail-map {
+  height: 220px;
+  border: 1px solid var(--admin-line, #e6dcc8);
+}
+.messenger-wrap-admin { margin: -.25rem; }
+.admin-highlight-card .panel-head { margin-bottom: 1rem; }
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  align-items: center;
+}
+.admin-sort-form {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.admin-sort-select {
+  min-width: 140px;
+  border-radius: 999px;
+}
+.admin-list-panel {
+  padding: 0;
+  overflow: hidden;
+}
+.admin-data-table thead th {
+  background: #faf7ef;
+  border-bottom: 1px solid var(--admin-line, #e6dcc8);
+  font-size: .85rem;
+  white-space: nowrap;
+}
+.admin-data-table tbody tr:hover {
+  background: rgba(245, 180, 0, .06);
+}
+.admin-list-cell {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  min-width: 220px;
+}
+.admin-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  justify-content: flex-end;
+}
+.admin-preview-badge {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,.35);
+  color: #fff;
+  font-weight: 800;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+.admin-property-open:hover .admin-preview-badge,
+.admin-reel-media:hover .admin-preview-badge {
+  opacity: 1;
+}
+.admin-preview-photo {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border: 1px solid var(--admin-line, #e6dcc8);
+}
+.admin-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+}
+.admin-detail-grid > div {
+  padding: .75rem;
+  border-radius: .85rem;
+  background: #faf7ef;
+  border: 1px solid var(--admin-line, #e6dcc8);
+}
+.admin-detail-grid span {
+  display: block;
+  font-size: .75rem;
+  color: #8a8172;
+  margin-bottom: .15rem;
+}
+.admin-reel-preview video {
+  width: 100%;
+  max-height: 70vh;
+  background: #000;
+  object-fit: contain;
+}
+.admin-reel-media { position: relative; }
+.admin-reel-media .admin-preview-badge {
+  font-size: 2rem;
+}
+.admin-form-card {
+  padding: 1rem;
+  border-radius: 1rem;
+  background: #faf7ef;
+  border: 1px solid var(--admin-line, #e6dcc8);
+}
+.admin-advanced-ops { display: none !important; }
+@media (max-width: 767px) {
+  .admin-detail-grid { grid-template-columns: 1fr; }
+  .admin-data-table thead { display: none; }
+  .admin-data-table tbody tr {
+    display: block;
+    border-bottom: 1px solid var(--admin-line, #e6dcc8);
+    padding: .75rem 0;
+  }
+  .admin-data-table tbody td {
+    display: block;
+    border: 0;
+    padding: .25rem 1rem;
+  }
+  .admin-data-table tbody td.text-end { text-align: start !important; }
+}

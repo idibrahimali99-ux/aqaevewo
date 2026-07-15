@@ -126,7 +126,7 @@ Future<void> showAdminChatPropertyDetailSheet(
                           imageUrl: imgs[i],
                           fit: BoxFit.cover,
                           width: double.infinity,
-                          placeholder: (_, __) =>
+                          placeholder: (_, _) =>
                               ColoredBox(color: scheme.surfaceContainerHighest),
                         ),
                       ),
@@ -142,7 +142,7 @@ Future<void> showAdminChatPropertyDetailSheet(
                     child: CachedNetworkImage(
                       imageUrl: _staticMapUrl(lat, lng),
                       fit: BoxFit.cover,
-                      placeholder: (_, __) =>
+                      placeholder: (_, _) =>
                           ColoredBox(color: scheme.surfaceContainerHighest),
                     ),
                   ),

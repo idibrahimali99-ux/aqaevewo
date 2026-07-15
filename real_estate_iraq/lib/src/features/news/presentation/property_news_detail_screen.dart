@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../data/property_news_detail_provider.dart';
 import '../domain/property_news_models.dart';
@@ -23,13 +24,19 @@ class PropertyNewsDetailScreen extends ConsumerWidget {
         error: (_, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text('تعذر تحميل الخبر', style: Theme.of(context).textTheme.titleMedium),
+            child: Text(
+              'تعذر تحميل الخبر',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           ),
         ),
         data: (detail) {
           if (detail == null) {
             return Center(
-              child: Text('الخبر غير موجود', style: Theme.of(context).textTheme.titleMedium),
+              child: Text(
+                'الخبر غير موجود',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             );
           }
           final dateStr = formatPropertyNewsDate(detail.publishedAt);
@@ -41,8 +48,12 @@ class PropertyNewsDetailScreen extends ConsumerWidget {
                 title: const SliverAppBarBrandHeading(screenTitle: 'خبر عقاري'),
               ),
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                child: ResponsiveCenter(
+                  padding: AppResponsive.pagePadding(
+                    context,
+                    top: 0,
+                    accountForShellNav: true,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -55,12 +66,17 @@ class PropertyNewsDetailScreen extends ConsumerWidget {
                             fit: BoxFit.cover,
                             placeholder: (_, _) => ColoredBox(
                               color: scheme.surfaceContainerHighest,
-                              child: const Center(child: CircularProgressIndicator()),
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
                             ),
                             errorWidget: (_, _, _) => ColoredBox(
                               color: scheme.surfaceContainerHighest,
-                              child: Icon(Icons.broken_image_outlined,
-                                  size: 48, color: scheme.onSurfaceVariant),
+                              child: Icon(
+                                Icons.broken_image_outlined,
+                                size: 48,
+                                color: scheme.onSurfaceVariant,
+                              ),
                             ),
                           ),
                         ),
@@ -68,7 +84,8 @@ class PropertyNewsDetailScreen extends ConsumerWidget {
                       const SizedBox(height: 20),
                       Text(
                         detail.title,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
                               fontWeight: FontWeight.w900,
                               height: 1.25,
                             ),
@@ -76,12 +93,16 @@ class PropertyNewsDetailScreen extends ConsumerWidget {
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          Icon(Icons.schedule_rounded,
-                              size: 18, color: scheme.primary),
+                          Icon(
+                            Icons.schedule_rounded,
+                            size: 18,
+                            color: scheme.primary,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             dateStr,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
                                   color: scheme.onSurfaceVariant,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -94,7 +115,9 @@ class PropertyNewsDetailScreen extends ConsumerWidget {
                           color: scheme.surface,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: scheme.outlineVariant.withValues(alpha: 0.65),
+                            color: scheme.outlineVariant.withValues(
+                              alpha: 0.65,
+                            ),
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -108,7 +131,8 @@ class PropertyNewsDetailScreen extends ConsumerWidget {
                           padding: const EdgeInsets.fromLTRB(18, 20, 18, 22),
                           child: SelectableText(
                             detail.body,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(
                                   height: 1.75,
                                   fontWeight: FontWeight.w500,
                                 ),

@@ -14,6 +14,8 @@ class AppRoutes {
 
   static const offices = '/app/offices';
   static const officeProfile = '/app/office';
+  static const marketers = '/app/marketers';
+  static const marketerProfile = '/app/marketer';
   static const parcels = '/app/parcels';
   static const parcelProfile = '/app/parcel';
   static const compounds = '/app/compounds';

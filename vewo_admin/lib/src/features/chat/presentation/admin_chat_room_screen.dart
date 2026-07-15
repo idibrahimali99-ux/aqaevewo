@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 import '../../../core/theme/admin_theme.dart';
 import '../data/chat_voice_player.dart';
 import 'voice_message_bubble.dart';
@@ -1139,10 +1140,7 @@ class _ReelSummaryCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           onTap: videoUrl.isEmpty
               ? null
-              : () => launchUrl(
-                  Uri.parse(videoUrl),
-                  mode: LaunchMode.externalApplication,
-                ),
+              : () => _showReelPreview(context, reel),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -1203,12 +1201,9 @@ class _ReelSummaryCard extends StatelessWidget {
                         children: [
                           if (videoUrl.isNotEmpty)
                             TextButton.icon(
-                              onPressed: () => launchUrl(
-                                Uri.parse(videoUrl),
-                                mode: LaunchMode.externalApplication,
-                              ),
-                              icon: const Icon(Icons.open_in_new_rounded),
-                              label: const Text('فتح الريل'),
+                              onPressed: () => _showReelPreview(context, reel),
+                              icon: const Icon(Icons.play_circle_outline),
+                              label: const Text('معاينة الريل'),
                             ),
                           if (reelId.isNotEmpty)
                             TextButton.icon(
@@ -1235,6 +1230,209 @@ class _ReelSummaryCard extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showReelPreview(
+    BuildContext context,
+    Map<String, dynamic> reel,
+  ) async {
+    final url = reel['video_public_url']?.toString().trim() ?? '';
+    if (url.isEmpty) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _AdminReelPreviewDialog(reel: reel),
+    );
+  }
+}
+
+class _AdminReelPreviewDialog extends StatefulWidget {
+  const _AdminReelPreviewDialog({required this.reel});
+
+  final Map<String, dynamic> reel;
+
+  @override
+  State<_AdminReelPreviewDialog> createState() =>
+      _AdminReelPreviewDialogState();
+}
+
+class _AdminReelPreviewDialogState extends State<_AdminReelPreviewDialog> {
+  late final VideoPlayerController _controller;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final url = widget.reel['video_public_url']?.toString().trim() ?? '';
+    _controller = VideoPlayerController.networkUrl(Uri.parse(url))
+      ..initialize()
+          .then((_) {
+            if (!mounted) return;
+            _controller
+              ..setLooping(true)
+              ..play();
+            setState(() {});
+          })
+          .catchError((_) {
+            if (mounted) setState(() => _failed = true);
+          });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _copyReelId() async {
+    final id = widget.reel['id']?.toString().trim() ?? '';
+    if (id.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: id));
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('تم نسخ رقم الريل')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final caption = widget.reel['caption']?.toString().trim() ?? '';
+    final reelId = widget.reel['id']?.toString().trim() ?? '';
+
+    return Dialog(
+      insetPadding: const EdgeInsets.all(18),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460, maxHeight: 720),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'معاينة الريل داخل لوحة الأدمن',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'إغلاق',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: AspectRatio(
+                    aspectRatio: 9 / 16,
+                    child: ColoredBox(
+                      color: Colors.black,
+                      child: _failed
+                          ? const Center(
+                              child: Text(
+                                'تعذر تشغيل الفيديو',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            )
+                          : !_controller.value.isInitialized
+                          ? const Center(child: CircularProgressIndicator())
+                          : GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _controller.value.isPlaying
+                                      ? _controller.pause()
+                                      : _controller.play();
+                                });
+                              },
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  FittedBox(
+                                    fit: BoxFit.cover,
+                                    child: SizedBox(
+                                      width: _controller.value.size.width,
+                                      height: _controller.value.size.height,
+                                      child: VideoPlayer(_controller),
+                                    ),
+                                  ),
+                                  if (!_controller.value.isPlaying)
+                                    const Center(
+                                      child: Icon(
+                                        Icons.play_circle_fill_rounded,
+                                        color: Colors.white,
+                                        size: 64,
+                                      ),
+                                    ),
+                                  Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    child: VideoProgressIndicator(
+                                      _controller,
+                                      allowScrubbing: true,
+                                      colors: VideoProgressColors(
+                                        playedColor: scheme.primary,
+                                        bufferedColor: Colors.white38,
+                                        backgroundColor: Colors.white12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (caption.isNotEmpty)
+                    Text(
+                      caption,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.end,
+                    children: [
+                      if (reelId.isNotEmpty)
+                        OutlinedButton.icon(
+                          onPressed: _copyReelId,
+                          icon: const Icon(Icons.copy_rounded),
+                          label: const Text('نسخ رقم الريل'),
+                        ),
+                      FilledButton.icon(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.check_rounded),
+                        label: const Text('تم'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
