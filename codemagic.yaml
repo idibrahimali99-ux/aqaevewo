@@ -3,6 +3,8 @@ workflows:
     name: iOS Main App
     max_build_duration: 120
     instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: App Store Connect
     environment:
       flutter: stable
       xcode: latest
@@ -29,11 +31,19 @@ workflows:
             --export-options-plist=$HOME/export_options.plist
     artifacts:
       - real_estate_iraq/build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - ibrahim
 
   ios-admin:
     name: iOS Admin App
     max_build_duration: 120
     instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: App Store Connect
     environment:
       flutter: stable
       xcode: latest
@@ -60,3 +70,9 @@ workflows:
             --export-options-plist=$HOME/export_options.plist
     artifacts:
       - vewo_admin/build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - ibrahim
