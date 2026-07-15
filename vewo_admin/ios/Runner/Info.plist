@@ -65,6 +65,7 @@
 	<string>نستخدم موقعك لعرض الخريطة وتحديد موقع العقار.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>نستخدم الميكروفون لتسجيل الرسائل الصوتية داخل المحادثة.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
 	<string>نحتاج الوصول للمعرض لاختيار صورة أو فيديو للإعلان.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>نحتاج الكاميرا إن اخترت التقاط صورة للإعلان.</string>
