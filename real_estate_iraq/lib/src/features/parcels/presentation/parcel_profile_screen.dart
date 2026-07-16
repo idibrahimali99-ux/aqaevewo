@@ -211,10 +211,13 @@ class _ParcelProfileScreenState extends ConsumerState<ParcelProfileScreen> {
                   for (final p in items)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: PropertyCard(
-                        property: p,
-                        onTap: () => context.push(
-                          '${AppRoutes.propertyDetails}/${p.id}',
+                      child: SizedBox(
+                        height: 270,
+                        child: PropertyCard(
+                          property: p,
+                          onTap: () => context.push(
+                            '${AppRoutes.propertyDetails}/${p.id}',
+                          ),
                         ),
                       ),
                     ),

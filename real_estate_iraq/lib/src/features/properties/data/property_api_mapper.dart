@@ -122,6 +122,7 @@ Property? propertyFromApiRow(
       publisherLabel: publisherLabel,
       publisherVerified: isOfficePublisher ? publisherVerified : true,
       isOfficePublisher: isOfficePublisher,
+      isMarketerPublisher: isMarketer,
       ownerPhone: j['owner_phone']?.toString().trim(),
       publicNo: (publicNo != null && publicNo > 0) ? publicNo : null,
       publishedAt: publishedAt,

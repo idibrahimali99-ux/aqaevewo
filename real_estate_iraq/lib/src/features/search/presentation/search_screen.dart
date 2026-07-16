@@ -604,9 +604,12 @@ class _SearchMapAndResults extends StatelessWidget {
         for (final p in items.take(12))
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: PropertyCard(
-              property: p,
-              onTap: () => context.push('${AppRoutes.propertyDetails}/${p.id}'),
+            child: SizedBox(
+              height: 270,
+              child: PropertyCard(
+                property: p,
+                onTap: () => context.push('${AppRoutes.propertyDetails}/${p.id}'),
+              ),
             ),
           ),
       ],

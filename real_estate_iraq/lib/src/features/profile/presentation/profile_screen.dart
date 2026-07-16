@@ -13,7 +13,7 @@ import '../../auth/data/auth_state.dart';
 import '../../auth/domain/user_role.dart';
 import '../../properties/data/properties_providers.dart';
 import '../../properties/domain/property.dart';
-import '../../properties/presentation/property_mini_card.dart';
+import '../../properties/presentation/property_card.dart';
 
 final myReelsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((
   ref,
@@ -485,12 +485,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       children: [
                         for (final p in items)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: PropertyMiniCard(
-                              property: p,
-                              showModeration: true,
-                              onTap: () => context.push(
-                                '${AppRoutes.propertyDetails}/${p.id}',
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: SizedBox(
+                              height: 270,
+                              child: PropertyCard(
+                                property: p,
+                                showPublisherModeration: true,
+                                viewerIsOffice: auth.role == UserRole.office,
+                                onTap: () => context.push(
+                                  '${AppRoutes.propertyDetails}/${p.id}',
+                                ),
                               ),
                             ),
                           ),

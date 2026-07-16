@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../users/presentation/admin_user_profile_screen.dart';
+import '../../../core/widgets/admin_map_viewer.dart';
 
 /// بطاقة منشور كاملة من بيانات الـ API (محادثات الأدمن).
 Future<void> showAdminChatPropertyDetailSheet(
@@ -135,42 +135,7 @@ Future<void> showAdminChatPropertyDetailSheet(
                 ),
               if (imgs.isNotEmpty) const SizedBox(height: 14),
               if (lat != null && lng != null) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: CachedNetworkImage(
-                      imageUrl: _staticMapUrl(lat, lng),
-                      fit: BoxFit.cover,
-                      placeholder: (_, _) =>
-                          ColoredBox(color: scheme.surfaceContainerHighest),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: () async {
-                        final uri = Uri.parse(
-                          'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
-                        );
-                        await launchUrl(
-                          uri,
-                          mode: LaunchMode.externalApplication,
-                        );
-                      },
-                      icon: const Icon(Icons.map_outlined),
-                      label: const Text('خرائط'),
-                    ),
-                  ],
-                ),
+                AdminMapOpenTile(lat: lat, lng: lng, height: 200),
                 const SizedBox(height: 14),
               ],
               if (gov.isNotEmpty || addr.isNotEmpty)
@@ -267,10 +232,6 @@ Map<String, dynamic>? _tryParseJson(String? s) {
   final la = toD(m['lat'] ?? m['latitude']);
   final ln = toD(m['lng'] ?? m['longitude'] ?? m['lon']);
   return (la, ln);
-}
-
-String _staticMapUrl(double lat, double lng) {
-  return 'https://staticmap.openstreetmap.de/staticmap.php?center=$lat,$lng&zoom=15&size=640x280&markers=$lat,$lng,red-pushpin';
 }
 
 Widget _priceArea(BuildContext context, dynamic value) {

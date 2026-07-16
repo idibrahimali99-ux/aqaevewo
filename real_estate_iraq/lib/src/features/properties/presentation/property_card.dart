@@ -66,6 +66,14 @@ class PropertyCard extends ConsumerWidget {
   bool get _hideCompactArea =>
       property.segment == PropertySegment.parcel && property.areaSqm <= 1;
 
+  bool get _isParcelPost => property.segment == PropertySegment.parcel;
+
+  String? get _parcelFacade =>
+      property.detailsJson?['facade_m']?.toString().trim();
+
+  String? get _parcelDepth =>
+      property.detailsJson?['depth_m']?.toString().trim();
+
   String? get _publishedLabel {
     final t = property.publishedAt;
     if (t == null) return null;
@@ -459,7 +467,32 @@ class PropertyCard extends ConsumerWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      if (!_hideCompactArea)
+                      if (_isParcelPost && property.areaSqm > 0) ...[
+                        _PropertyMainStat(
+                          icon: Icons.grid_view_rounded,
+                          value: '${property.areaSqm} م²',
+                          label: 'المساحة',
+                          color: AppColors.frameGold,
+                        ),
+                        if ((_parcelFacade ?? '').isNotEmpty) ...[
+                          SizedBox(width: _cw(10)),
+                          _PropertyMainStat(
+                            icon: Icons.straighten_rounded,
+                            value: '${_parcelFacade!} م',
+                            label: 'الواجهة',
+                            color: AppColors.brandPrimary,
+                          ),
+                        ],
+                        if ((_parcelDepth ?? '').isNotEmpty) ...[
+                          SizedBox(width: _cw(10)),
+                          _PropertyMainStat(
+                            icon: Icons.height_rounded,
+                            value: '${_parcelDepth!} م',
+                            label: 'النزال',
+                            color: AppColors.mapPin,
+                          ),
+                        ],
+                      ] else if (!_hideCompactArea)
                         _PropertyMainStat(
                           icon: Icons.grid_view_rounded,
                           value: '${property.areaSqm} م²',

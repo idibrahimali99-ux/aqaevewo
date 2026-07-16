@@ -2,11 +2,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:vewo_shared/vewo_shared.dart' show IQDFormatter;
+import '../../../core/contact/property_contact.dart';
 import '../../../core/layout/app_responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
@@ -18,8 +18,6 @@ import '../../../core/location/location_providers.dart';
 import '../../../core/widgets/property_image_gallery.dart';
 import '../../../core/widgets/property_video_player.dart';
 import '../../../core/widgets/property_map_embed.dart';
-import 'property_contact_guard.dart';
-import '../../../routing/app_routes.dart';
 import '../../../routing/auth_nav.dart';
 import '../../auth/data/auth_controller.dart';
 import '../../favorites/data/favorites_controller.dart';
@@ -52,31 +50,12 @@ class PropertyDetailsScreen extends ConsumerWidget {
   }
 }
 
-/// واتساب الدعم/التواصل (بدون الصفر الأولى مع رمز العراق).
-const _kWhatsAppLaunchDigits = '9647871456461';
-
 const _kWhatsAppMiniSvg = '''
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <path fill="#25D366" d="M16 3C8.82 3 3 8.82 3 16c0 2.43.66 4.7 1.82 6.65L3 29l6.52-1.72A12.9 12.9 0 0 0 16 29c7.18 0 13-5.82 13-13S23.18 3 16 3z"/>
   <path fill="#fff" d="M12.36 9.98c-.3-.67-.61-.68-.9-.69h-.77c-.2 0-.53.08-.8.38-.28.3-1.05 1.02-1.05 2.49s1.08 2.89 1.23 3.09c.15.2 2.08 3.33 5.12 4.54 2.52 1 3.03.8 3.57.75.55-.05 1.78-.72 2.03-1.42.25-.7.25-1.3.18-1.42-.08-.12-.28-.2-.58-.35-.3-.15-1.78-.88-2.05-.98-.27-.1-.47-.15-.67.15-.2.3-.77.98-.95 1.18-.17.2-.35.23-.65.08-.3-.15-1.27-.47-2.42-1.5-.89-.79-1.49-1.77-1.66-2.07-.18-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.38-.03-.53-.08-.15-.72-1.78-.99-2.45z"/>
 </svg>
 ''';
-
-Future<bool> openWhatsAppSupport() async {
-  final phone = _kWhatsAppLaunchDigits;
-  final candidates = [
-    Uri.parse('https://api.whatsapp.com/send?phone=$phone'),
-    Uri.parse('https://wa.me/$phone'),
-    Uri.parse('whatsapp://send?phone=$phone'),
-  ];
-  for (final uri in candidates) {
-    try {
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (ok) return true;
-    } catch (_) {}
-  }
-  return false;
-}
 
 class _PropertyDetailsBody extends ConsumerStatefulWidget {
   const _PropertyDetailsBody({required this.property});
@@ -145,11 +124,7 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
     final isFav = fav.contains(property.id);
     final supportPhone =
         ref.watch(appBootstrapProvider).value?.supportPhone ?? '07871456361';
-    final contactPhone =
-        property.isOfficePublisher &&
-            (property.ownerPhone ?? '').trim().isNotEmpty
-        ? property.ownerPhone!.trim()
-        : supportPhone;
+    final contactPhone = resolvePropertyContactPhone(property, supportPhone);
     final myId = auth.userId;
     final isMine =
         myId != null &&
@@ -545,12 +520,15 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
                     ),
                   ),
                   onPressed: () async {
-                    final ok = await openWhatsAppSupport();
+                    final ok = await openWhatsAppForProperty(
+                      property,
+                      supportPhone,
+                    );
                     if (!ok && context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: SelectableText(
-                            'تعذر فتح واتساب — انسخ الرابط: https://wa.me/$_kWhatsAppLaunchDigits',
+                            'تعذر فتح واتساب — تأكد من تثبيت التطبيق',
                           ),
                           duration: const Duration(seconds: 8),
                         ),
@@ -562,35 +540,6 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
                     width: 26,
                     height: 26,
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 52,
-                height: 52,
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  onPressed: isAuth
-                      ? () async {
-                          if (!await ensureCanOpenPropertyChat(
-                            context,
-                            ref,
-                            property,
-                          )) {
-                            return;
-                          }
-                          if (context.mounted) {
-                            context.push(
-                              '${AppRoutes.chatRoom}/new?property=${property.id}',
-                            );
-                          }
-                        }
-                      : () => openLoginScreen(context),
-                  child: const Icon(Icons.forum_rounded, size: 26),
                 ),
               ),
               const SizedBox(width: 8),

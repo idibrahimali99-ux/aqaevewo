@@ -336,6 +336,17 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
     }
   }
 
+  bool get _showFloorFields =>
+      _showBuildingBlock &&
+      _category != PropertyCategory.house &&
+      _category != PropertyCategory.villa &&
+      _category != PropertyCategory.compound;
+
+  bool get _showTotalFloorsField =>
+      _showBuildingBlock &&
+      _category != PropertyCategory.villa &&
+      _category != PropertyCategory.compound;
+
   int get _lastStepIndex => _parcelSimpleFlow ? 1 : 3;
 
   int get _progressSegments => _parcelSimpleFlow ? 2 : 4;
@@ -435,6 +446,13 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
             ).showSnackBar(const SnackBar(content: Text('أدخل السعر (د.ع)')));
             return false;
           }
+          final ar = int.tryParse(_area.text.trim());
+          if (ar == null || ar < 1) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('أدخل مساحة المقاطعة (م²)')),
+            );
+            return false;
+          }
           if (_description.text.trim().length < 10) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -526,8 +544,8 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
         'salons': _salons.text.trim(),
         'kitchen_hot': _kitchenHot,
         'kitchen_cold': _kitchenCold,
-        if (_category != PropertyCategory.house) 'floor': _floor.text.trim(),
-        'total_floors': _totalFloors.text.trim(),
+        if (_showFloorFields) 'floor': _floor.text.trim(),
+        if (_showTotalFloorsField) 'total_floors': _totalFloors.text.trim(),
       },
       if (_needsParcel) ...{
         'parcel_name': _parcelName.text.trim(),
@@ -798,6 +816,7 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
         final purpose = _purpose;
         final autoTitle = 'مقاطعة — ${parcel.name}';
         final price = int.parse(_price.text.replaceAll(',', '').trim());
+        final area = int.parse(_area.text.trim());
         final res = await ref
             .read(propertyListingsProvider.notifier)
             .createRemote(
@@ -816,6 +835,10 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
                 'parcel_id': parcel.id,
                 'parcel_name': parcel.displayName,
                 'negotiable': _negotiable,
+                if (_facadeM.text.trim().isNotEmpty)
+                  'facade_m': _facadeM.text.trim(),
+                if (_depthM.text.trim().isNotEmpty)
+                  'depth_m': _depthM.text.trim(),
                 if (_districtUuid != null &&
                     _districtUuid!.trim().isNotEmpty) ...{
                   'district_id': _districtUuid!.trim(),
@@ -828,7 +851,7 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
                   },
               },
               priceIqd: price,
-              areaSqm: 1,
+              areaSqm: area,
               description: _description.text.trim(),
               imageUrls: urls,
               parcelId: parcel.id,
@@ -1535,6 +1558,34 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
               onChanged: _loading
                   ? null
                   : (v) => setState(() => _negotiable = v),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _area,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'المساحة (م²)',
+                prefixIcon: Icon(Icons.square_foot_outlined),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _facadeM,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'الواجهة (م)',
+                helperText: 'عرض الواجهة على الشارع',
+                prefixIcon: Icon(Icons.straighten),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _depthM,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'النزال / العمق (م)',
+                prefixIcon: Icon(Icons.straighten),
+              ),
             ),
             const SizedBox(height: 10),
             TextFormField(
@@ -2252,19 +2303,20 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        if (_category != PropertyCategory.house)
+        if (_showFloorFields)
           TextFormField(
             controller: _floor,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(labelText: 'الطابق'),
           ),
-        if (_category != PropertyCategory.house) const SizedBox(height: 8),
-        TextFormField(
-          controller: _totalFloors,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'عدد الطوابق الكلي'),
-        ),
-        const SizedBox(height: 8),
+        if (_showFloorFields) const SizedBox(height: 8),
+        if (_showTotalFloorsField)
+          TextFormField(
+            controller: _totalFloors,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'عدد الطوابق الكلي'),
+          ),
+        if (_showTotalFloorsField) const SizedBox(height: 8),
         // بلكونة/تأثيث: حسب الطلب تظهر فقط بالشقق (وليس البيوت)
         const SizedBox(height: 16),
       ]);

@@ -236,9 +236,23 @@ class _AdminUserProfileScreenState extends ConsumerState<AdminUserProfileScreen>
                             ),
                             onPressed: () async {
                               final wa = whatsappUriFromIraqPhone(phoneRaw);
-                              if (wa != null && await canLaunchUrl(wa)) {
-                                await launchUrl(wa,
-                                    mode: LaunchMode.externalApplication);
+                              if (wa == null) return;
+                              final candidates = [
+                                wa,
+                                Uri.parse(
+                                  'https://api.whatsapp.com/send?phone=${wa.path.replaceAll('/', '')}',
+                                ),
+                                Uri.parse('whatsapp://send?phone=${wa.path.replaceAll('/', '')}'),
+                              ];
+                              for (final uri in candidates) {
+                                try {
+                                  if (await launchUrl(
+                                    uri,
+                                    mode: LaunchMode.externalApplication,
+                                  )) {
+                                    return;
+                                  }
+                                } catch (_) {}
                               }
                             },
                             icon: const Icon(Icons.chat_rounded),

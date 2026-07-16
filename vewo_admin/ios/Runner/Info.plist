@@ -78,5 +78,12 @@
 	</array>
 	<key>GMSApiKey</key>
 	<string>AIzaSyDuTwh-PFsOU2EaHE4Y45RH7_6fwPcok-Y</string>
+	<key>io.flutter.embedded_views_preview</key>
+	<true/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>whatsapp</string>
+	</array>
 </dict>
 </plist>

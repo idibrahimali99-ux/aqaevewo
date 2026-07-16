@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../domain/property.dart';
 import '../data/properties_providers.dart';
 import 'property_card.dart';
+import '../../../core/contact/property_contact.dart';
 import '../../../core/api/app_bootstrap_provider.dart';
 import '../../../core/layout/app_responsive.dart';
 import '../../../core/location/location_providers.dart';
@@ -18,7 +19,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../routing/app_routes.dart';
 import '../../auth/data/auth_controller.dart';
-import '../../../routing/auth_nav.dart';
 
 LatLng? _propertyLatLng(Property p) {
   final d = p.detailsJson;
@@ -167,14 +167,30 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
       showDragHandle: true,
       isScrollControlled: true,
       builder: (ctx) {
-        Future<void> callSupport() async {
-          final raw = supportPhone.replaceAll(RegExp(r'[^\d+]'), '');
+        Future<void> callContact() async {
+          final supportPhone =
+              ref.read(appBootstrapProvider).value?.supportPhone ??
+              '07871456361';
+          final raw = resolvePropertyContactPhone(p, supportPhone)
+              .replaceAll(RegExp(r'[^\d+]'), '');
           if (raw.isEmpty) return;
           final uri = Uri.parse('tel:$raw');
           final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
           if (!ok && ctx.mounted) {
             ScaffoldMessenger.of(ctx).showSnackBar(
               const SnackBar(content: Text('تعذر فتح تطبيق الاتصال')),
+            );
+          }
+        }
+
+        Future<void> openWhatsApp() async {
+          final supportPhone =
+              ref.read(appBootstrapProvider).value?.supportPhone ??
+              '07871456361';
+          final ok = await openWhatsAppForProperty(p, supportPhone);
+          if (!ok && ctx.mounted) {
+            ScaffoldMessenger.of(ctx).showSnackBar(
+              const SnackBar(content: Text('تعذر فتح واتساب')),
             );
           }
         }
@@ -208,27 +224,21 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
                   children: [
                     Expanded(
                       child: FilledButton.icon(
-                        onPressed: supportPhone.isEmpty ? null : callSupport,
+                        onPressed: callContact,
                         icon: const Icon(Icons.call_rounded),
-                        label: const Text('تواصل'),
+                        label: const Text('اتصال'),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: isAuth
-                            ? () {
-                                Navigator.of(ctx).pop();
-                                context.push(
-                                  '${AppRoutes.chatRoom}/new?property=${p.id}',
-                                );
-                              }
-                            : () {
-                                Navigator.of(ctx).pop();
-                                openLoginScreen(context);
-                              },
-                        icon: const Icon(Icons.forum_rounded),
-                        label: const Text('محادثة'),
+                      child: FilledButton.icon(
+                        onPressed: openWhatsApp,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF25D366),
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: const Icon(Icons.chat_rounded),
+                        label: const Text('واتساب'),
                       ),
                     ),
                   ],

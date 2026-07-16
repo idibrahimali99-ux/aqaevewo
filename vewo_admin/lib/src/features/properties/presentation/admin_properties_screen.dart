@@ -1,16 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/api/api_providers.dart';
 import '../../../core/api/vewo_api_client.dart';
+import '../../../core/widgets/admin_map_viewer.dart';
 import '../../engagement/admin_engagement_schedule_dialog.dart';
 import '../../auth/auth_providers.dart';
 import '../../users/presentation/admin_user_profile_screen.dart';
@@ -533,6 +532,8 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
       'purpose': 'الغرض',
       'category': 'الفئة',
       'notes': 'ملاحظات',
+      'facade_m': 'الواجهة (م)',
+      'depth_m': 'النزال / العمق (م)',
       'floor': 'الطابق',
       'rooms': 'الغرف',
       'bathrooms': 'الحمامات',
@@ -551,42 +552,62 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
     }
 
     final rows = <Widget>[];
-    final scheme = Theme.of(context).colorScheme;
     map.forEach((key, value) {
+      if (key == 'building' && value is Map) {
+        final building = Map<String, dynamic>.from(value);
+        const buildingLabels = <String, String>{
+          'floor': 'الطابق',
+          'total_floors': 'عدد الطوابق',
+          'rooms': 'الغرف',
+          'bathrooms': 'الحمامات',
+          'salons': 'الصالات',
+        };
+        building.forEach((bKey, bVal) {
+          final label = buildingLabels[bKey];
+          if (label == null) return;
+          final text = fmt(bVal);
+          if (text.isEmpty) return;
+          rows.add(_detailRow(context, label, text));
+        });
+        return;
+      }
       if (!labels.containsKey(key)) return;
       final label = labels[key]!;
       final text = fmt(value);
       if (text.isEmpty) return;
-      rows.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 118,
-                child: Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: SelectableText(
-                  text,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(height: 1.35),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      rows.add(_detailRow(context, label, text));
     });
     return rows;
+  }
+
+  Widget _detailRow(BuildContext context, String label, String text) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 118,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: SelectableText(
+              text,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(height: 1.35),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   List<String> _imageUrlsFor(Map<String, dynamic> p) {
@@ -744,21 +765,7 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
                   ),
                 const SizedBox(height: 16),
                 if (lat != null && lng != null) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: InkWell(
-                      onTap: () => _openAdminMapViewer(context, lat, lng),
-                      child: SizedBox(
-                        height: 220,
-                        child: _AdminInlineMap(lat: lat, lng: lng),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SelectableText(
-                    'الإحداثيات: ${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+                  AdminMapOpenTile(lat: lat, lng: lng),
                   const SizedBox(height: 16),
                 ],
                 if (desc.isNotEmpty) ...[
@@ -876,6 +883,73 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
     );
     if (ok == true) {
       await _publish(id);
+    }
+  }
+
+  Future<void> _whatsappForProperty(Map<String, dynamic> p) async {
+    final phone = p['owner_phone']?.toString().trim() ?? '';
+    if (phone.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('لا يوجد رقم هاتف للناشر')),
+        );
+      }
+      return;
+    }
+    final title = p['title']?.toString().trim() ?? '';
+    final gov = p['governorate']?.toString().trim() ?? '';
+    final addr = p['address_line']?.toString().trim() ?? '';
+    final price = p['price_iqd']?.toString().trim() ?? '';
+    final area = p['area_sqm']?.toString().trim() ?? '';
+    final desc = p['description']?.toString().trim() ?? '';
+    final pubRaw = p['property_public_no'];
+    final pubNo = pubRaw is num
+        ? pubRaw.toInt()
+        : int.tryParse(pubRaw?.toString() ?? '');
+    final details = _tryParseJson(p['details_json']?.toString()) ?? const {};
+    final lines = <String>[
+      if (pubNo != null && pubNo > 0) 'رقم المنشور: #$pubNo',
+      if (title.isNotEmpty) title,
+      if (gov.isNotEmpty || addr.isNotEmpty)
+        [gov, addr].where((e) => e.isNotEmpty).join(' • '),
+      if (price.isNotEmpty) 'السعر: $price د.ع',
+      if (area.isNotEmpty && area != '1') 'المساحة: $area م²',
+      if (details['facade_m']?.toString().trim().isNotEmpty == true)
+        'الواجهة: ${details['facade_m']} م',
+      if (details['depth_m']?.toString().trim().isNotEmpty == true)
+        'النزال: ${details['depth_m']} م',
+      if (desc.isNotEmpty) desc,
+    ];
+    final message = lines.where((e) => e.trim().isNotEmpty).join('\n');
+    final waBase = whatsappUriFromIraqPhone(phone);
+    if (waBase == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('رقم الهاتف غير صالح لواتساب')),
+        );
+      }
+      return;
+    }
+    final phoneDigits = waBase.path.replaceAll('/', '');
+    final candidates = [
+      Uri.parse(
+        'https://api.whatsapp.com/send?phone=$phoneDigits&text=${Uri.encodeComponent(message)}',
+      ),
+      Uri.parse(
+        'https://wa.me/$phoneDigits?text=${Uri.encodeComponent(message)}',
+      ),
+      waBase,
+    ];
+    for (final target in candidates) {
+      try {
+        final ok = await launchUrl(target, mode: LaunchMode.externalApplication);
+        if (ok) return;
+      } catch (_) {}
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر فتح واتساب')),
+      );
     }
   }
 
@@ -1400,6 +1474,20 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
                                         label: const Text('معاينة ونشر'),
                                       ),
                                     ),
+                                    if (ownerPhone.isNotEmpty) ...[
+                                      const SizedBox(width: 8),
+                                      IconButton.filled(
+                                        tooltip: 'واتساب الناشر',
+                                        style: IconButton.styleFrom(
+                                          backgroundColor:
+                                              const Color(0xFF25D366),
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        onPressed: () =>
+                                            _whatsappForProperty(p),
+                                        icon: const Icon(Icons.chat_rounded),
+                                      ),
+                                    ],
                                     const SizedBox(width: 8),
                                     IconButton.filledTonal(
                                       tooltip: 'حذف',
@@ -1630,16 +1718,7 @@ class _AdminPropertyPreviewCard extends StatelessWidget {
                 ],
                 if (lat != null && lng != null) ...[
                   const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: InkWell(
-                      onTap: () => _openAdminMapViewer(context, lat!, lng!),
-                      child: SizedBox(
-                        height: 180,
-                        child: _AdminInlineMap(lat: lat!, lng: lng!),
-                      ),
-                    ),
-                  ),
+                  AdminMapOpenTile(lat: lat!, lng: lng!),
                 ],
               ],
             ),
@@ -1916,123 +1995,4 @@ class _AdminNetworkVideoState extends State<_AdminNetworkVideo> {
       ),
     );
   }
-}
-
-Future<void> _openAdminMapViewer(
-  BuildContext context,
-  double lat,
-  double lng,
-) async {
-  await showDialog<void>(
-    context: context,
-    builder: (_) => Dialog.fullscreen(
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('موقع العقار'),
-          leading: IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.close_rounded),
-          ),
-        ),
-        body: _AdminInlineMap(lat: lat, lng: lng),
-      ),
-    ),
-  );
-}
-
-class _AdminInlineMap extends StatefulWidget {
-  const _AdminInlineMap({required this.lat, required this.lng});
-
-  final double lat;
-  final double lng;
-
-  @override
-  State<_AdminInlineMap> createState() => _AdminInlineMapState();
-}
-
-class _AdminInlineMapState extends State<_AdminInlineMap> {
-  BitmapDescriptor? _pinIcon;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPin();
-  }
-
-  Future<void> _loadPin() async {
-    final icon = await _adminPropertyPinIcon();
-    if (!mounted) return;
-    setState(() => _pinIcon = icon);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final pos = LatLng(widget.lat, widget.lng);
-    return GoogleMap(
-      initialCameraPosition: CameraPosition(target: pos, zoom: 16),
-      markers: {
-        Marker(
-          markerId: const MarkerId('property_location'),
-          position: pos,
-          icon: _pinIcon ?? BitmapDescriptor.defaultMarker,
-          infoWindow: const InfoWindow(title: 'موقع العقار'),
-        ),
-      },
-      myLocationButtonEnabled: false,
-      zoomControlsEnabled: true,
-      mapToolbarEnabled: false,
-      compassEnabled: true,
-    );
-  }
-}
-
-Future<BitmapDescriptor> _adminPropertyPinIcon() async {
-  const size = 128.0;
-  final recorder = ui.PictureRecorder();
-  final canvas = Canvas(recorder);
-  final paint = Paint()..isAntiAlias = true;
-  const gold = Color(0xFFC9A227);
-  const dark = Color(0xFF17213B);
-
-  final pinPath = Path()
-    ..moveTo(size / 2, size - 10)
-    ..cubicTo(size * 0.18, size * 0.66, size * 0.16, size * 0.38, size / 2, 10)
-    ..cubicTo(
-      size * 0.84,
-      size * 0.38,
-      size * 0.82,
-      size * 0.66,
-      size / 2,
-      size - 10,
-    )
-    ..close();
-
-  paint.color = Colors.black.withValues(alpha: 0.20);
-  canvas.drawOval(
-    Rect.fromCenter(
-      center: const Offset(size / 2, size - 8),
-      width: 50,
-      height: 13,
-    ),
-    paint,
-  );
-  paint.color = gold;
-  canvas.drawPath(pinPath, paint);
-  paint
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 5
-    ..color = Colors.white;
-  canvas.drawPath(pinPath, paint);
-  paint
-    ..style = PaintingStyle.fill
-    ..color = Colors.white;
-  canvas.drawCircle(const Offset(size / 2, 47), 23, paint);
-  paint.color = dark;
-  canvas.drawCircle(const Offset(size / 2, 47), 14, paint);
-
-  final picture = recorder.endRecording();
-  final image = await picture.toImage(size.toInt(), size.toInt());
-  final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-  if (bytes == null) return BitmapDescriptor.defaultMarker;
-  return BitmapDescriptor.bytes(bytes.buffer.asUint8List());
 }

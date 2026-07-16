@@ -25,6 +25,7 @@ class Property {
     this.publisherLabel = '',
     this.publisherVerified = false,
     this.isOfficePublisher = false,
+    this.isMarketerPublisher = false,
     this.ownerPhone,
     this.publicNo,
     this.approvalStatus = 'approved',
@@ -62,7 +63,13 @@ class Property {
   /// شارة توثيق للمكتب فقط.
   final bool publisherVerified;
   final bool isOfficePublisher;
+  final bool isMarketerPublisher;
   final String? ownerPhone;
+
+  /// مكتب أو مسوق عقاري — التواصل عبر رقم الناشر.
+  bool get usesPublisherContact =>
+      (ownerPhone ?? '').trim().isNotEmpty &&
+      (isOfficePublisher || isMarketerPublisher);
 
   /// رقم العرض (#…) للبحث والنسخ.
   final int? publicNo;

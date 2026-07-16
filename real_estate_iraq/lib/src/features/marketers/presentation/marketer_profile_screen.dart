@@ -2,6 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../core/contact/property_contact.dart';
 
 import '../../../core/api/api_providers.dart';
 import '../../../core/layout/app_responsive.dart';
@@ -137,6 +140,52 @@ class MarketerProfileScreen extends ConsumerWidget {
                                         ?.copyWith(height: 1.4),
                                   ),
                                 ],
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: FilledButton.icon(
+                                        onPressed: d.phone.trim().isEmpty
+                                            ? null
+                                            : () async {
+                                                final raw = d.phone.replaceAll(
+                                                  RegExp(r'[^\d+]'),
+                                                  '',
+                                                );
+                                                if (raw.isEmpty) return;
+                                                await launchUrl(
+                                                  Uri.parse('tel:$raw'),
+                                                  mode: LaunchMode
+                                                      .externalApplication,
+                                                );
+                                              },
+                                        icon: const Icon(Icons.call_rounded),
+                                        label: const Text('اتصال'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: FilledButton.icon(
+                                        onPressed: d.phone.trim().isEmpty
+                                            ? null
+                                            : () async {
+                                                await openWhatsAppToPhone(
+                                                  d.phone,
+                                                  message:
+                                                      'مرحباً، أتواصل معكم بخصوص منشورات ${d.displayName}',
+                                                );
+                                              },
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor:
+                                              const Color(0xFF25D366),
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        icon: const Icon(Icons.chat_rounded),
+                                        label: const Text('واتساب'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ],
                             ),
                           ),
