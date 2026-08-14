@@ -63,12 +63,7 @@
   const threadSubtitle = (row) => (row.last_message_preview || row.property_title || '').trim() || 'بدون رسائل بعد';
   const threadAvatar = (row) => (row.property_thumb_url || '').trim() || `${base}/assets/images/placeholder-property.svg`;
 
-  const useMediatedTabs = (meta) => {
-    const type = String(meta.thread_type || '').toLowerCase();
-    const customerId = String(meta.customer_user_id || '');
-    const officeId = String(meta.office_user_id || '');
-    return (type === 'mediated' || type === 'direct') && customerId && officeId;
-  };
+  const useMediatedTabs = () => false;
 
   const msgCustomerTab = (msg, meta) => {
     const sid = String(msg.sender_user_id || '');
@@ -168,8 +163,6 @@
   };
 
   const visibilityLabel = (vis) => {
-    if (vis === 'customer_only') return '→ للمستفسر';
-    if (vis === 'office_only') return '→ للمعلن';
     return '';
   };
 
@@ -245,10 +238,25 @@
     messageList.scrollTop = messageList.scrollHeight;
   };
 
+  const scrollMessagesTo = (where) => {
+    const messageList = el('messageList');
+    if (!messageList) return;
+    messageList.scrollTo({
+      top: where === 'top' ? 0 : messageList.scrollHeight,
+      behavior: 'smooth',
+    });
+  };
+
+  const resizeMessageInput = () => {
+    const input = el('messageInput');
+    if (!input) return;
+    input.style.height = 'auto';
+    input.style.height = `${Math.min(input.scrollHeight, 132)}px`;
+  };
+
   const syncLaneUi = () => {
-    const visibility = mediatedLaneTab === 0 ? 'customer_only' : 'office_only';
     const hidden = el('sendVisibility');
-    if (hidden) hidden.value = visibility;
+    if (hidden) hidden.value = 'all';
     el('mediatedLaneTabs')?.querySelectorAll('[data-lane]').forEach((btn) => {
       btn.classList.toggle('active', Number(btn.dataset.lane) === mediatedLaneTab);
     });
@@ -283,6 +291,10 @@
     await loadMessages(true);
     if (pollMessages) clearInterval(pollMessages);
     pollMessages = setInterval(() => loadMessages(true), 2500);
+    setTimeout(() => {
+      resizeMessageInput();
+      el('messageInput')?.focus();
+    }, 80);
   };
 
   const loadMessages = async (silent = false) => {
@@ -299,13 +311,37 @@
   el('messageForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const input = el('messageInput');
+    const button = e.currentTarget.querySelector('button[type="submit"]');
     const body = input.value.trim();
     if (!body || !activeThread) return;
     input.value = '';
+    resizeMessageInput();
+    if (button) button.disabled = true;
     const payload = { body };
-    if (isAdmin) payload.visibility = el('sendVisibility')?.value || 'customer_only';
-    await fetchJson(`${apiBase}/${encodeURIComponent(activeThread)}/send`, { method: 'POST', body: JSON.stringify(payload) });
-    await loadMessages(true);
+    try {
+      const data = await fetchJson(`${apiBase}/${encodeURIComponent(activeThread)}/send`, { method: 'POST', body: JSON.stringify(payload) });
+      if (!data.ok) {
+        input.value = body;
+        resizeMessageInput();
+        el('messageList').insertAdjacentHTML('beforeend', `<div class="alert alert-danger">${escapeHtml(data.error || 'تعذر إرسال الرسالة')}</div>`);
+        return;
+      }
+      await loadMessages(true);
+    } catch (_) {
+      input.value = body;
+      resizeMessageInput();
+      el('messageList').insertAdjacentHTML('beforeend', '<div class="alert alert-danger">تعذر إرسال الرسالة، تحقق من الاتصال.</div>');
+    } finally {
+      if (button) button.disabled = false;
+      input.focus();
+    }
+  });
+
+  el('messageInput')?.addEventListener('input', resizeMessageInput);
+  el('messageInput')?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+    e.preventDefault();
+    el('messageForm')?.requestSubmit();
   });
 
   el('chatFileInput')?.addEventListener('change', async (e) => {
@@ -314,7 +350,6 @@
     const fd = new FormData();
     fd.append('file', file);
     fd.append('_csrf', csrf);
-    if (isAdmin) fd.append('visibility', el('sendVisibility')?.value || 'customer_only');
     await fetch(url(`${apiBase}/${encodeURIComponent(activeThread)}/upload`), {
       method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-Token': csrf }, body: fd,
     });
@@ -353,6 +388,8 @@
     app.classList.remove('is-minimized');
     el('messengerFab')?.classList.add('d-none');
   });
+  el('scrollChatTop')?.addEventListener('click', () => scrollMessagesTo('top'));
+  el('scrollChatBottom')?.addEventListener('click', () => scrollMessagesTo('bottom'));
 
   loadThreads();
   pollThreads = setInterval(() => loadThreads(true), 4000);

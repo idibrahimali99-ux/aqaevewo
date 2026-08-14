@@ -210,7 +210,10 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
   bool _investment = false;
 
   final List<XFile> _pickedImages = [];
+  final List<String> _existingImageUrls = [];
   XFile? _pickedVideo;
+  String? _existingVideoUrl;
+  bool _removeExistingVideo = false;
   Duration? _pickedVideoDuration;
   RangeValues? _videoTrimRange;
   LatLng? _pickedLocation;
@@ -232,9 +235,15 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
   String? _selectedCompoundId;
 
   bool _negotiable = false;
+  String _editRejectNote = '';
+  bool _editResubmissionAllowed = false;
 
   /// يُفعّل بعد اختيار قسم النشر؛ ثم تظهر أزرار بيع/إيجار.
   bool _step0CategoryChosen = false;
+
+  bool get _isEditing => (widget.editPropertyId ?? '').trim().isNotEmpty;
+
+  int get _totalImageCount => _existingImageUrls.length + _pickedImages.length;
 
   @override
   void initState() {
@@ -244,11 +253,12 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
       ref.invalidate(compoundsListProvider);
       await _loadEditableDraftIfNeeded();
       final auth = ref.read(authControllerProvider);
-      if (!officePostingQuotaExhausted(
-        isOffice: auth.role == UserRole.office,
-        postingTrialUnlimited: auth.postingTrialUnlimited,
-        postingListingsRemaining: auth.postingListingsRemaining,
-      )) {
+      if (_isEditing ||
+          !officePostingQuotaExhausted(
+            isOffice: auth.role == UserRole.office,
+            postingTrialUnlimited: auth.postingTrialUnlimited,
+            postingListingsRemaining: auth.postingListingsRemaining,
+          )) {
         return;
       }
       if (!mounted) return;
@@ -272,6 +282,84 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
         _price.text = p.priceIqd > 0 ? '${p.priceIqd}' : '';
         _area.text = p.areaSqm > 0 ? '${p.areaSqm}' : '';
         _description.text = p.description;
+        _existingImageUrls
+          ..clear()
+          ..addAll(p.images.where((e) => e.trim().isNotEmpty));
+        _existingVideoUrl = p.videoUrl;
+        _removeExistingVideo = false;
+        _editRejectNote = p.rejectNote.trim();
+        _editResubmissionAllowed = p.resubmissionAllowed;
+        _facadeM.text = p.detailsJson?['facade_m']?.toString() ?? '';
+        _depthM.text = p.detailsJson?['depth_m']?.toString() ?? '';
+        final buildingRaw = p.detailsJson?['building'];
+        final building = buildingRaw is Map
+            ? Map<String, dynamic>.from(buildingRaw)
+            : const <String, dynamic>{};
+        _rooms.text = building['rooms']?.toString() ?? '';
+        _bathrooms.text = building['bathrooms']?.toString() ?? '';
+        _salons.text = building['salons']?.toString() ?? '';
+        _floor.text =
+            building['floor']?.toString() ??
+            building['apt_floor']?.toString() ??
+            '';
+        _totalFloors.text = building['total_floors']?.toString() ?? '';
+        _bathType = building['bath_type']?.toString().trim().isNotEmpty == true
+            ? building['bath_type'].toString()
+            : _bathType;
+        _furnishedStatus =
+            building['furnished']?.toString().trim().isNotEmpty == true
+            ? building['furnished'].toString()
+            : _furnishedStatus;
+        _balcony = building['balcony'] == true || building['balcony'] == 1;
+        _kitchenHot =
+            building['kitchen_hot'] == true || building['kitchen_hot'] == 1;
+        _kitchenCold =
+            building['kitchen_cold'] == true || building['kitchen_cold'] == 1;
+        _aptCornerBuilding =
+            building['apt_corner'] == true || building['apt_corner'] == 1;
+        _aptElev =
+            building['apt_elevator'] == true || building['apt_elevator'] == 1;
+        _aptShared =
+            building['apt_shared_services'] == true ||
+            building['apt_shared_services'] == 1;
+        _aptPosition =
+            building['apt_position']?.toString().trim().isNotEmpty == true
+            ? building['apt_position'].toString()
+            : _aptPosition;
+        _aptDirection =
+            building['apt_direction']?.toString().trim().isNotEmpty == true
+            ? building['apt_direction'].toString()
+            : _aptDirection;
+        _aptPerFloor.text = building['apts_per_floor']?.toString() ?? '';
+        final featuresRaw = p.detailsJson?['features'];
+        final features = featuresRaw is Map
+            ? Map<String, dynamic>.from(featuresRaw)
+            : const <String, dynamic>{};
+        _commStreet =
+            features['commercial_street'] == true ||
+            features['commercial_street'] == 1;
+        _investment =
+            features['investment'] == true || features['investment'] == 1;
+        final amenitiesRaw = p.detailsJson?['amenities'];
+        final amenities = amenitiesRaw is Map
+            ? Map<String, dynamic>.from(amenitiesRaw)
+            : const <String, dynamic>{};
+        _parking = amenities['parking'] == true || amenities['parking'] == 1;
+        _guard = amenities['guard'] == true || amenities['guard'] == 1;
+        _negotiable =
+            p.detailsJson?['negotiable'] == true ||
+            p.detailsJson?['negotiable'] == 1 ||
+            p.detailsJson?['negotiable'] == '1';
+        final locRaw = p.detailsJson?['location'];
+        if (locRaw is Map) {
+          final lat = double.tryParse(locRaw['lat']?.toString() ?? '');
+          final lng = double.tryParse(locRaw['lng']?.toString() ?? '');
+          if (lat != null && lng != null) _pickedLocation = LatLng(lat, lng);
+        }
+        _districtUuid = p.detailsJson?['district_id']?.toString().trim();
+        if (_districtUuid?.isEmpty == true) _districtUuid = null;
+        _districtNameApi = p.detailsJson?['district_name']?.toString().trim();
+        if (_districtNameApi?.isEmpty == true) _districtNameApi = null;
         _selectedParcelId =
             p.detailsJson?['parcel_id']?.toString().trim().isNotEmpty == true
             ? p.detailsJson!['parcel_id'].toString()
@@ -461,7 +549,7 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
             );
             return false;
           }
-          if (_pickedImages.length != 1) {
+          if (_totalImageCount != 1) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('ارفع صورة واحدة فقط')),
             );
@@ -491,13 +579,13 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
           );
           return false;
         }
-        if (_pickedImages.isEmpty) {
+        if (_totalImageCount == 0) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('أضف صورة واحدة على الأقل (حتى 15)')),
           );
           return false;
         }
-        if (_pickedImages.length > 15) {
+        if (_totalImageCount > 15) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('15 صورة كحد أقصى')));
@@ -621,7 +709,7 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
             ),
             TextButton(
               onPressed: () async {
-                final uri = Uri.parse('https://wa.me/9647871456361');
+                final uri = Uri.parse('https://wa.me/9647887444177');
                 await launchUrl(uri, mode: LaunchMode.externalApplication);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
@@ -744,11 +832,12 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
   Future<void> _publish() async {
     final auth = ref.read(authControllerProvider);
     if (auth.role != UserRole.office && auth.role != UserRole.customer) return;
-    if (officePostingQuotaExhausted(
-      isOffice: auth.role == UserRole.office,
-      postingTrialUnlimited: auth.postingTrialUnlimited,
-      postingListingsRemaining: auth.postingListingsRemaining,
-    )) {
+    if (!_isEditing &&
+        officePostingQuotaExhausted(
+          isOffice: auth.role == UserRole.office,
+          postingTrialUnlimited: auth.postingTrialUnlimited,
+          postingListingsRemaining: auth.postingListingsRemaining,
+        )) {
       if (mounted) await showPostingQuotaBlockedDialog(context);
       return;
     }
@@ -766,7 +855,7 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
 
     try {
       final api = ref.read(vewoApiClientProvider);
-      final urls = <String>[];
+      final urls = <String>[..._existingImageUrls];
       for (var i = 0; i < _pickedImages.length; i++) {
         final x = _pickedImages[i];
         var bytes = await x.readAsBytes();
@@ -817,45 +906,84 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
         final autoTitle = 'مقاطعة — ${parcel.name}';
         final price = int.parse(_price.text.replaceAll(',', '').trim());
         final area = int.parse(_area.text.trim());
-        final res = await ref
-            .read(propertyListingsProvider.notifier)
-            .createRemote(
-              title: autoTitle,
-              governorate: _gov.trim().isNotEmpty
-                  ? _gov
-                  : (parcel.governorate.trim().isNotEmpty
-                        ? parcel.governorate
-                        : Iraq.governorates.first),
-              addressLine: parcel.displayName.trim(),
-              category: _category,
-              segment: _segment,
-              purpose: purpose,
-              detailsJson: {
-                'parcel_listing': true,
-                'parcel_id': parcel.id,
-                'parcel_name': parcel.displayName,
-                'negotiable': _negotiable,
-                if (_facadeM.text.trim().isNotEmpty)
-                  'facade_m': _facadeM.text.trim(),
-                if (_depthM.text.trim().isNotEmpty)
-                  'depth_m': _depthM.text.trim(),
-                if (_districtUuid != null &&
-                    _districtUuid!.trim().isNotEmpty) ...{
-                  'district_id': _districtUuid!.trim(),
-                  'district_name': (_districtNameApi ?? '').trim(),
-                },
-                if (_pickedLocation != null)
-                  'location': {
-                    'lat': _pickedLocation!.latitude,
-                    'lng': _pickedLocation!.longitude,
+        final notifier = ref.read(propertyListingsProvider.notifier);
+        final editId = widget.editPropertyId?.trim();
+        final res = _isEditing && editId != null && editId.isNotEmpty
+            ? await notifier.updateRemote(
+                id: editId,
+                title: autoTitle,
+                governorate: _gov.trim().isNotEmpty
+                    ? _gov
+                    : (parcel.governorate.trim().isNotEmpty
+                          ? parcel.governorate
+                          : Iraq.governorates.first),
+                addressLine: parcel.displayName.trim(),
+                category: _category,
+                segment: _segment,
+                purpose: purpose,
+                detailsJson: {
+                  'parcel_listing': true,
+                  'parcel_id': parcel.id,
+                  'parcel_name': parcel.displayName,
+                  'negotiable': _negotiable,
+                  if (_facadeM.text.trim().isNotEmpty)
+                    'facade_m': _facadeM.text.trim(),
+                  if (_depthM.text.trim().isNotEmpty)
+                    'depth_m': _depthM.text.trim(),
+                  if (_districtUuid != null &&
+                      _districtUuid!.trim().isNotEmpty) ...{
+                    'district_id': _districtUuid!.trim(),
+                    'district_name': (_districtNameApi ?? '').trim(),
                   },
-              },
-              priceIqd: price,
-              areaSqm: area,
-              description: _description.text.trim(),
-              imageUrls: urls,
-              parcelId: parcel.id,
-            );
+                  if (_pickedLocation != null)
+                    'location': {
+                      'lat': _pickedLocation!.latitude,
+                      'lng': _pickedLocation!.longitude,
+                    },
+                },
+                priceIqd: price,
+                areaSqm: area,
+                description: _description.text.trim(),
+                imageUrls: urls,
+                parcelId: parcel.id,
+              )
+            : await notifier.createRemote(
+                title: autoTitle,
+                governorate: _gov.trim().isNotEmpty
+                    ? _gov
+                    : (parcel.governorate.trim().isNotEmpty
+                          ? parcel.governorate
+                          : Iraq.governorates.first),
+                addressLine: parcel.displayName.trim(),
+                category: _category,
+                segment: _segment,
+                purpose: purpose,
+                detailsJson: {
+                  'parcel_listing': true,
+                  'parcel_id': parcel.id,
+                  'parcel_name': parcel.displayName,
+                  'negotiable': _negotiable,
+                  if (_facadeM.text.trim().isNotEmpty)
+                    'facade_m': _facadeM.text.trim(),
+                  if (_depthM.text.trim().isNotEmpty)
+                    'depth_m': _depthM.text.trim(),
+                  if (_districtUuid != null &&
+                      _districtUuid!.trim().isNotEmpty) ...{
+                    'district_id': _districtUuid!.trim(),
+                    'district_name': (_districtNameApi ?? '').trim(),
+                  },
+                  if (_pickedLocation != null)
+                    'location': {
+                      'lat': _pickedLocation!.latitude,
+                      'lng': _pickedLocation!.longitude,
+                    },
+                },
+                priceIqd: price,
+                areaSqm: area,
+                description: _description.text.trim(),
+                imageUrls: urls,
+                parcelId: parcel.id,
+              );
 
         if (!mounted) return;
         setState(() => _loading = false);
@@ -886,7 +1014,7 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
       final address = districtLine.isNotEmpty ? districtLine : _gov.trim();
       final purpose = _purpose;
 
-      String? videoUrl;
+      String? videoUrl = _removeExistingVideo ? null : _existingVideoUrl;
       if (_pickedVideo != null && _pickedVideo!.path.isNotEmpty) {
         final uploadVideo = await _trimVideoForUpload(_pickedVideo!);
         final vb = await uploadVideo.readAsBytes();
@@ -905,30 +1033,54 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
       }
 
       final autoTitle = '${_category.labelAr} — $address';
-      final res = await ref
-          .read(propertyListingsProvider.notifier)
-          .createRemote(
-            title: autoTitle,
-            governorate: _gov,
-            addressLine: address,
-            category: _category,
-            segment: _segment,
-            purpose: purpose,
-            detailsJson: {
-              ..._detailsJson(),
-              if (_selectedCompoundId != null)
-                'compound_id': _selectedCompoundId,
-              if ((_selectedCompoundName() ?? '').isNotEmpty)
-                'compound_name': _selectedCompoundName(),
-              'negotiable': _negotiable,
-            },
-            priceIqd: price,
-            areaSqm: area,
-            description: _description.text.trim(),
-            imageUrls: urls,
-            videoUrl: videoUrl,
-            compoundId: _selectedCompoundId,
-          );
+      final notifier = ref.read(propertyListingsProvider.notifier);
+      final editId = widget.editPropertyId?.trim();
+      final res = _isEditing && editId != null && editId.isNotEmpty
+          ? await notifier.updateRemote(
+              id: editId,
+              title: autoTitle,
+              governorate: _gov,
+              addressLine: address,
+              category: _category,
+              segment: _segment,
+              purpose: purpose,
+              detailsJson: {
+                ..._detailsJson(),
+                if (_selectedCompoundId != null)
+                  'compound_id': _selectedCompoundId,
+                if ((_selectedCompoundName() ?? '').isNotEmpty)
+                  'compound_name': _selectedCompoundName(),
+                'negotiable': _negotiable,
+              },
+              priceIqd: price,
+              areaSqm: area,
+              description: _description.text.trim(),
+              imageUrls: urls,
+              videoUrl: videoUrl,
+              compoundId: _selectedCompoundId,
+            )
+          : await notifier.createRemote(
+              title: autoTitle,
+              governorate: _gov,
+              addressLine: address,
+              category: _category,
+              segment: _segment,
+              purpose: purpose,
+              detailsJson: {
+                ..._detailsJson(),
+                if (_selectedCompoundId != null)
+                  'compound_id': _selectedCompoundId,
+                if ((_selectedCompoundName() ?? '').isNotEmpty)
+                  'compound_name': _selectedCompoundName(),
+                'negotiable': _negotiable,
+              },
+              priceIqd: price,
+              areaSqm: area,
+              description: _description.text.trim(),
+              imageUrls: urls,
+              videoUrl: videoUrl,
+              compoundId: _selectedCompoundId,
+            );
 
       if (!mounted) return;
       setState(() => _loading = false);
@@ -1045,7 +1197,7 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
       appBar: AppBar(
-        title: const AppBarBrandTitle('نشر عقار'),
+        title: AppBarBrandTitle(_isEditing ? 'تعديل منشور مرفوض' : 'نشر عقار'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: _back,
@@ -1138,6 +1290,51 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
                             ),
                           ),
                         ),
+                        if (_isEditing)
+                          ResponsiveCenter(
+                            child: Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              color: scheme.errorContainer.withValues(
+                                alpha: 0.55,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      'ملاحظة الإدارة',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            color: scheme.error,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      _editRejectNote.isEmpty
+                                          ? 'تم رفض المنشور. عدّل البيانات أو الوسائط ثم أعد الإرسال للمراجعة.'
+                                          : _editRejectNote,
+                                      style: TextStyle(
+                                        color: scheme.onErrorContainer,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    if (!_editResubmissionAllowed) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'تنبيه: لم يتم تأكيد صلاحية إعادة الإرسال لهذا المنشور من السيرفر.',
+                                        style: TextStyle(color: scheme.error),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                         ResponsiveCenter(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1608,8 +1805,42 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
             FilledButton.tonalIcon(
               onPressed: _loading ? null : _pickParcelImage,
               icon: const Icon(Icons.add_photo_alternate_outlined),
-              label: Text(_pickedImages.isEmpty ? 'اختر صورة' : 'تغيير الصورة'),
+              label: Text(_totalImageCount == 0 ? 'اختر صورة' : 'تغيير الصورة'),
             ),
+            if (_existingImageUrls.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.network(
+                      _existingImageUrls.first,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Container(
+                        height: 180,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        child: const Icon(Icons.broken_image_outlined),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: IconButton.filled(
+                      tooltip: 'حذف الصورة الحالية',
+                      onPressed: _loading
+                          ? null
+                          : () => setState(() => _existingImageUrls.clear()),
+                      icon: const Icon(Icons.delete_outline_rounded),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
             const Text(
               'الموقع على الخريطة',
@@ -1922,6 +2153,25 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
           ),
         ],
       ),
+      if ((_existingVideoUrl ?? '').trim().isNotEmpty &&
+          !_removeExistingVideo &&
+          _pickedVideo == null) ...[
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.movie_outlined),
+            title: const Text('الفيديو الحالي محفوظ'),
+            subtitle: const Text('يمكنك حذفه أو تغييره بفيديو جديد'),
+            trailing: IconButton(
+              tooltip: 'حذف الفيديو الحالي',
+              onPressed: _loading
+                  ? null
+                  : () => setState(() => _removeExistingVideo = true),
+              icon: const Icon(Icons.delete_outline_rounded),
+            ),
+          ),
+        ),
+      ],
       if (_pickedVideo != null) ...[
         const SizedBox(height: 12),
         ClipRRect(
@@ -1978,6 +2228,72 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
             onChanged: (v) => setState(() => _videoTrimRange = v),
           ),
         ],
+      ],
+      if (_existingImageUrls.isNotEmpty) ...[
+        const SizedBox(height: 10),
+        Text(
+          '${_existingImageUrls.length} صورة حالية',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          height: 88,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _existingImageUrls.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final url = _existingImageUrls[i];
+              return Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      url,
+                      width: 88,
+                      height: 88,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Container(
+                        width: 88,
+                        height: 88,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        child: const Icon(Icons.broken_image_outlined),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 2,
+                    left: 2,
+                    child: Material(
+                      color: Colors.black54,
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        tooltip: 'حذف الصورة الحالية',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        onPressed: _loading
+                            ? null
+                            : () => setState(
+                                () => _existingImageUrls.removeAt(i),
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ],
       if (_pickedImages.isNotEmpty) ...[
         const SizedBox(height: 10),
@@ -2053,8 +2369,9 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
     if (prepared.isEmpty) return;
     setState(() {
       _pickedImages.addAll(prepared);
-      if (_pickedImages.length > 15) {
-        _pickedImages.removeRange(15, _pickedImages.length);
+      final allowedNew = (15 - _existingImageUrls.length).clamp(0, 15);
+      if (_pickedImages.length > allowedNew) {
+        _pickedImages.removeRange(allowedNew, _pickedImages.length);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('تم الاحتفاظ بأول 15 صورة فقط')),
         );
@@ -2115,6 +2432,7 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
     final prepared = await _previewAndCropImage(x);
     if (!mounted || prepared == null) return;
     setState(() {
+      _existingImageUrls.clear();
       _pickedImages
         ..clear()
         ..add(prepared);

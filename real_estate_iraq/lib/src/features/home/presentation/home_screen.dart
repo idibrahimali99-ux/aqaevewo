@@ -768,10 +768,10 @@ DateTime? _urgentSaleEndsAt(Property p) {
 class _OfficePostingQuotaStrip extends ConsumerWidget {
   const _OfficePostingQuotaStrip();
 
-  static const _supportPhone = '07871456361';
+  static const _supportPhone = '07887444177';
 
   Future<void> _openWa(BuildContext context) async {
-    final uri = Uri.parse('https://wa.me/9647871456361');
+    final uri = Uri.parse('https://wa.me/9647887444177');
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
         context.mounted) {
       ScaffoldMessenger.of(

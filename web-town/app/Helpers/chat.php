@@ -81,6 +81,7 @@ function web_route_from_app(string $target): string
     ];
     $base = strtok($path, '?') ?: '/';
     $query = str_contains($path, '?') ? substr($path, strpos($path, '?')) : '';
+
     if (isset($aliases[$base])) {
         return url($aliases[$base] . $query);
     }

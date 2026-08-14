@@ -10,6 +10,7 @@ $publicNo = (string) ($property['property_public_no'] ?? '');
 $videoUrl = trim((string) ($property['video_url'] ?? $videoUrl ?? ''));
 $owner = property_owner_label($property);
 $specRows = property_spec_rows($property);
+$contactError = trim((string) ($_GET['error'] ?? ''));
 ?>
 <div class="property-detail-full<?= $compact ? ' property-detail-compact' : '' ?>">
     <div class="row g-4">
@@ -71,6 +72,10 @@ $specRows = property_spec_rows($property);
                     <?php endif; ?>
                 </div>
 
+                <?php if ($contactError !== ''): ?>
+                    <div class="alert alert-danger rounded-4"><?= e($contactError) ?></div>
+                <?php endif; ?>
+
                 <?php if (!empty($property['description'])): ?>
                     <div class="property-description mb-3">
                         <div class="small text-secondary mb-1">الوصف</div>
@@ -80,9 +85,9 @@ $specRows = property_spec_rows($property);
 
                 <?php if (empty($compact) && !empty($property['id']) && is_logged_in()): ?>
                     <div class="d-flex flex-wrap gap-2">
-                        <form method="post" action="<?= e(url('/property/' . $property['id'] . '/contact')) ?>">
+                        <form method="post" action="<?= e(url('/property/' . $property['id'] . '/contact')) ?>" data-property-contact-form data-property-id="<?= e((string) $property['id']) ?>">
                             <?= csrf_field() ?>
-                            <button class="btn btn-primary rounded-pill px-4" type="submit"><i class="fa-solid fa-comments ms-1"></i> تواصل</button>
+                            <button class="btn btn-primary rounded-pill px-4" type="submit" data-contact-submit><i class="fa-solid fa-comments ms-1"></i> تواصل</button>
                         </form>
                         <form method="post" action="<?= e(url('/favorites/toggle')) ?>" class="d-inline">
                             <?= csrf_field() ?>
@@ -91,6 +96,7 @@ $specRows = property_spec_rows($property);
                             <button class="btn btn-outline-dark rounded-pill" type="submit"><i class="fa-solid fa-heart ms-1"></i> <?= is_favorite((string) $property['id']) ? 'محفوظ' : 'حفظ' ?></button>
                         </form>
                     </div>
+                    <div class="alert alert-danger rounded-4 mt-2 d-none" data-contact-error></div>
                 <?php elseif (empty($compact) && !empty($property['id'])): ?>
                     <a class="btn btn-primary rounded-pill px-4" href="<?= e(url('/login')) ?>">سجّل للتواصل</a>
                 <?php endif; ?>

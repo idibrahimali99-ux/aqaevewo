@@ -11,7 +11,7 @@ import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../routing/app_routes.dart';
 import '../../properties/data/office_properties_provider.dart';
-import '../../properties/presentation/property_card.dart';
+import '../../properties/presentation/property_cards_grid.dart';
 import '../data/marketers_providers.dart';
 
 final marketerReelsProvider = FutureProvider.autoDispose
@@ -176,8 +176,9 @@ class MarketerProfileScreen extends ConsumerWidget {
                                                 );
                                               },
                                         style: FilledButton.styleFrom(
-                                          backgroundColor:
-                                              const Color(0xFF25D366),
+                                          backgroundColor: const Color(
+                                            0xFF25D366,
+                                          ),
                                           foregroundColor: Colors.white,
                                         ),
                                         icon: const Icon(Icons.chat_rounded),
@@ -299,20 +300,7 @@ class MarketerProfileScreen extends ConsumerWidget {
                   ),
                 )
               else
-                ...items.map(
-                  (p) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: SizedBox(
-                      height: 270,
-                      child: PropertyCard(
-                        property: p,
-                        onTap: () => context.push(
-                          '${AppRoutes.propertyDetails}/${p.id}',
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                PropertyCardsGrid(items: items),
             ],
           );
         },

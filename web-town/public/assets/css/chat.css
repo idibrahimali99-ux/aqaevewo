@@ -6,22 +6,51 @@
   --chat-bubble-me: #fff3cc;
   --chat-bubble-them: #fff;
 }
-.chat-body { background: var(--chat-bg); overflow: hidden; }
-.chat-body .messenger-shell { height: calc(100vh - 52px); }
+.chat-body {
+  background: var(--chat-bg);
+  overflow: hidden;
+  height: 100dvh;
+}
+.chat-body .messenger-shell {
+  height: calc(100dvh - 52px);
+  min-height: 0;
+}
 .messenger-shell {
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr);
-  height: calc(100vh - 0px);
+  height: 100dvh;
+  min-height: 0;
   max-width: 1400px;
   margin: 0 auto;
   background: var(--chat-sidebar);
   box-shadow: 0 20px 60px rgba(0,0,0,.08);
 }
 .messenger-shell-admin {
-  height: calc(100vh - 120px);
+  height: calc(100dvh - 120px);
+  min-height: 0;
   border-radius: 1.25rem;
   overflow: hidden;
   border: 1px solid var(--chat-line);
+}
+.messenger-wrap-admin {
+  height: calc(100dvh - 112px);
+  min-height: 0;
+  display: flex;
+  min-width: 0;
+}
+.messenger-wrap-admin .messenger-shell-admin {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+}
+.admin-content:has(.messenger-wrap-admin) {
+  height: calc(100dvh - 78px);
+  overflow: hidden;
+  padding: .75rem;
+}
+.admin-main-wrap:has(.messenger-wrap-admin) {
+  height: 100dvh;
+  overflow: hidden;
 }
 .messenger-sidebar {
   border-left: 1px solid var(--chat-line);
@@ -136,11 +165,13 @@
   font-weight: 800;
 }
 .messenger-panel {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
+  min-height: 0;
   background: var(--chat-bg);
   position: relative;
+  overflow: hidden;
 }
 .messenger-empty {
   flex: 1;
@@ -152,7 +183,15 @@
   padding: 2rem;
 }
 .messenger-empty i { font-size: 4rem; color: #0084ff; opacity: .35; }
-.messenger-room { display: flex; flex-direction: column; height: 100%; }
+.messenger-room {
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  background: var(--chat-bg);
+}
 .messenger-room-head {
   display: flex;
   align-items: center;
@@ -160,6 +199,8 @@
   padding: .85rem 1rem;
   background: #fff;
   border-bottom: 1px solid var(--chat-line);
+  min-height: 68px;
+  flex-shrink: 0;
 }
 .messenger-room-avatar {
   width: 42px;
@@ -174,12 +215,14 @@
   font-size: .88rem;
 }
 .messenger-messages {
-  flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: .5rem;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
 }
 .messenger-bubble {
   max-width: min(78%, 520px);
@@ -294,20 +337,97 @@
   margin-bottom: .25rem;
 }
 .messenger-compose {
-  display: flex;
-  gap: .5rem;
-  align-items: center;
-  padding: .75rem 1rem;
-  background: #fff;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: .65rem;
+  align-items: end;
+  padding: .85rem 1rem max(.85rem, env(safe-area-inset-bottom));
+  background: rgba(255,255,255,.98);
   border-top: 1px solid var(--chat-line);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 20;
+  pointer-events: auto;
+  box-shadow: 0 -10px 30px rgba(0,0,0,.08);
 }
-.messenger-compose input[type=text] {
-  flex: 1;
-  border: 0;
+.messenger-compose-field {
+  min-width: 0;
+  display: grid;
+  gap: .25rem;
+}
+.messenger-compose-field textarea {
+  width: 100%;
+  min-height: 44px;
+  max-height: 132px;
+  resize: none;
+  border: 1px solid transparent;
   outline: 0;
   background: var(--chat-bg);
+  border-radius: 18px;
+  padding: .7rem .95rem;
+  direction: rtl;
+  pointer-events: auto;
+  line-height: 1.55;
+  overflow-y: auto;
+}
+.messenger-compose-field textarea:focus {
+  background: #fff;
+  border-color: var(--chat-primary);
+  box-shadow: 0 0 0 .2rem rgba(245,180,0,.16);
+}
+.messenger-compose-field small {
+  color: #8a8172;
+  font-size: .72rem;
+  padding-inline-start: .35rem;
+}
+.messenger-attach-btn,
+.messenger-send-btn {
+  min-height: 44px;
+  border: 0;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  font-weight: 900;
+  pointer-events: auto;
+}
+.messenger-attach-btn {
+  width: 44px;
+  background: #f6f7f9;
+  color: #4b5563;
+  border: 1px solid var(--chat-line);
+  cursor: pointer;
+}
+.messenger-send-btn {
+  padding: 0 1.1rem;
+  background: var(--chat-primary);
+  color: #1d1a13;
+  box-shadow: 0 10px 22px rgba(245,180,0,.28);
+}
+.messenger-send-btn:disabled {
+  opacity: .65;
+  cursor: progress;
+}
+.messenger-scroll-controls {
+  position: absolute;
+  inset-inline-end: 1rem;
+  bottom: 5.25rem;
+  display: grid;
+  gap: .4rem;
+  z-index: 15;
+}
+.messenger-scroll-btn {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--chat-line);
   border-radius: 999px;
-  padding: .65rem 1rem;
+  background: rgba(255,255,255,.95);
+  color: #1d1a13;
+  box-shadow: 0 8px 18px rgba(0,0,0,.10);
+}
+.messenger-scroll-btn:hover {
+  background: var(--chat-primary);
 }
 .messenger-skeleton {
   height: 68px;
@@ -326,7 +446,7 @@
 .messenger-shell.is-minimized .messenger-panel { display: none; }
 .messenger-shell.is-minimized .messenger-sidebar { grid-column: 1 / -1; }
 @media (max-width: 992px) {
-  .messenger-shell { grid-template-columns: 1fr; height: 100vh; }
+  .messenger-shell { grid-template-columns: 1fr; height: calc(100dvh - 52px); }
   .messenger-sidebar {
     position: fixed;
     inset: 0;
@@ -335,7 +455,34 @@
     transition: transform .25s ease;
   }
   .messenger-shell.room-open .messenger-sidebar { transform: translateX(100%); }
-  .messenger-panel { min-height: 100vh; }
+  .messenger-panel { min-height: 0; height: 100%; }
+}
+@media (max-width: 576px) {
+  .messenger-room-head {
+    padding: .7rem .75rem;
+  }
+  .messenger-messages {
+    padding: .75rem;
+  }
+  .messenger-compose {
+    grid-template-columns: 40px minmax(0, 1fr) 54px;
+    gap: .45rem;
+    padding: .65rem .65rem max(.65rem, env(safe-area-inset-bottom));
+  }
+  .messenger-compose-field small {
+    display: none;
+  }
+  .messenger-send-btn {
+    padding: 0;
+  }
+  .messenger-send-btn span {
+    display: none;
+  }
+  .messenger-attach-btn,
+  .messenger-send-btn {
+    min-height: 42px;
+    border-radius: 14px;
+  }
 }
 @keyframes shimmer {
   0% { background-position: 200% 0; }

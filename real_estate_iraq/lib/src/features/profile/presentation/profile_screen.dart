@@ -486,16 +486,47 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         for (final p in items)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 12),
-                            child: SizedBox(
-                              height: 270,
-                              child: PropertyCard(
-                                property: p,
-                                showPublisherModeration: true,
-                                viewerIsOffice: auth.role == UserRole.office,
-                                onTap: () => context.push(
-                                  '${AppRoutes.propertyDetails}/${p.id}',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                SizedBox(
+                                  height: p.approvalStatus == 'rejected'
+                                      ? 304
+                                      : 270,
+                                  child: PropertyCard(
+                                    property: p,
+                                    showPublisherModeration: true,
+                                    viewerIsOffice:
+                                        auth.role == UserRole.office,
+                                    onTap: () => context.push(
+                                      '${AppRoutes.propertyDetails}/${p.id}',
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                if (p.approvalStatus == 'rejected') ...[
+                                  const SizedBox(height: 8),
+                                  if (p.resubmissionAllowed)
+                                    FilledButton.icon(
+                                      onPressed: () => context.push(
+                                        '${AppRoutes.addProperty}?edit_property_id=${Uri.encodeComponent(p.id)}',
+                                      ),
+                                      icon: const Icon(Icons.edit_note_rounded),
+                                      label: const Text('تعديل وإعادة إرسال'),
+                                    )
+                                  else
+                                    Card(
+                                      color: scheme.errorContainer.withValues(
+                                        alpha: 0.45,
+                                      ),
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(12),
+                                        child: Text(
+                                          'هذا المنشور مرفوض ولا توجد صلاحية تعديل حالياً. راجع ملاحظة الإدارة.',
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ],
                             ),
                           ),
                       ],

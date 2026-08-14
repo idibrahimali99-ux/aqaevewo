@@ -2,20 +2,24 @@
 declare(strict_types=1);
 
 /**
- * Web Town configuration.
- *
- * Keep this project outside the API directory, but point it to the existing API
- * entry point. On XAMPP the default becomes: http://localhost/api/index.php
+ * Web Town configuration (legacy entry — يُفضَّل config/app.php).
  */
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
+$apiHint = 'http://31.57.156.84/api/index.php';
+$envEntry = getenv('WEB_TOWN_API_ENTRY');
+$apiEntry = (is_string($envEntry) && trim($envEntry) !== '')
+    ? trim($envEntry)
+    : $apiHint;
 
 return [
     'app_name' => 'ويب تاون',
     'brand_name' => 'عقار تاون | Web Town',
-    'api_entry' => getenv('WEB_TOWN_API_ENTRY') ?: $scheme . '://' . $host . '/api/index.php',
+    'api_entry' => $apiEntry,
+    'api_base_hint' => $apiHint,
+    'api_fallback_entry' => $scheme . '://' . $host . '/api/index.php',
     'api_config_path' => dirname(__DIR__) . '/api/config.php',
-    'support_phone' => '07871456361',
+    'support_phone' => '07887444177',
     'session_name' => 'web_town_session',
     'debug' => (bool) (getenv('WEB_TOWN_DEBUG') ?: false),
 ];

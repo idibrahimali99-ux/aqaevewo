@@ -22,13 +22,15 @@ final class CompoundController extends Controller
 
     public function show(string $id): void
     {
+        $title = trim((string) ($_GET['title'] ?? 'مجمع سكني'));
         $properties = api_client()->get('properties/list', [
             'compound_id' => $id,
             'include_mine' => '1',
             'limit' => 200,
         ]);
+
         $this->view('compounds/show', [
-            'title' => trim((string) ($_GET['title'] ?? 'مجمع سكني')),
+            'title' => $title,
             'compoundId' => $id,
             'properties' => $properties['items'] ?? [],
         ]);

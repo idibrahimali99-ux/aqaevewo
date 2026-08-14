@@ -111,10 +111,50 @@ function api_client(): \App\Models\ApiClient
 {
     static $client = null;
     if ($client === null) {
-        $client = new \App\Models\ApiClient((string) App::config('api_entry'));
+        $entry = trim((string) App::config('api_entry', ''));
+        if ($entry === '') {
+            $entry = trim((string) App::config('api_base_hint', ''));
+        }
+        if ($entry === '') {
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
+            $entry = $scheme . '://' . $host . '/api/index.php';
+        }
+        $client = new \App\Models\ApiClient($entry);
     }
 
     return $client;
+}
+
+/**
+ * طلب API مع تجربة رابط احتياطي عند فشل JSON/الاتصال.
+ *
+ * @param array<string,mixed> $query
+ * @return array<string,mixed>
+ */
+function api_get_resilient(string $route, array $query = [], ?string $token = null): array
+{
+    $primary = api_client()->get($route, $query, $token);
+    if (!empty($primary['ok'])) {
+        return $primary;
+    }
+    $fallback = trim((string) App::config('api_fallback_entry', ''));
+    $hint = trim((string) App::config('api_base_hint', ''));
+    $current = trim((string) App::config('api_entry', ''));
+    $candidates = [];
+    foreach ([$hint, $fallback] as $c) {
+        if ($c !== '' && $c !== $current && !in_array($c, $candidates, true)) {
+            $candidates[] = $c;
+        }
+    }
+    foreach ($candidates as $entry) {
+        $alt = (new \App\Models\ApiClient($entry))->get($route, $query, $token);
+        if (!empty($alt['ok'])) {
+            return $alt;
+        }
+    }
+
+    return $primary;
 }
 
 /** @return array<string,mixed>|null */
@@ -331,14 +371,26 @@ function property_owner_label(array $property): string
 {
     $office = trim((string) ($property['owner_office_name'] ?? $property['office_name'] ?? ''));
     $full = trim((string) ($property['owner_full_name'] ?? $property['owner_name'] ?? ''));
-    if ($office !== '') {
-        return $office;
+    $role = trim((string) ($property['owner_role'] ?? $property['role'] ?? ''));
+    $isMarketerRaw = $property['owner_is_marketer'] ?? $property['is_marketer'] ?? 0;
+    $isMarketer = $isMarketerRaw === true || $isMarketerRaw === 1 || $isMarketerRaw === '1';
+
+    if ($role === 'office' && $isMarketer) {
+        return $full !== '' ? $full : ($office !== '' ? $office : 'مسوق عقاري');
     }
-    if ($full !== '') {
-        return $full;
+    if ($role === 'marketer') {
+        return $full !== '' ? $full : ($office !== '' ? $office : 'مسوق عقاري');
+    }
+    if ($role === 'office') {
+        return $office !== '' ? $office : ($full !== '' ? $full : 'مكتب عقاري');
     }
 
-    return 'ناشر المنشور';
+    // نفس منطق التطبيق: منشورات الزبائن تظهر باسم المنصة وليس اسم الشخص.
+    if ($role === 'customer' || $role === '') {
+        return 'عقار تاون';
+    }
+
+    return $full !== '' ? $full : 'عقار تاون';
 }
 
 /** @return list<array<string,mixed>> */
@@ -364,7 +416,9 @@ function property_map_markers(array $items): array
             'title' => (string) ($item['title'] ?? 'عقار'),
             'price' => money_iqd($item['price_iqd'] ?? null),
             'governorate' => (string) ($item['governorate'] ?? ''),
+            'category' => property_category_label((string) ($item['category'] ?? '')),
             'thumb' => first_image($item),
+            'video' => trim((string) ($item['video_url'] ?? '')),
             'url' => url('/property/' . $id),
         ];
     }

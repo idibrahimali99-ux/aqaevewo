@@ -130,6 +130,75 @@ class PropertyListingsNotifier extends Notifier<List<Property>> {
     }
   }
 
+  Future<({String? error, String? approval})> updateRemote({
+    required String id,
+    required String title,
+    required String governorate,
+    required String addressLine,
+    required PropertyCategory category,
+    required PropertySegment segment,
+    required int priceIqd,
+    required int areaSqm,
+    required String description,
+    String purpose = 'sale',
+    Map<String, dynamic>? detailsJson,
+    required List<String> imageUrls,
+    String? videoUrl,
+    String? parcelId,
+    String? compoundId,
+  }) async {
+    try {
+      final api = ref.read(vewoApiClientProvider);
+      final urls = imageUrls.where((e) => e.trim().isNotEmpty).toList();
+      if (urls.isEmpty) {
+        return (error: 'أضف صورة واحدة على الأقل', approval: null);
+      }
+      if (urls.length > 15) {
+        return (error: '15 صورة كحد أقصى', approval: null);
+      }
+      final body = <String, dynamic>{
+        'id': id,
+        'title': title,
+        'governorate': governorate,
+        'address_line': addressLine,
+        'category': category.name,
+        'segment': segment.name,
+        'purpose': purpose,
+        'price_iqd': priceIqd,
+        'area_sqm': areaSqm,
+        'description': description,
+        'image_urls': urls,
+      };
+      if (detailsJson != null && detailsJson.isNotEmpty) {
+        body['details_json'] = detailsJson;
+      }
+      final v = videoUrl?.trim();
+      if (v != null && v.isNotEmpty) {
+        body['video_url'] = v;
+      }
+      final pid = parcelId?.trim();
+      if (pid != null && pid.isNotEmpty) {
+        body['parcel_id'] = pid;
+      }
+      final cid = compoundId?.trim();
+      if (cid != null && cid.isNotEmpty) {
+        body['compound_id'] = cid;
+      }
+      final data = await api.postJson('properties/update', body);
+      await reload();
+      ref.invalidate(myPropertiesProvider);
+      final ap = data['approval_status']?.toString();
+      return (error: null, approval: ap ?? 'pending');
+    } on VewoApiException catch (e) {
+      return (error: e.message, approval: null);
+    } catch (_) {
+      return (
+        error: 'تعذر إعادة الإرسال — تحقق من الجلسة والشبكة',
+        approval: null,
+      );
+    }
+  }
+
   void addLocal(Property property) {
     state = [...state, property];
   }

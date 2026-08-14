@@ -7,7 +7,9 @@ import '../../../core/api/vewo_api_client.dart';
 import 'admin_chat_room_screen.dart';
 
 class AdminChatsScreen extends ConsumerStatefulWidget {
-  const AdminChatsScreen({super.key});
+  const AdminChatsScreen({super.key, this.initialThreadId});
+
+  final String? initialThreadId;
 
   @override
   ConsumerState<AdminChatsScreen> createState() => _AdminChatsScreenState();
@@ -19,6 +21,28 @@ class _AdminChatsScreenState extends ConsumerState<AdminChatsScreen> {
   String? _error;
   final _search = TextEditingController();
   String _filter = 'all';
+  bool _openedInitialThread = false;
+
+  void _openThread(String id) {
+    if (id.isEmpty) return;
+    Navigator.of(context)
+        .push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => AdminChatRoomScreen(threadId: id),
+          ),
+        )
+        .then((_) => _load());
+  }
+
+  void _maybeOpenInitialThread() {
+    if (_openedInitialThread) return;
+    final tid = widget.initialThreadId?.trim() ?? '';
+    if (tid.isEmpty) return;
+    _openedInitialThread = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _openThread(tid);
+    });
+  }
 
   @override
   void dispose() {
@@ -60,6 +84,7 @@ class _AdminChatsScreenState extends ConsumerState<AdminChatsScreen> {
         _items = list;
         _loading = false;
       });
+      _maybeOpenInitialThread();
     } on VewoApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -276,18 +301,7 @@ class _AdminChatsScreenState extends ConsumerState<AdminChatsScreen> {
                               const Icon(Icons.chevron_left),
                             ],
                           ),
-                          onTap: id.isEmpty
-                              ? null
-                              : () {
-                                  Navigator.of(context)
-                                      .push<void>(
-                                        MaterialPageRoute<void>(
-                                          builder: (_) =>
-                                              AdminChatRoomScreen(threadId: id),
-                                        ),
-                                      )
-                                      .then((_) => _load());
-                                },
+                          onTap: id.isEmpty ? null : () => _openThread(id),
                         ),
                       );
                     },

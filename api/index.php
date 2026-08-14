@@ -110,17 +110,38 @@ if ($route === 'admin_parcels') {
     $route = 'admin/parcels';
 }
 
+require_once __DIR__ . '/lib/r2_storage.php';
 require_once __DIR__ . '/lib/extend.php';
 require_once __DIR__ . '/lib/social.php';
 
 switch ($route) {
     case '':
     case 'health':
+        $fcmReady = false;
+        $fcmMode = 'none';
+        if (function_exists('vewo_fcm_service_account') && function_exists('vewo_fcm_config_value')) {
+            $sa = vewo_fcm_service_account();
+            $projectId = vewo_fcm_config_value('project_id');
+            if ($projectId === '' && is_array($sa)) {
+                $projectId = trim((string) ($sa['project_id'] ?? ''));
+            }
+            if ($sa !== null && $projectId !== '') {
+                $fcmReady = true;
+                $fcmMode = 'http_v1';
+            } elseif (function_exists('vewo_fcm_server_key') && vewo_fcm_server_key() !== '') {
+                $fcmReady = true;
+                $fcmMode = 'legacy';
+            }
+        }
         echo json_encode([
             'ok' => true,
             'service' => 'vewo-api',
             'time' => date('c'),
             'db' => $db['name'],
+            'fcm' => [
+                'ready' => $fcmReady,
+                'mode' => $fcmMode,
+            ],
         ], JSON_UNESCAPED_UNICODE);
         break;
 
@@ -331,6 +352,11 @@ switch ($route) {
         admin_broadcast_route($pdo);
         break;
 
+    case 'cron/push-reminders':
+    case 'cron_push_reminders':
+        cron_push_reminders_route($pdo);
+        break;
+
     case 'chat/messages':
         $cm = $_SERVER['REQUEST_METHOD'] ?? 'GET';
         if ($cm === 'GET') {
@@ -394,6 +420,14 @@ switch ($route) {
         admin_device_register_route($pdo);
         break;
 
+    case 'admin/fcm/test':
+    case 'admin_fcm_test':
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            json_error(405, 'Method not allowed');
+        }
+        admin_fcm_test_route($pdo);
+        break;
+
     case 'properties/list':
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
             json_error(405, 'Method not allowed');
@@ -413,6 +447,13 @@ switch ($route) {
             json_error(405, 'Method not allowed');
         }
         properties_create_route($pdo);
+        break;
+
+    case 'properties/update':
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            json_error(405, 'Method not allowed');
+        }
+        user_property_update_route($pdo);
         break;
 
     case 'properties/upload':
@@ -936,7 +977,7 @@ function auth_login(PDO $pdo, bool $adminPanel = false): void
  */
 function app_bootstrap(PDO $pdo, array $config): void
 {
-    $phone = (string) ($config['support_phone'] ?? '07871456361');
+    $phone = (string) ($config['support_phone'] ?? '07887444177');
     $items = [];
     try {
         $stmt = $pdo->query(
@@ -1198,32 +1239,12 @@ function admin_upload_route(PDO $pdo, array $config): void
         json_error(400, 'نوع الملف غير مدعوم (صورة أو فيديو شائع فقط)');
     }
     $ext = $map[$mime];
-    $dir = __DIR__ . '/uploads';
-    if (!is_dir($dir)) {
-        if (!@mkdir($dir, 0755, true) && !is_dir($dir)) {
-            json_error(500, 'تعذر إنشاء مجلد الرفع');
-        }
-    }
-    $name = uuid_v4() . '.' . $ext;
-    $dest = $dir . '/' . $name;
-    if (!move_uploaded_file($tmp, $dest)) {
-        json_error(500, 'تعذر حفظ الملف');
-    }
-    $publicBase = rtrim((string) ($config['public_base_url'] ?? ''), '/');
-    if ($publicBase === '') {
-        $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
-        $scheme = $https ? 'https' : 'http';
-        $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
-        $script = (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php');
-        $basePath = rtrim(str_replace('\\', '/', dirname($script)), '/');
-        $publicBase = $scheme . '://' . $host . $basePath;
-    }
-    $publicUrl = $publicBase . '/uploads/' . $name;
+    $stored = vewo_store_uploaded_file($config, $tmp, $mime, $ext, '');
 
     echo json_encode([
         'ok' => true,
-        'public_url' => $publicUrl,
+        'public_url' => $stored['public_url'],
+        'storage_key' => $stored['storage_key'],
         'mime' => $mime,
     ], JSON_UNESCAPED_UNICODE);
 }
@@ -1298,34 +1319,18 @@ function chat_upload_route(PDO $pdo, array $config): void
     if ($ext === 'm4a' && $nameExt === 'wav') {
         $ext = 'wav';
     }
-    $dir = __DIR__ . '/uploads/chat';
-    if (!is_dir($dir)) {
-        if (!@mkdir($dir, 0755, true) && !is_dir($dir)) {
-            json_error(500, 'تعذر إنشاء مجلد الرفع');
-        }
-    }
-    $name = uuid_v4() . '.' . $ext;
-    $dest = $dir . '/' . $name;
-    if (!move_uploaded_file($tmp, $dest)) {
-        json_error(500, 'تعذر حفظ الملف');
-    }
-    $publicBase = rtrim((string) ($config['public_base_url'] ?? ''), '/');
-    if ($publicBase === '') {
-        $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
-        $scheme = $https ? 'https' : 'http';
-        $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
-        $script = (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php');
-        $basePath = rtrim(str_replace('\\', '/', dirname($script)), '/');
-        $publicBase = $scheme . '://' . $host . $basePath;
-    }
-    $publicUrl = $publicBase . '/uploads/chat/' . $name;
-    $streamUrl = $publicBase . '/index.php?r=chat/stream&file=' . rawurlencode($name);
+    $stored = vewo_store_uploaded_file($config, $tmp, $mime, $ext, 'chat');
+    $publicUrl = $stored['public_url'];
+    // على R2/CDN يكفي الرابط العام (يدعم Range). محلياً نُبقي مسار البث التدريجي.
+    $streamUrl = vewo_r2_enabled($config)
+        ? $publicUrl
+        : (vewo_media_public_base($config) . '/index.php?r=chat/stream&file=' . rawurlencode($stored['name']));
 
     echo json_encode([
         'ok' => true,
         'public_url' => $publicUrl,
         'stream_url' => $streamUrl,
+        'storage_key' => $stored['storage_key'],
         'mime' => $mime,
     ], JSON_UNESCAPED_UNICODE);
 }
@@ -1931,9 +1936,9 @@ function chat_thread_open(PDO $pdo): void
             if ($ownerId !== '') {
                 $advertiserId = $ownerId;
             }
-            // الزبون عندما يبدأ مع مكتب/مسوق صاحب المنشور: محادثة مباشرة،
+            // أي حساب يبدأ مع صاحب المنشور: محادثة مباشرة طبيعية،
             // مع بقاء الأدمن قادراً على المشاهدة والتدخل.
-            if ($advertiserId !== null && in_array($ownerRole, ['office', 'marketer'], true)) {
+            if ($advertiserId !== null && $ownerRole !== '') {
                 vewo_chat_open_direct_response(
                     $pdo,
                     $cid,
@@ -1957,7 +1962,7 @@ function chat_thread_open(PDO $pdo): void
         $reelOwnerId !== null &&
         $reelOwnerId !== '' &&
         $reelOwnerId !== $cid &&
-        $reelOwnerRole === 'office' &&
+        $reelOwnerRole !== '' &&
         in_array($requesterRole, ['customer', 'office', 'marketer'], true)
     ) {
         vewo_chat_open_direct_response(
@@ -2184,16 +2189,7 @@ function chat_threads_list(PDO $pdo): void
              WHERE (
                 (t.thread_type = \'direct\' AND (t.customer_user_id = :c3 OR t.office_user_id = :c6))
                 OR (t.thread_type = \'mediated\' AND t.customer_user_id = :c4)
-                OR (
-                    t.thread_type = \'mediated\'
-                    AND t.office_user_id = :c7
-                    AND EXISTS (
-                        SELECT 1 FROM chat_messages cm_office_visible
-                        WHERE cm_office_visible.thread_id = t.id
-                          AND cm_office_visible.visibility = \'office_only\'
-                        LIMIT 1
-                    )
-                )
+                OR (t.thread_type = \'mediated\' AND t.office_user_id = :c7)
              )';
         if ($filterNo !== null) {
             $sql .= ' AND t.thread_public_no = :tpn';
@@ -2323,6 +2319,7 @@ function chat_messages_list(PDO $pdo): void
 
     $threadCustomerId = (string) ($t['customer_user_id'] ?? '');
     $threadOfficeId = (string) ($t['office_user_id'] ?? '');
+    $threadTypeForLabels = (string) ($t['thread_type'] ?? '');
     foreach ($rows as &$r) {
         $sr = (string) ($r['sender_role'] ?? '');
         $senderId = (string) ($r['sender_user_id'] ?? '');
@@ -2333,10 +2330,10 @@ function chat_messages_list(PDO $pdo): void
             $on = trim((string) ($r['sender_office_name'] ?? ''));
             $fn = trim((string) ($r['sender_full_name'] ?? ''));
             $r['sender_display_name'] = $on !== '' ? $on : $fn;
-            $r['sender_conversation_label'] = 'معلن';
+            $r['sender_conversation_label'] = $threadTypeForLabels === 'direct' ? '' : 'معلن';
         } elseif ($threadCustomerId !== '' && $senderId === $threadCustomerId) {
             $r['sender_display_name'] = (string) ($r['sender_full_name'] ?? '');
-            $r['sender_conversation_label'] = 'مستفسر';
+            $r['sender_conversation_label'] = $threadTypeForLabels === 'direct' ? '' : 'مستفسر';
         } elseif ($sr === 'office' || $sr === 'marketer') {
             $on = trim((string) ($r['sender_office_name'] ?? ''));
             $fn = trim((string) ($r['sender_full_name'] ?? ''));
@@ -2504,10 +2501,9 @@ function chat_messages_post(PDO $pdo): void
     $role = (string) ($me['role'] ?? '');
     $senderId = (string) $me['id'];
 
-    // Enforce visibility rules:
-    // - direct: customer/office messages are public to both; admin/staff may target one side.
-    // - mediated: customer can only send 'customer_only', office only 'office_only'
-    //   admin/staff can choose customer_only/office_only (or all if needed).
+    // Enforce visibility rules. Web chat is a natural conversation by default:
+    // direct messages are public to both parties, and mediated messages now use
+    // `all` unless an older admin tool explicitly targets one side.
     if ($threadType === 'direct') {
         if ($role === 'admin' || $role === 'staff') {
             if (!in_array($visibility, ['customer_only', 'office_only', 'all'], true)) {
@@ -2520,16 +2516,12 @@ function chat_messages_post(PDO $pdo): void
         $isThreadParty = $senderId === (string) ($t['customer_user_id'] ?? '')
             || $senderId === (string) ($t['office_user_id'] ?? '');
         if (($role === 'customer' || $role === 'office' || $role === 'marketer') && $isThreadParty) {
-            if ($senderId === (string) ($t['customer_user_id'] ?? '')) {
-                $visibility = 'customer_only';
-            } elseif ($senderId === (string) ($t['office_user_id'] ?? '')) {
-                $visibility = 'office_only';
-            } else {
-                $visibility = 'customer_only';
-            }
+            $visibility = 'all';
         }
-        if (($role === 'admin' || $role === 'staff') && $threadType === 'mediated' && $visibility === 'all') {
-            json_error(400, 'اختر إرسالاً للمستفسر أو للمعلن فقط — لا يوجد «للطرفين» في المحادثة الموسّطة');
+        if (($role === 'admin' || $role === 'staff') && $threadType === 'mediated') {
+            if (!in_array($visibility, ['customer_only', 'office_only', 'all'], true)) {
+                $visibility = 'all';
+            }
         }
     }
 
@@ -2586,7 +2578,7 @@ function chat_messages_post(PDO $pdo): void
                     $adminTokens,
                     'محادثة مباشرة',
                     'وصلت رسالة مباشرة بين مستفسر ومعلن',
-                    ['type' => 'admin_chat', 'thread_id' => $tid]
+                    ['type' => 'admin_chat', 'thread_id' => $tid, 'section' => 'chats']
                 );
             }
         } elseif ($senderId === $officeId) {
@@ -2606,7 +2598,7 @@ function chat_messages_post(PDO $pdo): void
                     $adminTokens,
                     'محادثة مباشرة',
                     'وصلت رسالة مباشرة بين مستفسر ومعلن',
-                    ['type' => 'admin_chat', 'thread_id' => $tid]
+                    ['type' => 'admin_chat', 'thread_id' => $tid, 'section' => 'chats']
                 );
             }
         } else {
@@ -2666,7 +2658,7 @@ function chat_messages_post(PDO $pdo): void
                     $tokens,
                     'محادثة جديدة',
                     'وصلت رسالة جديدة تحتاج متابعة',
-                    ['type' => 'admin_chat', 'thread_id' => $tid]
+                    ['type' => 'admin_chat', 'thread_id' => $tid, 'section' => 'chats']
                 );
             }
         } elseif ($visibility === 'office_only') {
@@ -2689,11 +2681,11 @@ function chat_messages_post(PDO $pdo): void
                     $tokens,
                     'محادثة جديدة',
                     'وصلت رسالة جديدة تحتاج متابعة',
-                    ['type' => 'admin_chat', 'thread_id' => $tid]
+                    ['type' => 'admin_chat', 'thread_id' => $tid, 'section' => 'chats']
                 );
             }
         } else {
-            // all: admin broadcast; increment both customer+office (if exist)
+            // all: natural message; increment every other participant.
             if ($custId !== '' && $senderId !== $custId) {
                 $pdo->prepare('UPDATE chat_threads SET customer_unread_count = customer_unread_count + 1 WHERE id = :id LIMIT 1')
                     ->execute([':id' => $tid]);
@@ -2702,15 +2694,35 @@ function chat_messages_post(PDO $pdo): void
                 $pdo->prepare('UPDATE chat_threads SET office_unread_count = office_unread_count + 1 WHERE id = :id LIMIT 1')
                     ->execute([':id' => $tid]);
             }
-            // Push to both sides (rare)
-            $t1 = $custId !== '' ? vewo_device_tokens_for_user($pdo, $custId, false) : [];
-            $t2 = $officeId !== '' ? vewo_device_tokens_for_user($pdo, $officeId, false) : [];
-            vewo_fcm_send(
-                array_values(array_unique(array_merge($t1, $t2))),
-                'رسالة جديدة',
-                'لديك رسالة جديدة في المحادثات',
-                ['type' => 'chat', 'thread_id' => $tid]
-            );
+            if ($adminId !== '' && $senderId !== $adminId) {
+                $pdo->prepare('UPDATE chat_threads SET admin_unread_count = admin_unread_count + 1 WHERE id = :id LIMIT 1')
+                    ->execute([':id' => $tid]);
+            }
+            // Push to user sides + admin separately (admin needs admin_chat for deep link).
+            $t1 = ($custId !== '' && $senderId !== $custId)
+                ? vewo_device_tokens_for_user($pdo, $custId, false)
+                : [];
+            $t2 = ($officeId !== '' && $senderId !== $officeId)
+                ? vewo_device_tokens_for_user($pdo, $officeId, false)
+                : [];
+            $userTokens = array_values(array_unique(array_merge($t1, $t2)));
+            if (!empty($userTokens)) {
+                vewo_fcm_send(
+                    $userTokens,
+                    'رسالة جديدة',
+                    'لديك رسالة جديدة في المحادثات',
+                    ['type' => 'chat', 'thread_id' => $tid]
+                );
+            }
+            if ($adminId !== '' && $senderId !== $adminId) {
+                $t3 = vewo_device_tokens_for_user($pdo, $adminId, true);
+                vewo_fcm_send(
+                    $t3,
+                    'محادثة جديدة',
+                    'وصلت رسالة جديدة تحتاج متابعة',
+                    ['type' => 'admin_chat', 'thread_id' => $tid, 'section' => 'chats']
+                );
+            }
         }
     }
 
@@ -2775,11 +2787,99 @@ function vewo_fcm_server_key(): string
     return trim($key);
 }
 
-/** @param string[] $tokens */
-function vewo_fcm_send(array $tokens, string $title, string $body, array $data = []): void
+function vewo_fcm_config_value(string $key): string
 {
-    $key = vewo_fcm_server_key();
-    if ($key === '' || empty($tokens)) return;
+    $cfg = $GLOBALS['vewo_config'] ?? [];
+    $fcm = is_array($cfg) ? ($cfg['fcm'] ?? []) : [];
+    return trim((string) (is_array($fcm) ? ($fcm[$key] ?? '') : ''));
+}
+
+function vewo_base64url(string $raw): string
+{
+    return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
+}
+
+/** @return array<string,mixed>|null */
+function vewo_fcm_service_account(): ?array
+{
+    $json = vewo_fcm_config_value('service_account_json');
+    $file = vewo_fcm_config_value('service_account_file');
+    if ($json === '' && $file !== '') {
+        $path = $file;
+        if (!preg_match('/^[A-Za-z]:[\\\\\\/]|^\//', $path)) {
+            $path = __DIR__ . '/' . ltrim($path, '/\\');
+        }
+        if (is_file($path)) {
+            $json = (string) @file_get_contents($path);
+        }
+    }
+    if ($json === '') {
+        return null;
+    }
+    $decoded = json_decode($json, true);
+    return is_array($decoded) ? $decoded : null;
+}
+
+function vewo_fcm_access_token(): string
+{
+    static $cached = '';
+    static $expiresAt = 0;
+
+    if ($cached !== '' && $expiresAt > time() + 60) {
+        return $cached;
+    }
+
+    $sa = vewo_fcm_service_account();
+    if ($sa === null) {
+        return '';
+    }
+    $clientEmail = trim((string) ($sa['client_email'] ?? ''));
+    $privateKey = (string) ($sa['private_key'] ?? '');
+    if ($clientEmail === '' || $privateKey === '') {
+        return '';
+    }
+
+    $now = time();
+    $header = ['alg' => 'RS256', 'typ' => 'JWT'];
+    $claims = [
+        'iss' => $clientEmail,
+        'scope' => 'https://www.googleapis.com/auth/firebase.messaging',
+        'aud' => 'https://oauth2.googleapis.com/token',
+        'iat' => $now,
+        'exp' => $now + 3600,
+    ];
+    $unsigned = vewo_base64url(json_encode($header, JSON_UNESCAPED_SLASHES))
+        . '.'
+        . vewo_base64url(json_encode($claims, JSON_UNESCAPED_SLASHES));
+    $signature = '';
+    if (!function_exists('openssl_sign') || !openssl_sign($unsigned, $signature, $privateKey, OPENSSL_ALGO_SHA256)) {
+        return '';
+    }
+    $jwt = $unsigned . '.' . vewo_base64url($signature);
+
+    $ch = curl_init('https://oauth2.googleapis.com/token');
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/x-www-form-urlencoded']);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+        'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        'assertion' => $jwt,
+    ]));
+    $raw = (string) @curl_exec($ch);
+    @curl_close($ch);
+    $token = json_decode($raw, true);
+    if (!is_array($token) || empty($token['access_token'])) {
+        return '';
+    }
+    $cached = (string) $token['access_token'];
+    $expiresAt = $now + (int) ($token['expires_in'] ?? 3600);
+    return $cached;
+}
+
+/** @param array<string,mixed> $data */
+function vewo_fcm_clean_data(array $data, string $title, string $body): array
+{
     $cleanData = [];
     foreach ($data as $k => $v) {
         if ($v === null) continue;
@@ -2791,37 +2891,204 @@ function vewo_fcm_send(array $tokens, string $title, string $body, array $data =
             $cleanData[(string) $k] = json_encode($v, JSON_UNESCAPED_UNICODE);
         }
     }
+    return $cleanData + ['title' => $title, 'body' => $body];
+}
 
-    $payload = [
-        'registration_ids' => array_values($tokens),
-        'priority' => 'high',
-        'content_available' => true,
-        'notification' => [
-            'title' => $title,
-            'body' => $body,
-            'sound' => 'default',
-            'android_channel_id' => 'vewo_high_alerts',
-        ],
-        'data' => $cleanData + ['title' => $title, 'body' => $body],
+/** @param string[] $tokens */
+function vewo_fcm_send_legacy(array $tokens, string $title, string $body, array $data = []): void
+{
+    $key = vewo_fcm_server_key();
+    if ($key === '' || empty($tokens)) return;
+    $cleanData = vewo_fcm_clean_data($data, $title, $body);
+    $collapse = trim((string) ($cleanData['type'] ?? 'vewo'));
+    if ($collapse === '') {
+        $collapse = 'vewo';
+    }
+    foreach (array_chunk(array_values(array_unique($tokens)), 500) as $chunk) {
+        $payload = [
+            'registration_ids' => array_values($chunk),
+            'priority' => 'high',
+            'content_available' => true,
+            'collapse_key' => $collapse,
+            'time_to_live' => 86400,
+            'notification' => [
+                'title' => $title,
+                'body' => $body,
+                'sound' => 'default',
+                'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
+                'android_channel_id' => 'vewo_high_alerts',
+            ],
+            'data' => $cleanData,
+        ];
+
+        $ch = curl_init('https://fcm.googleapis.com/fcm/send');
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Authorization: key=' . $key,
+        ]);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
+        @curl_exec($ch);
+        @curl_close($ch);
+    }
+}
+
+/** @param string[] $tokens */
+function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $data = []): void
+{
+    $accessToken = vewo_fcm_access_token();
+    $projectId = vewo_fcm_config_value('project_id');
+    $sa = vewo_fcm_service_account();
+    if ($projectId === '' && is_array($sa)) {
+        $projectId = trim((string) ($sa['project_id'] ?? ''));
+    }
+    if ($accessToken === '' || $projectId === '' || empty($tokens)) {
+        return;
+    }
+
+    $cleanData = vewo_fcm_clean_data($data, $title, $body);
+    $collapse = trim((string) ($cleanData['type'] ?? 'vewo'));
+    if ($collapse === '') {
+        $collapse = 'vewo';
+    }
+    $url = 'https://fcm.googleapis.com/v1/projects/' . rawurlencode($projectId) . '/messages:send';
+    $headers = [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . $accessToken,
     ];
 
-    $ch = curl_init('https://fcm.googleapis.com/fcm/send');
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'Authorization: key=' . $key,
-    ]);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 6);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
-    @curl_exec($ch);
-    @curl_close($ch);
+    // إرسال متوازٍ على دفعات لتسريع البث الجماعي.
+    $unique = [];
+    foreach (array_values(array_unique($tokens)) as $token) {
+        $token = trim((string) $token);
+        if ($token !== '') {
+            $unique[] = $token;
+        }
+    }
+    foreach (array_chunk($unique, 25) as $chunk) {
+        $mh = curl_multi_init();
+        $handles = [];
+        foreach ($chunk as $token) {
+            $payload = [
+                'message' => [
+                    'token' => $token,
+                    'notification' => ['title' => $title, 'body' => $body],
+                    'data' => $cleanData,
+                    'android' => [
+                        'priority' => 'HIGH',
+                        'ttl' => '86400s',
+                        'collapse_key' => $collapse,
+                        'notification' => [
+                            'channel_id' => 'vewo_high_alerts',
+                            'sound' => 'default',
+                            'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
+                            'default_vibrate_timings' => true,
+                            'default_sound' => true,
+                        ],
+                    ],
+                    'apns' => [
+                        'headers' => [
+                            'apns-priority' => '10',
+                            'apns-push-type' => 'alert',
+                            'apns-collapse-id' => substr($collapse, 0, 64),
+                        ],
+                        'payload' => [
+                            'aps' => [
+                                'alert' => ['title' => $title, 'body' => $body],
+                                'sound' => 'default',
+                                'badge' => 1,
+                                'content-available' => 1,
+                            ],
+                        ],
+                    ],
+                ],
+            ];
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
+            curl_multi_add_handle($mh, $ch);
+            $handles[] = $ch;
+        }
+        $running = null;
+        do {
+            $status = curl_multi_exec($mh, $running);
+            if ($running > 0) {
+                curl_multi_select($mh, 0.5);
+            }
+        } while ($running > 0 && $status === CURLM_OK);
+        foreach ($handles as $ch) {
+            curl_multi_remove_handle($mh, $ch);
+            curl_close($ch);
+        }
+        curl_multi_close($mh);
+    }
+}
+
+/** @param string[] $tokens */
+function vewo_fcm_send(array $tokens, string $title, string $body, array $data = []): void
+{
+    $tokens = array_values(array_unique(array_filter(array_map('trim', $tokens))));
+    if (empty($tokens)) return;
+    $sa = vewo_fcm_service_account();
+    $projectId = vewo_fcm_config_value('project_id');
+    if ($projectId === '' && is_array($sa)) {
+        $projectId = trim((string) ($sa['project_id'] ?? ''));
+    }
+    if ($sa !== null && $projectId !== '' && vewo_fcm_access_token() !== '') {
+        vewo_fcm_send_v1($tokens, $title, $body, $data);
+        return;
+    }
+    vewo_fcm_send_legacy($tokens, $title, $body, $data);
+}
+
+function vewo_device_tokens_ensure(PDO $pdo): bool
+{
+    static $ok = null;
+    if ($ok !== null) return $ok;
+    try {
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS device_tokens (
+              id CHAR(36) NOT NULL,
+              token VARCHAR(512) NOT NULL,
+              user_id CHAR(36) NULL,
+              is_admin_app TINYINT(1) NOT NULL DEFAULT 0,
+              platform VARCHAR(20) NOT NULL DEFAULT '',
+              last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              PRIMARY KEY (id),
+              UNIQUE KEY uniq_device_token (token),
+              KEY idx_device_user (user_id, is_admin_app),
+              KEY idx_device_seen (last_seen_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+        try {
+            $len = $pdo->query(
+                "SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = 'device_tokens' AND column_name = 'token'"
+            );
+            $max = $len !== false ? (int) $len->fetchColumn() : 0;
+            if ($max > 0 && $max < 512) {
+                $pdo->exec('ALTER TABLE device_tokens MODIFY token VARCHAR(512) NOT NULL');
+            }
+        } catch (Throwable $e) {
+        }
+        $ok = true;
+    } catch (Throwable $e) {
+        $ok = false;
+    }
+    return $ok;
 }
 
 /** @return string[] */
 function vewo_device_tokens_for_user(PDO $pdo, string $userId, bool $adminApp): array
 {
     if ($userId === '') return [];
+    if (!vewo_device_tokens_ensure($pdo)) return [];
     try {
         $stmt = $pdo->prepare(
             'SELECT token FROM device_tokens WHERE user_id = :u AND is_admin_app = :a ORDER BY last_seen_at DESC LIMIT 30'
@@ -2839,8 +3106,37 @@ function vewo_device_tokens_for_user(PDO $pdo, string $userId, bool $adminApp): 
     }
 }
 
+/** @return string[] */
+function vewo_device_tokens_all(PDO $pdo, ?bool $adminApp = false): array
+{
+    if (!vewo_device_tokens_ensure($pdo)) return [];
+    try {
+        $sql = 'SELECT token FROM device_tokens WHERE last_seen_at >= DATE_SUB(NOW(), INTERVAL 365 DAY)';
+        $params = [];
+        if ($adminApp !== null) {
+            $sql .= ' AND is_admin_app = :a';
+            $params[':a'] = $adminApp ? 1 : 0;
+        }
+        $sql .= ' ORDER BY last_seen_at DESC LIMIT 50000';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $out = [];
+        foreach ($rows as $r) {
+            $t = trim((string) ($r['token'] ?? ''));
+            if ($t !== '') $out[] = $t;
+        }
+        return array_values(array_unique($out));
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
 function app_device_register_route(PDO $pdo): void
 {
+    if (!vewo_device_tokens_ensure($pdo)) {
+        json_error(500, 'تعذر تجهيز جدول الأجهزة');
+    }
     $me = vewo_try_session_user($pdo);
     $uid = $me ? (string) ($me['id'] ?? '') : '';
 
@@ -2867,6 +3163,9 @@ function app_device_register_route(PDO $pdo): void
 
 function admin_device_register_route(PDO $pdo): void
 {
+    if (!vewo_device_tokens_ensure($pdo)) {
+        json_error(500, 'تعذر تجهيز جدول الأجهزة');
+    }
     $me = vewo_try_admin_staff_user($pdo);
     $uid = $me ? (string) ($me['id'] ?? '') : '';
 
@@ -2889,6 +3188,50 @@ function admin_device_register_route(PDO $pdo): void
     } catch (Throwable $e) {
         json_error(500, 'تعذر حفظ التوكن');
     }
+}
+
+/**
+ * اختبار FCM: يرسل إشعاراً فورياً لأجهزة المسؤول الحالي.
+ * POST admin/fcm/test
+ */
+function admin_fcm_test_route(PDO $pdo): void
+{
+    $admin = require_admin_from_bearer($pdo);
+    $uid = (string) ($admin['id'] ?? '');
+    $sa = vewo_fcm_service_account();
+    $projectId = vewo_fcm_config_value('project_id');
+    if ($projectId === '' && is_array($sa)) {
+        $projectId = trim((string) ($sa['project_id'] ?? ''));
+    }
+    $legacy = vewo_fcm_server_key();
+    $mode = 'none';
+    if ($sa !== null && $projectId !== '') {
+        $mode = 'http_v1';
+        if (vewo_fcm_access_token() === '') {
+            json_error(500, 'فشل الحصول على access token من Google — تحقق من Service Account');
+        }
+    } elseif ($legacy !== '') {
+        $mode = 'legacy';
+    } else {
+        json_error(503, 'FCM غير مضبوط: ضع service_account_file في api/config.php');
+    }
+
+    $tokens = $uid !== '' ? vewo_device_tokens_for_user($pdo, $uid, true) : [];
+    if (empty($tokens)) {
+        json_error(400, 'لا يوجد توكن جهاز مسجّل لهذا الحساب — افتح تطبيق الأدمن وهو متصل');
+    }
+    vewo_fcm_send(
+        $tokens,
+        'اختبار FCM',
+        'إذا وصلك هذا الإشعار فـ Firebase يعمل بنجاح',
+        ['type' => 'broadcast', 'kind' => 'fcm_test']
+    );
+    echo json_encode([
+        'ok' => true,
+        'mode' => $mode,
+        'tokens' => count($tokens),
+        'project_id' => $projectId,
+    ], JSON_UNESCAPED_UNICODE);
 }
 
 function admin_properties_route(PDO $pdo): void

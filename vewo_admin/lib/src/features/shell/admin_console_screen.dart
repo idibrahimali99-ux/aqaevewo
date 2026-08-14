@@ -33,7 +33,10 @@ class AdminConsoleScreen extends ConsumerStatefulWidget {
 class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   int _index = 0;
-  String? _lastSectionParam;
+  String? _lastNavSignature;
+  String? _openThreadId;
+  String? _openPropertyId;
+  String? _openReelId;
 
   bool _canAccessDest(WidgetRef ref, _NavDest d) {
     final session = ref.read(adminSessionProvider);
@@ -93,15 +96,40 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
       'chats' => 10,
       'properties' => 7,
       'offices' => 3,
+      'property_requests' => 9,
       _ => 0,
     };
     _select(targetIndex);
   }
 
   void _applySectionParam(BuildContext context) {
-    final section = GoRouterState.of(context).uri.queryParameters['section'];
-    if (section == null || section == _lastSectionParam) return;
-    _lastSectionParam = section;
+    final uri = GoRouterState.of(context).uri;
+    final section = uri.queryParameters['section']?.trim();
+    final threadId = uri.queryParameters['thread_id']?.trim();
+    final propertyId = uri.queryParameters['property_id']?.trim();
+    final reelId = uri.queryParameters['reel_id']?.trim();
+    final navToken = uri.queryParameters['_n']?.trim() ?? '';
+    final signature =
+        '${section ?? ''}|${threadId ?? ''}|${propertyId ?? ''}|${reelId ?? ''}|$navToken';
+    if (signature == _lastNavSignature) return;
+    if (section == null &&
+        (threadId == null || threadId.isEmpty) &&
+        (propertyId == null || propertyId.isEmpty) &&
+        (reelId == null || reelId.isEmpty)) {
+      return;
+    }
+    _lastNavSignature = signature;
+
+    if (threadId != null && threadId.isNotEmpty) {
+      _openThreadId = threadId;
+    }
+    if (propertyId != null && propertyId.isNotEmpty) {
+      _openPropertyId = propertyId;
+    }
+    if (reelId != null && reelId.isNotEmpty) {
+      _openReelId = reelId;
+    }
+
     final target = switch (section) {
       'chats' => 10,
       'properties' => 7,
@@ -109,15 +137,47 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
       'offices' => 3,
       'reels' => 8,
       'users' => 11,
-      _ => null,
+      _ => threadId != null && threadId.isNotEmpty
+          ? 10
+          : (propertyId != null && propertyId.isNotEmpty
+                ? 7
+                : (reelId != null && reelId.isNotEmpty ? 8 : null)),
     };
-    if (target == null || target == _index) return;
+    if (target == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _select(target);
+      if (!mounted) return;
+      _select(target);
     });
   }
 
   Widget _page(int i) {
+    final threadForChats = i == 10 ? _openThreadId : null;
+    final propertyForList = i == 7 ? _openPropertyId : null;
+    final reelForList = i == 8 ? _openReelId : null;
+    if (i == 10 && _openThreadId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_openThreadId == threadForChats) {
+          setState(() => _openThreadId = null);
+        }
+      });
+    }
+    if (i == 7 && _openPropertyId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_openPropertyId == propertyForList) {
+          setState(() => _openPropertyId = null);
+        }
+      });
+    }
+    if (i == 8 && _openReelId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_openReelId == reelForList) {
+          setState(() => _openReelId = null);
+        }
+      });
+    }
     return switch (i) {
       0 => AdminOverviewTab(onOpenSection: _select),
       1 => const AdminHomePromotionsScreen(),
@@ -126,10 +186,19 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
       4 => const AdminGovernoratesScreen(),
       5 => const AdminParcelsScreen(),
       6 => const AdminCompoundsScreen(),
-      7 => const AdminPropertiesScreen(),
-      8 => const AdminReelsScreen(),
+      7 => AdminPropertiesScreen(
+        key: ValueKey('admin-props-${propertyForList ?? 'list'}'),
+        initialPropertyId: propertyForList,
+      ),
+      8 => AdminReelsScreen(
+        key: ValueKey('admin-reels-${reelForList ?? 'list'}'),
+        initialReelId: reelForList,
+      ),
       9 => const AdminPropertyRequestsScreen(),
-      10 => const AdminChatsScreen(),
+      10 => AdminChatsScreen(
+        key: ValueKey('admin-chats-${threadForChats ?? 'list'}'),
+        initialThreadId: threadForChats,
+      ),
       11 => const AdminUsersScreen(),
       12 => const AdminMarketersScreen(),
       13 => const AdminPostingPackagesScreen(),

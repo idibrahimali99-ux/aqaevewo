@@ -7,7 +7,9 @@ import '../../../core/api/vewo_api_client.dart';
 import '../../engagement/admin_engagement_schedule_dialog.dart';
 
 class AdminReelsScreen extends ConsumerStatefulWidget {
-  const AdminReelsScreen({super.key});
+  const AdminReelsScreen({super.key, this.initialReelId});
+
+  final String? initialReelId;
 
   @override
   ConsumerState<AdminReelsScreen> createState() => _AdminReelsScreenState();

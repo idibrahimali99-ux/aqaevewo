@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-
 import '../../../core/layout/app_responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_brand_mark.dart';
-import '../../../routing/app_routes.dart';
 import '../../properties/data/compound_properties_provider.dart';
-import '../../properties/presentation/property_card.dart';
+import '../../properties/presentation/property_cards_grid.dart';
 
 class CompoundProfileScreen extends ConsumerStatefulWidget {
   const CompoundProfileScreen({
@@ -166,15 +163,7 @@ class _CompoundProfileScreenState extends ConsumerState<CompoundProfileScreen> {
                 ),
               )
             else
-              for (final p in items)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: PropertyCard(
-                    property: p,
-                    onTap: () =>
-                        context.push('${AppRoutes.propertyDetails}/${p.id}'),
-                  ),
-                ),
+              PropertyCardsGrid(items: items),
           ],
         ),
       ),

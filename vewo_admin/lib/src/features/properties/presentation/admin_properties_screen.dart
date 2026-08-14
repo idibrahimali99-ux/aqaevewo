@@ -16,7 +16,10 @@ import '../../users/presentation/admin_user_profile_screen.dart';
 
 /// منشورات: مراجعة، غير مباع، تم البيع — مع رقم صاحب المنشور للتواصل.
 class AdminPropertiesScreen extends ConsumerStatefulWidget {
-  const AdminPropertiesScreen({super.key});
+  const AdminPropertiesScreen({super.key, this.initialPropertyId});
+
+  /// عند القدوم من إشعار موافقة معلّقة — يفتح ورقة المراجعة مباشرة.
+  final String? initialPropertyId;
 
   @override
   ConsumerState<AdminPropertiesScreen> createState() =>
@@ -30,6 +33,7 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
   String? _error;
   late TabController _tabs;
   final _searchNo = TextEditingController();
+  bool _openedInitialProperty = false;
 
   static const _statusByTab = ['pending', 'unsold', 'sold'];
 
@@ -102,6 +106,7 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
         _items = list;
         _loading = false;
       });
+      _maybeOpenInitialProperty();
     } on VewoApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -115,6 +120,24 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
         _loading = false;
       });
     }
+  }
+
+  void _maybeOpenInitialProperty() {
+    if (_openedInitialProperty) return;
+    final id = widget.initialPropertyId?.trim() ?? '';
+    if (id.isEmpty) return;
+    Map<String, dynamic>? match;
+    for (final p in _items) {
+      if ((p['id']?.toString() ?? '') == id) {
+        match = p;
+        break;
+      }
+    }
+    if (match == null) return;
+    _openedInitialProperty = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _openFullReview(match!);
+    });
   }
 
   Future<void> _publish(String id) async {

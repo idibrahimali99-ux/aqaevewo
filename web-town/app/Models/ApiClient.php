@@ -9,6 +9,11 @@ final class ApiClient
     {
     }
 
+    public function entry(): string
+    {
+        return $this->entry;
+    }
+
     /** @param array<string,mixed> $query @return array<string,mixed> */
     public function get(string $route, array $query = [], ?string $token = null): array
     {
@@ -38,15 +43,16 @@ final class ApiClient
         }
 
         $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
+        curl_setopt_array($ch, $this->curlBaseOptions($headers) + [
             CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_TIMEOUT => 30,
             CURLOPT_POSTFIELDS => [
-                'file' => new \CURLFile($filePath, mime_content_type($filePath) ?: 'application/octet-stream', $fileName),
+                'file' => new \CURLFile(
+                    $filePath,
+                    mime_content_type($filePath) ?: 'application/octet-stream',
+                    $fileName
+                ),
             ],
+            CURLOPT_TIMEOUT => 60,
         ]);
         $raw = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
@@ -56,13 +62,8 @@ final class ApiClient
         if ($raw === false || $raw === '') {
             return ['ok' => false, 'status' => $status ?: 0, 'error' => $error !== '' ? $error : 'تعذر رفع الملف'];
         }
-        $decoded = json_decode((string) $raw, true);
-        if (!is_array($decoded)) {
-            return ['ok' => false, 'status' => $status, 'error' => 'استجابة رفع غير مفهومة'];
-        }
-        $decoded['status'] = $status;
 
-        return $decoded;
+        return $this->decodeResponse((string) $raw, $status, true);
     }
 
     /** @param array<string,mixed> $query @param array<string,mixed>|null $body @return array<string,mixed> */
@@ -80,16 +81,14 @@ final class ApiClient
         }
 
         $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
+        $opts = $this->curlBaseOptions($headers) + [
             CURLOPT_CUSTOMREQUEST => $method,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_TIMEOUT => 15,
-        ]);
+            CURLOPT_TIMEOUT => 25,
+        ];
         if ($body !== null) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body, JSON_UNESCAPED_UNICODE));
+            $opts[CURLOPT_POSTFIELDS] = json_encode($body, JSON_UNESCAPED_UNICODE);
         }
+        curl_setopt_array($ch, $opts);
 
         $raw = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
@@ -100,21 +99,105 @@ final class ApiClient
             return [
                 'ok' => false,
                 'status' => $status ?: 0,
-                'error' => $error !== '' ? $error : 'تعذر الاتصال بخدمة API',
+                'error' => $error !== '' ? ('تعذر الاتصال بخدمة API: ' . $error) : 'تعذر الاتصال بخدمة API',
+                'api_entry' => $this->entry,
             ];
         }
 
-        $decoded = json_decode((string) $raw, true);
-        if (!is_array($decoded)) {
-            return [
-                'ok' => false,
-                'status' => $status,
-                'error' => 'استجابة غير مفهومة من خدمة API',
-            ];
+        return $this->decodeResponse((string) $raw, $status, false);
+    }
+
+    /** @param list<string> $headers @return array<int,mixed> */
+    private function curlBaseOptions(array $headers): array
+    {
+        return [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 3,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_USERAGENT => 'AqarTown-Web/1.0',
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function decodeResponse(string $raw, int $status, bool $upload): array
+    {
+        $decoded = self::parseJsonPayload($raw);
+        if (is_array($decoded)) {
+            $decoded['status'] = $status;
+            if (!array_key_exists('ok', $decoded) && $status >= 200 && $status < 300) {
+                $decoded['ok'] = true;
+            }
+
+            return $decoded;
         }
 
-        $decoded['status'] = $status;
+        $snippet = self::snippet($raw);
+        $hint = '';
+        if (stripos($raw, '<html') !== false || stripos($raw, '<!DOCTYPE') !== false) {
+            $hint = ' (الخادم أعاد صفحة HTML بدل JSON — تحقق من رابط api_entry ووجود api/index.php)';
+        } elseif (stripos($raw, 'Parse error') !== false || stripos($raw, 'Fatal error') !== false) {
+            $hint = ' (خطأ PHP في الـ API — راجع ملفات lib المرفوعة)';
+        }
 
-        return $decoded;
+        return [
+            'ok' => false,
+            'status' => $status,
+            'error' => ($upload ? 'استجابة رفع غير مفهومة' : 'استجابة غير مفهومة من خدمة API') . $hint,
+            'api_entry' => $this->entry,
+            'raw_snippet' => $snippet,
+        ];
+    }
+
+    /** @return array<string,mixed>|null */
+    public static function parseJsonPayload(string $raw): ?array
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return null;
+        }
+        // UTF-8 BOM
+        if (str_starts_with($raw, "\xEF\xBB\xBF")) {
+            $raw = substr($raw, 3);
+        }
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+        // تحذيرات PHP قبل JSON
+        $start = strpos($raw, '{');
+        $end = strrpos($raw, '}');
+        if ($start !== false && $end !== false && $end > $start) {
+            $slice = substr($raw, $start, $end - $start + 1);
+            $decoded = json_decode($slice, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+        $start = strpos($raw, '[');
+        $end = strrpos($raw, ']');
+        if ($start !== false && $end !== false && $end > $start) {
+            $slice = substr($raw, $start, $end - $start + 1);
+            $decoded = json_decode($slice, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return null;
+    }
+
+    private static function snippet(string $raw): string
+    {
+        $oneLine = preg_replace('/\s+/', ' ', trim(strip_tags($raw))) ?? '';
+        if (function_exists('mb_substr')) {
+            return mb_substr($oneLine, 0, 160, 'UTF-8');
+        }
+
+        return substr($oneLine, 0, 160);
     }
 }

@@ -103,15 +103,6 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
-  void _openSupportChat(BuildContext context, WidgetRef ref) {
-    final auth = ref.read(authControllerProvider);
-    if (!auth.isAuthenticated) {
-      context.push(AppRoutes.login);
-      return;
-    }
-    context.push('${AppRoutes.chatRoom}/support?support=1');
-  }
-
   Widget _navTile(
     BuildContext context, {
     required int index,
@@ -186,6 +177,17 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
+  Future<void> _openSupportChat(BuildContext context, WidgetRef ref) async {
+    final auth = ref.read(authControllerProvider);
+    if (!auth.isAuthenticated || (auth.apiToken ?? '').isEmpty) {
+      if (context.mounted) context.push(AppRoutes.login);
+      return;
+    }
+    if (context.mounted) {
+      context.push('${AppRoutes.chatRoom}/support?support=1');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
@@ -205,6 +207,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       context,
       collapsed: _collapsed,
     );
+    final supportBottom = bottomGap + navHeight + 14;
 
     return Scaffold(
       extendBody: true,
@@ -214,18 +217,30 @@ class _AppShellState extends ConsumerState<AppShell> {
             onNotification: _handleScroll,
             child: widget.child,
           ),
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOutCubic,
-            left: 18,
-            bottom: bottomGap + navHeight + 10,
-            child: FloatingActionButton.small(
-              heroTag: 'support_chat_fab',
-              tooltip: 'الدعم',
-              backgroundColor: AppColors.frameGold,
-              foregroundColor: Colors.white,
-              onPressed: () => _openSupportChat(context, ref),
-              child: const Icon(Icons.support_agent_rounded),
+          PositionedDirectional(
+            end: 16,
+            bottom: supportBottom,
+            child: Material(
+              elevation: 6,
+              shadowColor: Colors.black.withValues(alpha: 0.28),
+              color: AppColors.frameGold,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => _openSupportChat(context, ref),
+                child: const SizedBox(
+                  width: 54,
+                  height: 54,
+                  child: Tooltip(
+                    message: 'الدعم',
+                    child: Icon(
+                      Icons.support_agent_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
           AnimatedPositioned(

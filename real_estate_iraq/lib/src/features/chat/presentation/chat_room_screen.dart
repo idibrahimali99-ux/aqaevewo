@@ -45,7 +45,7 @@ class ChatRoomScreen extends ConsumerStatefulWidget {
   /// معرّف الريل عند التواصل من قسم الريلز.
   final String? reelId;
 
-  /// محادثة طلب عقار مع الإدارة (بدون منشور).
+  /// محادثة دعم مع الإدارة (بدون منشور / بدون رسالة ترحيب تلقائية).
   final bool supportChat;
 
   @override
@@ -209,12 +209,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       });
       await _loadMessages();
       _startPoll();
-      if (widget.supportChat) {
-        // رسالة افتتاحية مختصرة لطلب عقار (best-effort).
-        try {
-          await _sendRaw('مرحباً، أريد طلب عقار.');
-        } catch (_) {}
-      }
+      // محادثة الدعم: بدون رسالة ترحيب تلقائية — المستخدم يكتب أولاً.
     } on VewoApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -703,12 +698,16 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                     onRefresh: () => _loadMessages(),
                     child: ListView.builder(
                       controller: _scroll,
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
                       itemCount: _messages.length,
                       itemBuilder: (context, i) {
                         final m = _messages[i];
                         final sid = m['sender_user_id']?.toString();
                         final isMe = myId != null && sid == myId;
+                        final prevSid = i > 0
+                            ? _messages[i - 1]['sender_user_id']?.toString()
+                            : null;
+                        final sameAsPrev = prevSid != null && prevSid == sid;
                         final body = m['body']?.toString() ?? '';
                         final senderRole = m['sender_role']?.toString() ?? '';
                         final senderName =
@@ -731,146 +730,183 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                             ? Alignment.centerRight
                             : Alignment.centerLeft;
                         final cs = Theme.of(context).colorScheme;
-                        final bg = isMe ? cs.primary : cs.surfaceContainerHigh;
+                        final bg = isMe
+                            ? cs.primary
+                            : const Color(0xFFFFF8E8);
                         final fg = isMe ? cs.onPrimary : cs.onSurface;
-                        return Align(
-                          alignment: align,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: MediaQuery.sizeOf(context).width * 0.78,
-                            ),
-                            child: Card(
-                              color: bg,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                        final radius = BorderRadiusDirectional.only(
+                          topStart: const Radius.circular(18),
+                          topEnd: const Radius.circular(18),
+                          bottomStart: Radius.circular(isMe ? 18 : 6),
+                          bottomEnd: Radius.circular(isMe ? 6 : 18),
+                        );
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            top: i == 0 ? 0 : (sameAsPrev ? 8 : 14),
+                          ),
+                          child: Align(
+                            alignment: align,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth:
+                                    MediaQuery.sizeOf(context).width * 0.78,
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (!isMe && senderName.isNotEmpty) ...[
-                                      Text(
-                                        senderLabel.isEmpty
-                                            ? senderName
-                                            : '$senderName · $senderLabel',
-                                        style: TextStyle(
-                                          color: fg.withValues(alpha: 0.8),
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 12,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: bg,
+                                  borderRadius: radius,
+                                  border: isMe
+                                      ? null
+                                      : Border.all(
+                                          color: const Color(0xFFE8D9B0),
                                         ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.05,
                                       ),
-                                      const SizedBox(height: 6),
-                                    ],
-                                    if (mediaType == 'image' &&
-                                        mediaUrl.isNotEmpty)
-                                      GestureDetector(
-                                        onTap: () => showDialog<void>(
-                                          context: context,
-                                          barrierColor: Colors.black,
-                                          builder: (ctx) => Dialog.fullscreen(
-                                            backgroundColor: Colors.black,
-                                            child: SafeArea(
-                                              child: Stack(
-                                                children: [
-                                                  Center(
-                                                    child: InteractiveViewer(
-                                                      minScale: 1,
-                                                      maxScale: 4,
-                                                      child: Image.network(
-                                                        mediaUrl,
-                                                        fit: BoxFit.contain,
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    14,
+                                    11,
+                                    14,
+                                    10,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (!isMe &&
+                                          senderName.isNotEmpty &&
+                                          !sameAsPrev) ...[
+                                        Text(
+                                          senderLabel.isEmpty
+                                              ? senderName
+                                              : '$senderName · $senderLabel',
+                                          style: TextStyle(
+                                            color: fg.withValues(alpha: 0.8),
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                      ],
+                                      if (mediaType == 'image' &&
+                                          mediaUrl.isNotEmpty)
+                                        GestureDetector(
+                                          onTap: () => showDialog<void>(
+                                            context: context,
+                                            barrierColor: Colors.black,
+                                            builder: (ctx) => Dialog.fullscreen(
+                                              backgroundColor: Colors.black,
+                                              child: SafeArea(
+                                                child: Stack(
+                                                  children: [
+                                                    Center(
+                                                      child: InteractiveViewer(
+                                                        minScale: 1,
+                                                        maxScale: 4,
+                                                        child: Image.network(
+                                                          mediaUrl,
+                                                          fit: BoxFit.contain,
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                  PositionedDirectional(
-                                                    top: 8,
-                                                    start: 8,
-                                                    child: IconButton.filled(
-                                                      tooltip: 'حفظ الصورة',
-                                                      onPressed: () =>
-                                                          _saveChatImage(
-                                                            mediaUrl,
-                                                          ),
-                                                      icon: const Icon(
-                                                        Icons.download_rounded,
+                                                    PositionedDirectional(
+                                                      top: 8,
+                                                      start: 8,
+                                                      child: IconButton.filled(
+                                                        tooltip: 'حفظ الصورة',
+                                                        onPressed: () =>
+                                                            _saveChatImage(
+                                                              mediaUrl,
+                                                            ),
+                                                        icon: const Icon(
+                                                          Icons
+                                                              .download_rounded,
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                  PositionedDirectional(
-                                                    top: 8,
-                                                    end: 8,
-                                                    child: IconButton.filled(
-                                                      tooltip: 'إغلاق',
-                                                      onPressed: () =>
-                                                          Navigator.pop(ctx),
-                                                      icon: const Icon(
-                                                        Icons.close_rounded,
+                                                    PositionedDirectional(
+                                                      top: 8,
+                                                      end: 8,
+                                                      child: IconButton.filled(
+                                                        tooltip: 'إغلاق',
+                                                        onPressed: () =>
+                                                            Navigator.pop(ctx),
+                                                        icon: const Icon(
+                                                          Icons.close_rounded,
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                ],
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            child: Image.network(
+                                              mediaUrl,
+                                              width: 220,
+                                              fit: BoxFit.cover,
+                                              loadingBuilder: (c, child, prog) {
+                                                if (prog == null) return child;
+                                                return SizedBox(
+                                                  width: 220,
+                                                  height: 140,
+                                                  child: Center(
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      color: fg,
+                                                      strokeWidth: 2,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
                                           ),
-                                          child: Image.network(
-                                            mediaUrl,
-                                            width: 220,
-                                            fit: BoxFit.cover,
-                                            loadingBuilder: (c, child, prog) {
-                                              if (prog == null) return child;
-                                              return SizedBox(
-                                                width: 220,
-                                                height: 140,
-                                                child: Center(
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        color: fg,
-                                                        strokeWidth: 2,
-                                                      ),
-                                                ),
-                                              );
-                                            },
-                                          ),
                                         ),
-                                      ),
-                                    if (mediaType == 'audio' &&
-                                        mediaUrl.isNotEmpty)
-                                      VoiceMessageBubble(
-                                        player: _voicePlayer,
-                                        publicUrl: mediaUrl,
-                                        color: fg,
-                                        durationMs: durationMs,
-                                      ),
-                                    if (body.isNotEmpty)
-                                      Text(
-                                        body,
-                                        style: TextStyle(
+                                      if (mediaType == 'audio' &&
+                                          mediaUrl.isNotEmpty)
+                                        VoiceMessageBubble(
+                                          player: _voicePlayer,
+                                          publicUrl: mediaUrl,
                                           color: fg,
-                                          height: 1.35,
+                                          durationMs: durationMs,
                                         ),
-                                      ),
-                                    if (_showSeenForMyMessage(m, isMe)) ...[
-                                      const SizedBox(height: 4),
-                                      Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          'تمت المشاهدة',
+                                      if (body.isNotEmpty)
+                                        Text(
+                                          body,
                                           style: TextStyle(
-                                            color: fg.withValues(alpha: 0.75),
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
+                                            color: fg,
+                                            height: 1.4,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                      ),
+                                      if (_showSeenForMyMessage(m, isMe)) ...[
+                                        const SizedBox(height: 6),
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: Text(
+                                            'تمت المشاهدة',
+                                            style: TextStyle(
+                                              color: fg.withValues(alpha: 0.75),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ],
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),

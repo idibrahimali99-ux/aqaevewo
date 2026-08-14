@@ -15,6 +15,7 @@
                 <li class="nav-item"><a class="nav-link" href="<?= e(url('/map')) ?>">الخريطة</a></li>
                 <li class="nav-item"><a class="nav-link" href="<?= e(url('/reels')) ?>">ريلز</a></li>
                 <li class="nav-item"><a class="nav-link" href="<?= e(url('/offices')) ?>">المكاتب</a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= e(url('/compounds')) ?>">المجمعات</a></li>
             </ul>
             <div class="d-flex gap-2 align-items-center">
                 <?php if ($user): ?>

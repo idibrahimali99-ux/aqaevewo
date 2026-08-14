@@ -190,11 +190,12 @@ function admin_sections(): array
             'endpoint' => 'health', 'description' => 'فحص API، broadcast، أقسام الرئيسية، وإجراءات المنطقة الخطرة.',
             'tabs' => ['Health', 'Broadcast', 'Home Sections', 'Danger Zone'],
             'operations' => [
-                'broadcast' => ['label' => 'إرسال رسالة عامة', 'endpoint' => 'admin/broadcast', 'method' => 'POST', 'fields' => ['title' => 'العنوان', 'body' => 'المحتوى']],
+                'broadcast' => ['label' => 'إرسال إشعار فوري', 'endpoint' => 'admin/broadcast', 'method' => 'POST', 'fields' => ['target' => 'users/admins/all', 'title' => 'العنوان', 'body' => 'المحتوى']],
                 'home_section' => ['label' => 'تعديل أيقونة قسم رئيسية', 'endpoint' => 'admin/home-sections', 'method' => 'POST', 'fields' => ['section_key' => 'المفتاح', 'label' => 'التسمية', 'route_target' => 'المسار', 'icon_url' => 'رابط الأيقونة', 'sort_order' => 'الترتيب', 'is_active' => '1 أو 0']],
                 'maintenance_on' => ['label' => 'تشغيل الصيانة', 'endpoint' => 'admin/system', 'method' => 'POST', 'fields' => ['pin' => 'PIN'], 'fixed' => ['action' => 'maintenance_on']],
                 'maintenance_off' => ['label' => 'إيقاف الصيانة', 'endpoint' => 'admin/system', 'method' => 'POST', 'fields' => ['pin' => 'PIN'], 'fixed' => ['action' => 'maintenance_off']],
                 'delete_all_properties' => ['label' => 'حذف كل المنشورات', 'endpoint' => 'admin/system', 'method' => 'POST', 'fields' => ['pin' => 'PIN'], 'fixed' => ['action' => 'delete_all_properties']],
+                'delete_all_chats' => ['label' => 'تصفير كل المحادثات', 'endpoint' => 'admin/system', 'method' => 'POST', 'fields' => ['pin' => 'PIN'], 'fixed' => ['action' => 'delete_all_chats']],
                 'delete_all_users_except_me' => ['label' => 'حذف كل المستخدمين عداي', 'endpoint' => 'admin/system', 'method' => 'POST', 'fields' => ['pin' => 'PIN'], 'fixed' => ['action' => 'delete_all_users_except_me']],
             ],
         ],

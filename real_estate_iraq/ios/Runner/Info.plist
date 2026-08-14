@@ -87,5 +87,7 @@
 		<string>remote-notification</string>
 		<string>fetch</string>
 	</array>
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<true/>
 </dict>
 </plist>

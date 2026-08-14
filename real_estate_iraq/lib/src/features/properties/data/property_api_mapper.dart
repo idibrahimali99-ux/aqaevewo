@@ -44,6 +44,13 @@ Property? propertyFromApiRow(
     final videoUrl = videoRaw != null && videoRaw.isNotEmpty ? videoRaw : null;
     // لا صور خارجية — فقط ما يُرجعه السيرفر.
     final status = j['approval_status']?.toString() ?? 'pending';
+    final rejectNote =
+        (j['reject_note'] ?? j['moderation_note'])?.toString().trim() ?? '';
+    final resubmissionRaw = j['resubmission_allowed'];
+    final resubmissionAllowed =
+        resubmissionRaw == true ||
+        resubmissionRaw == 1 ||
+        resubmissionRaw == '1';
     final purpose = j['purpose']?.toString() ?? 'sale';
     final soldRaw = j['is_sold'];
     final isSold = soldRaw == true || soldRaw == 1 || soldRaw == '1';
@@ -93,6 +100,9 @@ Property? propertyFromApiRow(
     if (compoundName != null) {
       detailsJson = {...?detailsJson, 'compound_name': compoundName};
     }
+    if (rejectNote.isNotEmpty) {
+      detailsJson = {...?detailsJson, 'reject_note': rejectNote};
+    }
 
     return Property(
       id: id,
@@ -125,6 +135,8 @@ Property? propertyFromApiRow(
       isMarketerPublisher: isMarketer,
       ownerPhone: j['owner_phone']?.toString().trim(),
       publicNo: (publicNo != null && publicNo > 0) ? publicNo : null,
+      rejectNote: rejectNote,
+      resubmissionAllowed: resubmissionAllowed,
       publishedAt: publishedAt,
       compoundId: j['compound_id']?.toString().trim(),
       compoundName: compoundName,

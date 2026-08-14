@@ -50,12 +50,22 @@
                 <button type="button" class="messenger-lane-tab" data-lane="1"><i class="fa-solid fa-store ms-1"></i> المعلن</button>
             </div>
             <div class="messenger-messages" id="messageList"></div>
-            <input type="hidden" id="sendVisibility" value="customer_only">
-            <form class="messenger-compose" id="messageForm">
-                <label class="btn btn-light btn-sm rounded-circle mb-0" for="chatFileInput" title="مرفق"><i class="fa-solid fa-paperclip"></i></label>
+            <div class="messenger-scroll-controls" aria-label="الانتقال داخل المحادثة">
+                <button type="button" class="messenger-scroll-btn" id="scrollChatTop" title="أعلى المحادثة"><i class="fa-solid fa-arrow-up"></i></button>
+                <button type="button" class="messenger-scroll-btn" id="scrollChatBottom" title="أسفل المحادثة"><i class="fa-solid fa-arrow-down"></i></button>
+            </div>
+            <input type="hidden" id="sendVisibility" value="all">
+            <form class="messenger-compose" id="messageForm" autocomplete="off">
+                <label class="messenger-attach-btn" for="chatFileInput" title="مرفق"><i class="fa-solid fa-paperclip"></i></label>
                 <input type="file" id="chatFileInput" class="d-none" accept="image/*,audio/*">
-                <input type="text" id="messageInput" placeholder="اكتب رسالة..." autocomplete="off">
-                <button type="submit" class="btn btn-primary rounded-circle"><i class="fa-solid fa-paper-plane"></i></button>
+                <div class="messenger-compose-field">
+                    <textarea id="messageInput" rows="1" placeholder="اكتب رسالتك هنا..." aria-label="نص الرسالة"></textarea>
+                    <small>Enter للإرسال · Shift + Enter لسطر جديد</small>
+                </div>
+                <button type="submit" class="messenger-send-btn">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>إرسال</span>
+                </button>
             </form>
         </div>
     </section>

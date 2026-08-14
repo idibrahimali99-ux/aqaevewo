@@ -14,16 +14,22 @@
   const layerGroup = L.layerGroup().addTo(map);
   const markerRefs = new Map();
 
+  const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+
   const popupHtml = (item) => `
-    <div class="map-popup">
-      <img src="${item.thumb}" alt="">
-      <div>
-        <strong>${item.title}</strong>
-        <div class="small text-secondary">${item.governorate || ''}</div>
-        <div class="fw-bold">${item.price}</div>
-        <a href="${item.url}" class="btn btn-sm btn-warning rounded-pill mt-2">عرض التفاصيل</a>
+    <a class="map-popup-card" href="${escapeHtml(item.url)}">
+      <div class="map-popup-media">
+        ${item.video ? `<video src="${escapeHtml(item.video)}" muted playsinline preload="metadata"></video><span><i class="fa-solid fa-play"></i> فيديو</span>` : `<img src="${escapeHtml(item.thumb)}" alt="">`}
       </div>
-    </div>`;
+      <div class="map-popup-body">
+        <strong>${escapeHtml(item.title || 'عقار')}</strong>
+        <div class="map-popup-price">${escapeHtml(item.price || '')}</div>
+        <small>${escapeHtml([item.governorate, item.category].filter(Boolean).join(' · '))}</small>
+        <em>اضغط لعرض التفاصيل</em>
+      </div>
+    </a>`;
 
   const renderList = (query = '') => {
     const q = query.trim().toLowerCase();

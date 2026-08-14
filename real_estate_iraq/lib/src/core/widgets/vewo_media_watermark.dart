@@ -14,7 +14,7 @@ class VewoMediaWatermark extends StatelessWidget {
   final double opacity;
 
   static const String brandLine = 'عقار تاون | AQAR TOWN';
-  static const String supportPhone = '07871456361';
+  static const String supportPhone = '07887444177';
   static const Color wmColor = Color(0xFFD4A000);
   static const String assetPath = 'assets/appha.png';
 

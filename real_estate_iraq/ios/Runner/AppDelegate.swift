@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import GoogleMaps
+import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -14,6 +15,11 @@ import GoogleMaps
        !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
       GMSServices.provideAPIKey(apiKey)
     }
+
+    // FCM / APNs — عرض الإشعارات في المقدمة + تسجيل الجهاز للتوكن.
+    UNUserNotificationCenter.current().delegate = self
+    application.registerForRemoteNotifications()
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

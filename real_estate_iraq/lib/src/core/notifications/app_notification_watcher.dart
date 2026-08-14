@@ -75,7 +75,13 @@ class _AppNotificationWatcherState
                 id: 2100 + (DateTime.now().millisecondsSinceEpoch % 1000),
                 title: title.isEmpty ? 'إعلان' : title,
                 body: body.isEmpty ? '' : body,
-                payload: const {'type': 'broadcast'},
+                payload: {
+                  'type': (m['kind']?.toString() == 'reminder')
+                      ? 'reminder'
+                      : 'broadcast',
+                  if ((m['id']?.toString() ?? '').isNotEmpty)
+                    'broadcast_id': m['id'].toString(),
+                },
               );
             }
           }

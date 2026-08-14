@@ -6,19 +6,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
+import 'package:vewo_shared/vewo_shared.dart' show IQDFormatter;
 import '../domain/property.dart';
 import '../data/properties_providers.dart';
-import 'property_card.dart';
-import '../../../core/contact/property_contact.dart';
-import '../../../core/api/app_bootstrap_provider.dart';
-import '../../../core/layout/app_responsive.dart';
 import '../../../core/location/location_providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/property_video_player.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../routing/app_routes.dart';
-import '../../auth/data/auth_controller.dart';
 
 LatLng? _propertyLatLng(Property p) {
   final d = p.detailsJson;
@@ -156,130 +153,6 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
     });
   }
 
-  void _openMiniSheet(
-    BuildContext context,
-    Property p, {
-    required String supportPhone,
-    required bool isAuth,
-  }) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (ctx) {
-        Future<void> callContact() async {
-          final supportPhone =
-              ref.read(appBootstrapProvider).value?.supportPhone ??
-              '07871456361';
-          final raw = resolvePropertyContactPhone(p, supportPhone)
-              .replaceAll(RegExp(r'[^\d+]'), '');
-          if (raw.isEmpty) return;
-          final uri = Uri.parse('tel:$raw');
-          final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-          if (!ok && ctx.mounted) {
-            ScaffoldMessenger.of(ctx).showSnackBar(
-              const SnackBar(content: Text('تعذر فتح تطبيق الاتصال')),
-            );
-          }
-        }
-
-        Future<void> openWhatsApp() async {
-          final supportPhone =
-              ref.read(appBootstrapProvider).value?.supportPhone ??
-              '07871456361';
-          final ok = await openWhatsAppForProperty(p, supportPhone);
-          if (!ok && ctx.mounted) {
-            ScaffoldMessenger.of(ctx).showSnackBar(
-              const SnackBar(content: Text('تعذر فتح واتساب')),
-            );
-          }
-        }
-
-        return SafeArea(
-          child: Padding(
-            padding: AppResponsive.pagePadding(ctx, top: 10),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    _openFullSheet(context, p);
-                  },
-                  child: SizedBox(
-                    height: 180,
-                    child: PropertyCard(
-                      property: p,
-                      showMapPreview: false,
-                      onTap: () {
-                        Navigator.of(ctx).pop();
-                        context.push('${AppRoutes.propertyDetails}/${p.id}');
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: callContact,
-                        icon: const Icon(Icons.call_rounded),
-                        label: const Text('اتصال'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: openWhatsApp,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF25D366),
-                          foregroundColor: Colors.white,
-                        ),
-                        icon: const Icon(Icons.chat_rounded),
-                        label: const Text('واتساب'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _openFullSheet(BuildContext context, Property p) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: AppResponsive.pagePadding(ctx, top: 10),
-            child: SizedBox(
-              height: (MediaQuery.sizeOf(ctx).height * 0.58).clamp(
-                320.0,
-                520.0,
-              ),
-              child: PropertyCard(
-                property: p,
-                showMapPreview: false,
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  context.push('${AppRoutes.propertyDetails}/${p.id}');
-                },
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   int _gridPrecisionForZoom(double z) {
     if (z >= 14) return 4;
     if (z >= 12) return 3;
@@ -316,45 +189,6 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
       out.add((center: c, props: e.value));
     }
     return out;
-  }
-
-  void _openClusterSheet(
-    BuildContext context, {
-    required List<Property> props,
-    required String supportPhone,
-    required bool isAuth,
-  }) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        child: ListView.separated(
-          padding: AppResponsive.pagePadding(ctx),
-          itemCount: props.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 10),
-          itemBuilder: (c, i) {
-            final p = props[i];
-            return ListTile(
-              leading: const Icon(Icons.home_work_outlined),
-              title: Text(
-                p.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                _openMiniSheet(
-                  context,
-                  p,
-                  supportPhone: supportPhone,
-                  isAuth: isAuth,
-                );
-              },
-            );
-          },
-        ),
-      ),
-    );
   }
 
   @override
@@ -395,10 +229,14 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
   Widget build(BuildContext context) {
     final items = ref.watch(allPropertiesProvider);
     final loading = ref.watch(propertyListingsLoadingProvider);
-    final auth = ref.watch(authControllerProvider);
-    final bootstrap = ref.watch(appBootstrapProvider).valueOrNull;
-    final supportPhone = (bootstrap?.supportPhone ?? '').trim();
     final focusId = GoRouterState.of(context).uri.queryParameters['focus'];
+    Property? selectedProperty;
+    for (final p in items) {
+      if (p.id == _selectedId) {
+        selectedProperty = p;
+        break;
+      }
+    }
     if (focusId != null &&
         focusId.trim().isNotEmpty &&
         _selectedId != focusId) {
@@ -425,13 +263,6 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
         }
         if (!context.mounted) return;
         setState(() => _selectedId = focusId);
-        if (!context.mounted) return;
-        _openMiniSheet(
-          context,
-          prop,
-          supportPhone: supportPhone,
-          isAuth: auth.isAuthenticated,
-        );
       });
     }
 
@@ -453,12 +284,6 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
             position: pos,
             onTap: () {
               setState(() => _selectedId = p.id);
-              _openMiniSheet(
-                context,
-                p,
-                supportPhone: supportPhone,
-                isAuth: auth.isAuthenticated,
-              );
             },
             icon: _selectedId == p.id ? _selectedMarker : _propertyMarker,
           ),
@@ -470,12 +295,14 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
           Marker(
             markerId: MarkerId(cid),
             position: pos,
-            onTap: () {
-              _openClusterSheet(
-                context,
-                props: group,
-                supportPhone: supportPhone,
-                isAuth: auth.isAuthenticated,
+            onTap: () async {
+              setState(() => _selectedId = null);
+              final controller = _map;
+              if (controller == null) return;
+              await controller.animateCamera(
+                CameraUpdate.newCameraPosition(
+                  CameraPosition(target: pos, zoom: min(_mapZoom + 2.2, 18)),
+                ),
               );
             },
             icon: _clusterMarker,
@@ -509,6 +336,9 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
               compassEnabled: true,
               mapToolbarEnabled: false,
               markers: markers,
+              onTap: (_) {
+                if (_selectedId != null) setState(() => _selectedId = null);
+              },
               onCameraMove: (pos) => _mapZoom = pos.zoom,
               onCameraIdle: () {
                 if (mounted) setState(() {});
@@ -598,6 +428,19 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
                 ),
               ),
             )
+          else if (selectedProperty != null)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 104 + MediaQuery.paddingOf(context).bottom,
+              child: _MapPropertyPopup(
+                property: selectedProperty,
+                onClose: () => setState(() => _selectedId = null),
+                onTap: () => context.push(
+                  '${AppRoutes.propertyDetails}/${selectedProperty!.id}',
+                ),
+              ),
+            )
           else
             Positioned(
               left: 20,
@@ -658,6 +501,206 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MapPropertyPopup extends StatelessWidget {
+  const _MapPropertyPopup({
+    required this.property,
+    required this.onTap,
+    required this.onClose,
+  });
+
+  final Property property;
+  final VoidCallback onTap;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final title = property.title.trim().isNotEmpty
+        ? property.title.trim()
+        : property.displayCategoryAr;
+    final price = property.priceIqd > 0
+        ? IQDFormatter.format(property.priceIqd)
+        : 'حسب الاتفاق';
+    final video = property.videoUrl?.trim();
+    final hasVideo = video != null && video.isNotEmpty;
+    final imageUrl = property.images.isNotEmpty ? property.images.first : '';
+
+    return Material(
+      color: Colors.transparent,
+      elevation: 18,
+      shadowColor: Colors.black.withValues(alpha: 0.22),
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          constraints: const BoxConstraints(maxHeight: 188),
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColors.cardBorder),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 128,
+                height: 188,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (hasVideo)
+                      PropertyVideoPlayer(
+                        url: video,
+                        trimStartSeconds: property.videoTrimStartSeconds,
+                        trimEndSeconds: property.videoTrimEndSeconds,
+                      )
+                    else if (imageUrl.isNotEmpty)
+                      CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, _, _) => ColoredBox(
+                          color: scheme.surfaceContainerHighest,
+                          child: const Icon(Icons.broken_image_outlined),
+                        ),
+                      )
+                    else
+                      ColoredBox(
+                        color: scheme.surfaceContainerHighest,
+                        child: Icon(
+                          Icons.image_not_supported_outlined,
+                          color: scheme.outline,
+                        ),
+                      ),
+                    if (hasVideo)
+                      PositionedDirectional(
+                        top: 10,
+                        start: 10,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.58),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.play_circle_outline,
+                                  color: Colors.white,
+                                  size: 15,
+                                ),
+                                SizedBox(width: 3),
+                                Text(
+                                  'فيديو',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          InkWell(
+                            onTap: onClose,
+                            borderRadius: BorderRadius.circular(999),
+                            child: Padding(
+                              padding: const EdgeInsets.all(3),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 20,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        price,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: AppColors.frameGold,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_outlined,
+                            size: 16,
+                            color: AppColors.mapPin,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              property.governorate,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: FilledButton.tonalIcon(
+                          onPressed: onTap,
+                          icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                          label: const Text('عرض التفاصيل'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

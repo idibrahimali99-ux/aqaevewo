@@ -26,7 +26,7 @@ String resolvePropertyContactPhone(Property property, String supportPhone) {
     return property.ownerPhone!.trim();
   }
   final fallback = supportPhone.trim();
-  return fallback.isNotEmpty ? fallback : '07871456361';
+  return fallback.isNotEmpty ? fallback : '07887444177';
 }
 
 String buildPropertyWhatsAppMessage(Property property) {

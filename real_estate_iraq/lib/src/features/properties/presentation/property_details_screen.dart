@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:vewo_shared/vewo_shared.dart' show IQDFormatter;
@@ -18,6 +19,7 @@ import '../../../core/location/location_providers.dart';
 import '../../../core/widgets/property_image_gallery.dart';
 import '../../../core/widgets/property_video_player.dart';
 import '../../../core/widgets/property_map_embed.dart';
+import '../../../routing/app_routes.dart';
 import '../../../routing/auth_nav.dart';
 import '../../auth/data/auth_controller.dart';
 import '../../favorites/data/favorites_controller.dart';
@@ -25,6 +27,7 @@ import '../data/properties_providers.dart';
 import '../domain/property.dart';
 import '../domain/property_category.dart';
 import '../domain/property_segment.dart';
+import 'property_contact_guard.dart';
 
 class PropertyDetailsScreen extends ConsumerWidget {
   const PropertyDetailsScreen({super.key, required this.propertyId});
@@ -123,7 +126,7 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
     final fav = ref.watch(favoritesControllerProvider);
     final isFav = fav.contains(property.id);
     final supportPhone =
-        ref.watch(appBootstrapProvider).value?.supportPhone ?? '07871456361';
+        ref.watch(appBootstrapProvider).value?.supportPhone ?? '07887444177';
     final contactPhone = resolvePropertyContactPhone(property, supportPhone);
     final myId = auth.userId;
     final isMine =
@@ -503,6 +506,37 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
                       ),
                     ],
                   ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 52,
+                width: 52,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: () async {
+                    if (!isAuth) {
+                      openLoginScreen(context);
+                      return;
+                    }
+                    final ok = await ensureCanOpenPropertyChat(
+                      context,
+                      ref,
+                      property,
+                    );
+                    if (!ok || !context.mounted) return;
+                    context.push(
+                      '${AppRoutes.chatRoom}/new?property=${Uri.encodeComponent(property.id)}',
+                    );
+                  },
+                  child: const Icon(Icons.chat_rounded, size: 26),
                 ),
               ),
               const SizedBox(width: 8),

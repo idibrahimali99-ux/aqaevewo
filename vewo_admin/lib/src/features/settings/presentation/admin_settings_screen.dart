@@ -39,44 +39,73 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
   String? _health;
   bool _checking = false;
 
-  Future<void> _openBroadcastComposer() async {
-    final title = TextEditingController();
-    final body = TextEditingController();
+  Future<void> _openBroadcastComposer({
+    String? presetTitle,
+    String? presetBody,
+    String kind = 'broadcast',
+  }) async {
+    final title = TextEditingController(text: presetTitle ?? '');
+    final body = TextEditingController(text: presetBody ?? '');
+    var target = 'users';
     try {
       final ok = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('رسالة عامة للمستخدمين'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: title,
-                  decoration: const InputDecoration(
-                    labelText: 'العنوان (اختياري)',
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setLocal) => AlertDialog(
+            title: Text(kind == 'reminder' ? 'إرسال تذكير فوري' : 'إرسال إشعار فوري'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: target,
+                    decoration: const InputDecoration(labelText: 'المستلمين'),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'users',
+                        child: Text('كل مستخدمي التطبيق'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'admins',
+                        child: Text('أجهزة الأدمن فقط'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'all',
+                        child: Text('الجميع'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) setLocal(() => target = value);
+                    },
                   ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: body,
-                  minLines: 3,
-                  maxLines: 6,
-                  decoration: const InputDecoration(labelText: 'الرسالة'),
-                ),
-              ],
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: title,
+                    decoration: const InputDecoration(
+                      labelText: 'العنوان',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: body,
+                    minLines: 3,
+                    maxLines: 6,
+                    decoration: const InputDecoration(labelText: 'الرسالة'),
+                  ),
+                ],
+              ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('إلغاء'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('إرسال'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('إرسال'),
-            ),
-          ],
         ),
       );
       if (ok != true || !mounted) return;
@@ -84,11 +113,15 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
       await api.postJson('admin/broadcast', {
         'title': title.text.trim(),
         'body': body.text.trim(),
+        'target': target,
+        'kind': kind,
       });
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('تم إرسال الرسالة')));
+      ).showSnackBar(SnackBar(
+        content: Text(kind == 'reminder' ? 'تم إرسال التذكير' : 'تم إرسال الرسالة'),
+      ));
     } on VewoApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -102,6 +135,33 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
     } finally {
       title.dispose();
       body.dispose();
+    }
+  }
+
+  Future<void> _testFcm() async {
+    try {
+      final api = ref.read(vewoApiClientProvider);
+      final data = await api.postJson('admin/fcm/test', {});
+      if (!mounted) return;
+      final mode = data['mode']?.toString() ?? '';
+      final tokens = data['tokens'];
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'تم إرسال اختبار FCM ($mode) إلى $tokens جهاز — أغلق التطبيق وتحقق',
+          ),
+        ),
+      );
+    } on VewoApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر اختبار FCM')),
+      );
     }
   }
 
@@ -599,7 +659,35 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                 FilledButton.icon(
                   onPressed: _openBroadcastComposer,
                   icon: const Icon(Icons.campaign_outlined),
-                  label: const Text('إرسال رسالة عامة للمستخدمين'),
+                  label: const Text('إرسال إشعار فوري'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => _openBroadcastComposer(
+                    kind: 'reminder',
+                    presetTitle: 'نفتقدك في عقار تاون',
+                    presetBody:
+                        'تصفّح العقارات الجديدة اليوم ولا تهمل الفرص — افتح التطبيق الآن.',
+                  ),
+                  icon: const Icon(Icons.notifications_active_outlined),
+                  label: const Text('تذكير: لا تهمل التطبيق'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _openBroadcastComposer(
+                    kind: 'reminder',
+                    presetTitle: 'عقارات جديدة بانتظارك',
+                    presetBody:
+                        'تم إضافة منشورات جديدة في منطقتك — ادخل وشاهدها قبل أن تفوتك.',
+                  ),
+                  icon: const Icon(Icons.home_work_outlined),
+                  label: const Text('تذكير: عقارات جديدة'),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.tonalIcon(
+                  onPressed: _testFcm,
+                  icon: const Icon(Icons.notifications_active_outlined),
+                  label: const Text('اختبار Firebase (FCM)'),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
@@ -670,6 +758,19 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                     ),
                     icon: const Icon(Icons.delete_forever_rounded),
                     label: const Text('حذف جميع المنشورات'),
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: scheme.error,
+                      foregroundColor: scheme.onError,
+                    ),
+                    onPressed: () => _dangerSystemAction(
+                      'delete_all_chats',
+                      'تم تصفير كل المحادثات من تطبيق المستخدم وتطبيق الأدمن',
+                    ),
+                    icon: const Icon(Icons.forum_outlined),
+                    label: const Text('تصفير جميع المحادثات'),
                   ),
                   const SizedBox(height: 10),
                   FilledButton.icon(

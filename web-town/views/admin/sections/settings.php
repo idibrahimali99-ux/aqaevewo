@@ -23,10 +23,17 @@ require __DIR__ . '/../partials/section-alerts.php';
     </div>
     <div class="col-lg-6">
         <div class="panel-card admin-form-card h-100">
-            <h2 class="h5 mb-3">رسالة broadcast</h2>
+            <h2 class="h5 mb-3">إشعار فوري عام</h2>
             <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="row g-2">
                 <?= csrf_field() ?>
                 <input type="hidden" name="_operation" value="broadcast">
+                <div class="col-12">
+                    <select name="target" class="form-select" aria-label="المستلمين">
+                        <option value="users" selected>كل مستخدمي التطبيق</option>
+                        <option value="admins">أجهزة الأدمن فقط</option>
+                        <option value="all">الجميع</option>
+                    </select>
+                </div>
                 <div class="col-12"><input type="text" name="title" class="form-control" placeholder="العنوان" required></div>
                 <div class="col-12"><textarea name="body" class="form-control" rows="3" placeholder="المحتوى" required></textarea></div>
                 <div class="col-12"><button type="submit" class="btn btn-warning rounded-pill">إرسال</button></div>
@@ -53,7 +60,7 @@ require __DIR__ . '/../partials/section-alerts.php';
     <div class="panel-head"><h2 class="text-danger">منطقة خطرة</h2></div>
     <p class="text-secondary small">تتطلب PIN (1111) كما في تطبيق Admin.</p>
     <div class="d-flex flex-wrap gap-2">
-        <?php foreach (['maintenance_on' => 'تشغيل الصيانة', 'maintenance_off' => 'إيقاف الصيانة', 'delete_all_properties' => 'حذف كل المنشورات', 'delete_all_users_except_me' => 'حذف المستخدمين عداي'] as $op => $label): ?>
+        <?php foreach (['maintenance_on' => 'تشغيل الصيانة', 'maintenance_off' => 'إيقاف الصيانة', 'delete_all_properties' => 'حذف كل المنشورات', 'delete_all_chats' => 'تصفير كل المحادثات', 'delete_all_users_except_me' => 'حذف المستخدمين عداي'] as $op => $label): ?>
             <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="admin-form-card" onsubmit="return confirm('تأكيد: <?= e($label) ?>؟');">
                 <?= csrf_field() ?>
                 <input type="hidden" name="_operation" value="<?= e($op) ?>">

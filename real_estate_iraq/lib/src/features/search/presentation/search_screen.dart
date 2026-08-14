@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:vewo_shared/vewo_shared.dart' show Iraq;
+import 'package:vewo_shared/vewo_shared.dart' show IQDFormatter, Iraq;
 import '../../../core/layout/app_responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_brand_mark.dart';
@@ -15,7 +15,6 @@ import '../../properties/data/properties_providers.dart';
 import '../../properties/domain/property.dart';
 import '../../properties/domain/property_category.dart';
 import '../../properties/domain/property_segment.dart';
-import '../../properties/presentation/property_card.dart';
 import '../../properties/data/property_api_mapper.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -601,18 +600,120 @@ class _SearchMapAndResults extends StatelessWidget {
         accountForShellNav: true,
       ),
       children: [
-        for (final p in items.take(12))
+        for (final p in items)
           Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: SizedBox(
-              height: 270,
-              child: PropertyCard(
-                property: p,
-                onTap: () => context.push('${AppRoutes.propertyDetails}/${p.id}'),
-              ),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _SearchResultTile(
+              property: p,
+              onTap: () => context.push('${AppRoutes.propertyDetails}/${p.id}'),
             ),
           ),
       ],
+    );
+  }
+}
+
+class _SearchResultTile extends StatelessWidget {
+  const _SearchResultTile({required this.property, required this.onTap});
+
+  final Property property;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final title = property.title.trim().isNotEmpty
+        ? property.title.trim()
+        : property.displayCategoryAr;
+    final price = property.priceIqd > 0
+        ? IQDFormatter.format(property.priceIqd)
+        : 'حسب الاتفاق';
+    final imageUrl = property.images.isNotEmpty ? property.images.first : '';
+    return Material(
+      color: scheme.surface,
+      elevation: 0.5,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.cardBorder),
+          ),
+          child: Row(
+            children: [
+              ClipOval(
+                child: imageUrl.isEmpty
+                    ? Container(
+                        width: 64,
+                        height: 64,
+                        color: scheme.surfaceContainerHighest,
+                        child: Icon(
+                          Icons.image_not_supported_outlined,
+                          color: scheme.outline,
+                        ),
+                      )
+                    : Image.network(
+                        imageUrl,
+                        width: 64,
+                        height: 64,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Container(
+                          width: 64,
+                          height: 64,
+                          color: scheme.surfaceContainerHighest,
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: scheme.outline,
+                          ),
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      price,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: AppColors.frameGold,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${property.governorate} • ${property.displayCategoryAr}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_left_rounded, color: scheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -106,11 +106,11 @@ function admin_sections(): array
             ],
         ],
         'property_requests' => [
-            'label' => 'طلبات العقار', 'icon' => 'RQ', 'group' => 'السوق', 'permission' => 'properties',
-            'endpoint' => 'admin/property-requests', 'description' => 'فلاتر الطلبات وتغيير الحالة pending / in_progress / closed.',
-            'tabs' => ['الطلبات', 'تغيير الحالة', 'اتصال/واتساب'],
+            'label' => 'طلبات العقار', 'icon' => 'PR', 'group' => 'السوق', 'permission' => 'properties',
+            'endpoint' => 'admin/property-requests', 'description' => 'طلبات ابحث عن عقار مع تحديث الحالة.',
+            'tabs' => ['الكل', 'انتظار', 'تنفيذ', 'مغلق'],
             'operations' => [
-                'status' => ['label' => 'تغيير حالة طلب', 'endpoint' => 'admin/property-requests', 'method' => 'POST', 'fields' => ['id' => 'معرّف الطلب', 'status' => 'pending/in_progress/closed']],
+                'status' => ['label' => 'تحديث حالة', 'endpoint' => 'admin/property-requests', 'method' => 'POST', 'fields' => ['id' => 'معرّف الطلب', 'status' => 'pending/in_progress/closed']],
             ],
         ],
         'chats' => [
@@ -191,11 +191,12 @@ function admin_sections(): array
             'endpoint' => 'health', 'description' => 'فحص API، broadcast، أقسام الرئيسية، وإجراءات المنطقة الخطرة.',
             'tabs' => ['Health', 'Broadcast', 'Home Sections', 'Danger Zone'],
             'operations' => [
-                'broadcast' => ['label' => 'إرسال رسالة عامة', 'endpoint' => 'admin/broadcast', 'method' => 'POST', 'fields' => ['title' => 'العنوان', 'body' => 'المحتوى']],
+                'broadcast' => ['label' => 'إرسال إشعار فوري', 'endpoint' => 'admin/broadcast', 'method' => 'POST', 'fields' => ['target' => 'users/admins/all', 'title' => 'العنوان', 'body' => 'المحتوى']],
                 'home_section' => ['label' => 'تعديل أيقونة قسم رئيسية', 'endpoint' => 'admin/home-sections', 'method' => 'POST', 'fields' => ['section_key' => 'المفتاح', 'label' => 'التسمية', 'route_target' => 'المسار', 'icon_url' => 'رابط الأيقونة', 'sort_order' => 'الترتيب', 'is_active' => '1 أو 0']],
                 'maintenance_on' => ['label' => 'تشغيل الصيانة', 'endpoint' => 'admin/system', 'method' => 'POST', 'fields' => ['pin' => 'PIN'], 'fixed' => ['action' => 'maintenance_on']],
                 'maintenance_off' => ['label' => 'إيقاف الصيانة', 'endpoint' => 'admin/system', 'method' => 'POST', 'fields' => ['pin' => 'PIN'], 'fixed' => ['action' => 'maintenance_off']],
                 'delete_all_properties' => ['label' => 'حذف كل المنشورات', 'endpoint' => 'admin/system', 'method' => 'POST', 'fields' => ['pin' => 'PIN'], 'fixed' => ['action' => 'delete_all_properties']],
+                'delete_all_chats' => ['label' => 'تصفير كل المحادثات', 'endpoint' => 'admin/system', 'method' => 'POST', 'fields' => ['pin' => 'PIN'], 'fixed' => ['action' => 'delete_all_chats']],
                 'delete_all_users_except_me' => ['label' => 'حذف كل المستخدمين عداي', 'endpoint' => 'admin/system', 'method' => 'POST', 'fields' => ['pin' => 'PIN'], 'fixed' => ['action' => 'delete_all_users_except_me']],
             ],
         ],
@@ -247,7 +248,7 @@ function admin_section_data(string $sectionKey, array $query = []): array
     }
     $baseQuery = is_array($section['query'] ?? null) ? $section['query'] : [];
     $allowedQuery = [];
-    foreach (['q', 'status', 'scope', 'from', 'to', 'sort', 'governorate_id', 'id', 'thread_id', 'tab', 'role', 'create'] as $key) {
+    foreach (['q', 'status', 'scope', 'from', 'to', 'sort', 'governorate_id', 'id', 'thread_id', 'tab', 'role', 'create', 'compound_id', 'property_kind'] as $key) {
         if (!isset($query[$key]) || trim((string) $query[$key]) === '') {
             continue;
         }
@@ -283,10 +284,10 @@ function normalize_admin_value(string $key, string $value): mixed
     if ($value === '') {
         return null;
     }
-    if (in_array($key, ['is_active', 'verified', 'resubmission_allowed', 'requires_review', 'is_unlimited', 'is_marketer'], true)) {
+    if (in_array($key, ['is_active', 'verified', 'resubmission_allowed', 'requires_review', 'is_unlimited', 'is_marketer', 'is_private'], true)) {
         return (int) $value;
     }
-    if (in_array($key, ['sort_order', 'popup_duration_sec', 'days', 'views_per_hour', 'likes_per_hour', 'hours', 'amount', 'posting_listings_remaining', 'listings_limit'], true)) {
+    if (in_array($key, ['sort_order', 'popup_duration_sec', 'days', 'views_per_hour', 'likes_per_hour', 'hours', 'amount', 'posting_listings_remaining', 'listings_limit', 'floors_count', 'units_per_floor'], true)) {
         return is_numeric($value) ? (int) $value : $value;
     }
     if ($key === 'permissions') {

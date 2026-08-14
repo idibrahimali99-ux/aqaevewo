@@ -164,14 +164,14 @@ final appBootstrapProvider = FutureProvider<AppBootstrapData>((ref) async {
     return AppBootstrapData.fromJson(data);
   } on VewoApiException {
     return AppBootstrapData(
-      supportPhone: '07871456361',
+      supportPhone: '07887444177',
       promotions: const [],
       propertyNews: const [],
       homeSections: const [],
     );
   } catch (_) {
     return AppBootstrapData(
-      supportPhone: '07871456361',
+      supportPhone: '07887444177',
       promotions: const [],
       propertyNews: const [],
       homeSections: const [],

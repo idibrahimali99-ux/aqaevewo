@@ -63,7 +63,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final text = Uri.encodeComponent(
       'مرحباً، نسيت كلمة المرور في تطبيق عقار تاون.',
     );
-    final uri = Uri.parse('https://wa.me/9647871456361?text=$text');
+    final uri = Uri.parse('https://wa.me/9647887444177?text=$text');
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
         mounted) {
       ScaffoldMessenger.of(

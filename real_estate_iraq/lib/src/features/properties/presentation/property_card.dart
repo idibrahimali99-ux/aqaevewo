@@ -81,9 +81,12 @@ class PropertyCard extends ConsumerWidget {
   }
 
   String? get _rejectionNote {
+    final direct = property.rejectNote.trim();
+    if (direct.isNotEmpty) return direct;
     final d = property.detailsJson;
     if (d == null) return null;
     for (final k in const [
+      'reject_note',
       'rejection_reason',
       'moderation_note',
       'admin_note',
@@ -569,13 +572,23 @@ class PropertyCard extends ConsumerWidget {
                       !viewerIsOffice &&
                       (_rejectionNote ?? '').isNotEmpty) ...[
                     SizedBox(height: _ch(6)),
-                    Text(
-                      _rejectionNote ?? '',
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.error,
-                        fontWeight: FontWeight.w600,
+                    Container(
+                      padding: EdgeInsets.all(_cw(8)),
+                      decoration: BoxDecoration(
+                        color: scheme.errorContainer.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(_cr(10)),
+                        border: Border.all(
+                          color: scheme.error.withValues(alpha: 0.22),
+                        ),
+                      ),
+                      child: Text(
+                        'هذا المنشور مرفوض: ${_rejectionNote ?? ''}',
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.error,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],

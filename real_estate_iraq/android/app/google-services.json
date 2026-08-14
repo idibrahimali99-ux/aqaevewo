@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "933375129407",
+    "project_id": "aqar-town-d0b80",
+    "storage_bucket": "aqar-town-d0b80.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:933375129407:android:d7aae491b81f3e7da1458a",
+        "android_client_info": {
+          "package_name": "com.aqaevewo.real_estate_iraq"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB7I-chao41jFlFM5yBLXOWAImBw7YD5JU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

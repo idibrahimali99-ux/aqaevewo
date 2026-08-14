@@ -12,9 +12,27 @@ class AdminNotificationService {
       FlutterLocalNotificationsPlugin();
   bool _ready = false;
   AdminNotificationTapHandler? _onTap;
+  Map<String, dynamic>? _pendingLaunchPayload;
 
   void setTapHandler(AdminNotificationTapHandler? handler) {
     _onTap = handler;
+  }
+
+  Map<String, dynamic>? _decodePayload(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {}
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> takePendingLaunchPayload() async {
+    await init();
+    final pending = _pendingLaunchPayload;
+    _pendingLaunchPayload = null;
+    return pending;
   }
 
   Future<void> init() async {
@@ -24,19 +42,20 @@ class AdminNotificationService {
       android: android,
       iOS: DarwinInitializationSettings(),
     );
+    final launch = await _plugin.getNotificationAppLaunchDetails();
+    if (launch?.didNotificationLaunchApp == true) {
+      _pendingLaunchPayload = _decodePayload(launch?.notificationResponse?.payload);
+    }
     await _plugin.initialize(
       settings: settings,
       onDidReceiveNotificationResponse: (resp) {
-        final raw = resp.payload;
-        if (raw == null || raw.trim().isEmpty) return;
-        try {
-          final decoded = jsonDecode(raw);
-          if (decoded is Map<String, dynamic>) {
-            _onTap?.call(decoded);
-          } else if (decoded is Map) {
-            _onTap?.call(Map<String, dynamic>.from(decoded));
-          }
-        } catch (_) {}
+        final data = _decodePayload(resp.payload);
+        if (data == null) return;
+        if (_onTap != null) {
+          _onTap!(data);
+        } else {
+          _pendingLaunchPayload = data;
+        }
       },
     );
     await _plugin
@@ -66,7 +85,11 @@ class AdminNotificationService {
         playSound: true,
         enableVibration: true,
       ),
-      iOS: DarwinNotificationDetails(),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
     );
     await _plugin.show(
       id: id,

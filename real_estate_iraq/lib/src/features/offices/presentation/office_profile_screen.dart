@@ -12,7 +12,7 @@ import '../../../core/api/api_providers.dart';
 import '../../../routing/app_routes.dart';
 import '../data/offices_providers.dart';
 import '../../properties/data/office_properties_provider.dart';
-import '../../properties/presentation/property_card.dart';
+import '../../properties/presentation/property_cards_grid.dart';
 
 final officeReelsProvider = FutureProvider.autoDispose
     .family<List<Map<String, dynamic>>, String>((ref, officeId) async {
@@ -166,8 +166,9 @@ class OfficeProfileScreen extends ConsumerWidget {
                                                 );
                                               },
                                         style: FilledButton.styleFrom(
-                                          backgroundColor:
-                                              const Color(0xFF25D366),
+                                          backgroundColor: const Color(
+                                            0xFF25D366,
+                                          ),
                                           foregroundColor: Colors.white,
                                         ),
                                         icon: const Icon(Icons.chat_rounded),
@@ -289,20 +290,7 @@ class OfficeProfileScreen extends ConsumerWidget {
                   ),
                 )
               else
-                ...items.map(
-                  (p) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: SizedBox(
-                      height: 270,
-                      child: PropertyCard(
-                        property: p,
-                        onTap: () => context.push(
-                          '${AppRoutes.propertyDetails}/${p.id}',
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                PropertyCardsGrid(items: items),
             ],
           );
         },

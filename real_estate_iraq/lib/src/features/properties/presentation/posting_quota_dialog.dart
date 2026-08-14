@@ -6,7 +6,7 @@ import '../../../core/theme/app_theme.dart';
 
 /// نافذة منبثقة عند انتهاء رصيد النشر للمكتب/المسوّق.
 Future<void> showPostingQuotaBlockedDialog(BuildContext context) async {
-  const phone = '07871456361';
+  const phone = '07887444177';
   await showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -28,7 +28,7 @@ Future<void> showPostingQuotaBlockedDialog(BuildContext context) async {
           ),
           label: const Text('واتساب'),
           onPressed: () async {
-            final uri = Uri.parse('https://wa.me/9647871456361');
+            final uri = Uri.parse('https://wa.me/9647887444177');
             await launchUrl(uri, mode: LaunchMode.externalApplication);
             if (ctx.mounted) Navigator.pop(ctx);
           },

@@ -2,7 +2,7 @@
 
 CREATE TABLE IF NOT EXISTS device_tokens (
   id CHAR(36) NOT NULL,
-  token VARCHAR(255) NOT NULL,
+  token VARCHAR(512) NOT NULL,
   user_id CHAR(36) NULL,
   is_admin_app TINYINT(1) NOT NULL DEFAULT 0,
   platform VARCHAR(20) NOT NULL DEFAULT '',

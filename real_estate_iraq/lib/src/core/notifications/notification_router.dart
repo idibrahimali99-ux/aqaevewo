@@ -13,9 +13,9 @@ void navigateFromNotificationPayload(
     case 'admin_chat':
       final tid = data['thread_id']?.toString().trim();
       if (tid != null && tid.isNotEmpty) {
-        router.push('${AppRoutes.chatRoom}/$tid');
+        router.go('${AppRoutes.chatRoom}/$tid');
       } else {
-        router.push(AppRoutes.chats);
+        router.go(AppRoutes.chats);
       }
       return;
     case 'property_rejected':
@@ -25,29 +25,53 @@ void navigateFromNotificationPayload(
     case 'property_urgent_sale':
       final pid = data['property_id']?.toString().trim();
       if (pid != null && pid.isNotEmpty) {
-        router.push('${AppRoutes.propertyDetails}/$pid');
+        router.go('${AppRoutes.propertyDetails}/$pid');
+      } else {
+        router.go(AppRoutes.notifications);
       }
       return;
     case 'reel_comment':
     case 'reel_like':
+    case 'reel_approved':
+    case 'reel_rejected':
       final rid = data['reel_id']?.toString().trim();
       if (rid != null && rid.isNotEmpty) {
-        router.push('${AppRoutes.reels}?reel_id=$rid');
+        router.go('${AppRoutes.reels}?reel_id=$rid');
       } else {
-        router.push(AppRoutes.reels);
+        router.go(AppRoutes.reels);
       }
       return;
     case 'broadcast':
-      router.push(AppRoutes.notifications);
+    case 'reminder':
+    case 'fcm_test':
+      router.go(AppRoutes.notifications);
+      return;
+    case 'property_request':
+    case 'property_request_status':
+      router.go(AppRoutes.myPropertyRequests);
       return;
     default:
       if (data['thread_id'] != null) {
         final tid = data['thread_id']?.toString().trim();
         if (tid != null && tid.isNotEmpty) {
-          router.push('${AppRoutes.chatRoom}/$tid');
+          router.go('${AppRoutes.chatRoom}/$tid');
           return;
         }
       }
-      router.push(AppRoutes.notifications);
+      if (data['property_id'] != null) {
+        final pid = data['property_id']?.toString().trim();
+        if (pid != null && pid.isNotEmpty) {
+          router.go('${AppRoutes.propertyDetails}/$pid');
+          return;
+        }
+      }
+      if (data['reel_id'] != null) {
+        final rid = data['reel_id']?.toString().trim();
+        if (rid != null && rid.isNotEmpty) {
+          router.go('${AppRoutes.reels}?reel_id=$rid');
+          return;
+        }
+      }
+      router.go(AppRoutes.notifications);
   }
 }

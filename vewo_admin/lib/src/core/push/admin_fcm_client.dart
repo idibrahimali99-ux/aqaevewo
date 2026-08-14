@@ -8,33 +8,55 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_providers.dart';
 import '../notifications/admin_notification_router.dart';
 import '../notifications/admin_notification_service.dart';
+import '../notifications/pending_admin_notification_nav.dart';
 import '../../features/auth/auth_providers.dart';
 import '../../routing/admin_router.dart';
+import '../../routing/admin_routes.dart';
 
 final adminFcmBootstrapProvider = Provider<AdminFcmClient>(
   (ref) => AdminFcmClient(ref),
 );
 
 class AdminFcmClient {
-  AdminFcmClient(this._ref);
+  AdminFcmClient(this._ref) {
+    final session = _ref.read(adminSessionProvider);
+    session.addListener(() {
+      if (session.isAuthenticated) {
+        _flushPending();
+      }
+    });
+  }
+
   final Ref _ref;
   bool _started = false;
+  bool _handledInitial = false;
 
   Future<void> start() async {
     if (_started) {
       await _registerCurrentToken();
+      _flushPending();
       return;
     }
     _started = true;
 
+    await AdminNotificationService.instance.init();
     AdminNotificationService.instance.setTapHandler((data) {
-      final router = _ref.read(adminRouterProvider);
-      navigateFromAdminNotificationPayload(router, data);
+      _openPayload(data, delayMs: 0);
     });
 
     try {
       final messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission();
+      await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: false,
+      );
+      await messaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
       await _registerCurrentToken();
       messaging.onTokenRefresh.listen((t) async {
         try {
@@ -56,12 +78,22 @@ class AdminFcmClient {
         );
       });
 
-      FirebaseMessaging.onMessageOpenedApp.listen(_openFromRemoteMessage);
-      final initial = await messaging.getInitialMessage();
-      if (initial != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _openFromRemoteMessage(initial);
-        });
+      FirebaseMessaging.onMessageOpenedApp.listen((msg) {
+        _openFromRemoteMessage(msg, delayMs: 200);
+      });
+
+      if (!_handledInitial) {
+        _handledInitial = true;
+        final localLaunch =
+            await AdminNotificationService.instance.takePendingLaunchPayload();
+        if (localLaunch != null && localLaunch.isNotEmpty) {
+          _openPayload(localLaunch, delayMs: 900);
+        } else {
+          final initial = await messaging.getInitialMessage();
+          if (initial != null) {
+            _openFromRemoteMessage(initial, delayMs: 900);
+          }
+        }
       }
     } catch (e) {
       if (kDebugMode) {
@@ -71,18 +103,76 @@ class AdminFcmClient {
     }
   }
 
-  void _openFromRemoteMessage(RemoteMessage msg) {
-    if (msg.data.isEmpty) return;
-    final router = _ref.read(adminRouterProvider);
-    navigateFromAdminNotificationPayload(
-      router,
-      Map<String, dynamic>.from(msg.data),
-    );
+  void _openFromRemoteMessage(RemoteMessage msg, {int delayMs = 300}) {
+    final data = Map<String, dynamic>.from(msg.data);
+    if (data.isEmpty) {
+      final t = msg.notification?.title;
+      final b = msg.notification?.body;
+      if (t != null) data['title'] = t;
+      if (b != null) data['body'] = b;
+    }
+    if (data.isEmpty) return;
+    _openPayload(data, delayMs: delayMs);
+  }
+
+  void _openPayload(Map<String, dynamic> data, {required int delayMs}) {
+    PendingAdminNotificationNav.store(data);
+
+    void attempt({required int triesLeft}) {
+      try {
+        final session = _ref.read(adminSessionProvider);
+        final router = _ref.read(adminRouterProvider);
+        if (!session.isAuthenticated) {
+          if (triesLeft > 0) {
+            Future<void>.delayed(const Duration(milliseconds: 400), () {
+              attempt(triesLeft: triesLeft - 1);
+            });
+            return;
+          }
+          router.go(AdminRoutes.login);
+          return;
+        }
+        final payload = PendingAdminNotificationNav.take() ?? data;
+        navigateFromAdminNotificationPayload(router, payload);
+      } catch (_) {
+        if (triesLeft > 0) {
+          Future<void>.delayed(const Duration(milliseconds: 400), () {
+            attempt(triesLeft: triesLeft - 1);
+          });
+        }
+      }
+    }
+
+    if (delayMs <= 0) {
+      attempt(triesLeft: 8);
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(Duration(milliseconds: delayMs), () {
+        attempt(triesLeft: 8);
+      });
+    });
+  }
+
+  void _flushPending() {
+    final pending = PendingAdminNotificationNav.take();
+    if (pending == null || pending.isEmpty) return;
+    // أعد التخزين ثم افتح — take أزالها.
+    _openPayload(pending, delayMs: 250);
   }
 
   Future<void> _registerCurrentToken() async {
     try {
-      final token = await FirebaseMessaging.instance.getToken();
+      final messaging = FirebaseMessaging.instance;
+      if (Platform.isIOS) {
+        String? apns;
+        for (var i = 0; i < 8; i++) {
+          apns = await messaging.getAPNSToken();
+          if (apns != null && apns.isNotEmpty) break;
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+      }
+      final token = await messaging.getToken();
       if (token != null && token.isNotEmpty) {
         await _registerToken(token);
       }

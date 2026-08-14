@@ -29,6 +29,8 @@ class Property {
     this.ownerPhone,
     this.publicNo,
     this.approvalStatus = 'approved',
+    this.rejectNote = '',
+    this.resubmissionAllowed = false,
     this.publishedAt,
     this.compoundId,
     this.compoundName,
@@ -76,6 +78,8 @@ class Property {
 
   /// من السيرفر: `approved` | `pending` | `rejected` | …
   final String approvalStatus;
+  final String rejectNote;
+  final bool resubmissionAllowed;
 
   /// وقت النشر من السيرفر.
   final DateTime? publishedAt;
