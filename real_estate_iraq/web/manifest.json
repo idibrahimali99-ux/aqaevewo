@@ -1,11 +1,11 @@
 {
-    "name": "real_estate_iraq",
-    "short_name": "real_estate_iraq",
+    "name": "عقار تاون | AQAR TOWN",
+    "short_name": "عقار تاون",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFDF7",
+    "theme_color": "#F6B60C",
+    "description": "منصة عقارية عراقية",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

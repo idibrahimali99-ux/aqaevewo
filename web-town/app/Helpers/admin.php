@@ -11,7 +11,7 @@ function admin_sections(): array
         'overview' => [
             'label' => 'نظرة عامة', 'icon' => 'OV', 'group' => 'الرئيسية', 'permission' => null,
             'endpoint' => 'admin/stats', 'query' => [],
-            'description' => 'إحصاءات النظام، آخر الأنشطة، الاختصارات، والتنبيهات كما في تطبيق Admin.',
+            'description' => 'إحصاءات النظام، آخر الأنشطة، الاختصارات، والتنبيهات.',
             'tabs' => ['إحصاءات', 'آخر الأنشطة', 'اختصارات'],
             'operations' => [
                 'cancel_urgent_sale' => ['label' => 'إلغاء البيع العاجل', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['property_id' => 'معرّف العقار'], 'fixed' => ['action' => 'cancel_urgent_sale']],
@@ -30,7 +30,7 @@ function admin_sections(): array
         ],
         'news' => [
             'label' => 'أخبار العقارات', 'icon' => 'NW', 'group' => 'المحتوى', 'permission' => 'news',
-            'endpoint' => 'admin/property-news', 'description' => 'إدارة أخبار العقارات بنفس حقول تطبيق Admin.',
+            'endpoint' => 'admin/property-news', 'description' => 'إدارة أخبار العقارات.',
             'tabs' => ['القائمة', 'إضافة/تعديل', 'حذف', 'رفع صورة'],
             'operations' => [
                 'create' => ['label' => 'إضافة خبر', 'endpoint' => 'admin/property-news', 'method' => 'POST', 'fields' => ['title' => 'العنوان', 'image_url' => 'رابط الصورة', 'body' => 'المحتوى', 'sort_order' => 'الترتيب']],
@@ -50,7 +50,7 @@ function admin_sections(): array
         ],
         'governorates' => [
             'label' => 'محافظات', 'icon' => 'GV', 'group' => 'الجغرافيا', 'permission' => 'settings',
-            'endpoint' => 'admin/governorates', 'description' => 'CRUD المحافظات وإدارة الأقضية والنواحي.',
+            'endpoint' => 'admin/governorates', 'description' => 'إدارة المحافظات والأقضية والنواحي.',
             'tabs' => ['محافظات', 'أقضية/نواحي'],
             'operations' => [
                 'create' => ['label' => 'إنشاء محافظة', 'endpoint' => 'admin/governorates', 'method' => 'POST', 'fields' => ['name' => 'الاسم', 'sort_order' => 'الترتيب', 'is_active' => '1 أو 0'], 'fixed' => ['action' => 'create']],
@@ -151,7 +151,7 @@ function admin_sections(): array
         ],
         'user_profile' => [
             'label' => 'ملف مستخدم', 'icon' => 'UP', 'group' => 'المستخدمون والربح', 'permission' => 'users',
-            'endpoint' => 'admin/user', 'description' => 'الشاشة الفرعية لعرض ملف مستخدم كما في تطبيق Admin.',
+            'endpoint' => 'admin/user', 'description' => 'عرض ملف مستخدم.',
             'tabs' => ['بيانات المستخدم', 'منشورات', 'محادثات'],
             'operations' => [],
         ],
@@ -176,7 +176,7 @@ function admin_sections(): array
         ],
         'reports' => [
             'label' => 'تقارير', 'icon' => 'RP', 'group' => 'التحليلات', 'permission' => null,
-            'endpoint' => 'admin/reports', 'description' => 'تقارير الفترة وتصدير CSV كما في تطبيق Admin.',
+            'endpoint' => 'admin/reports', 'description' => 'تقارير الفترة وتصدير CSV.',
             'tabs' => ['فترة', 'توزيع الأدوار', 'تصدير CSV'],
             'operations' => [],
         ],

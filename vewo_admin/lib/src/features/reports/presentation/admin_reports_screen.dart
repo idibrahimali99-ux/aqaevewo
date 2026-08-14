@@ -90,7 +90,7 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
     final to = _ymd(_to!);
     final buf = StringBuffer('\uFEFF');
     buf.writeln(
-      '${_csvEscape('تقرير vewo')},${_csvEscape('$from → $to')}',
+      '${_csvEscape('تقرير عقار تاون')},${_csvEscape('$from → $to')}',
     );
     buf.writeln(
       '${_csvEscape('منشورات جديدة')},${_csvEscape('${d['new_properties'] ?? ''}')}',
@@ -116,7 +116,7 @@ class _AdminReportsScreenState extends ConsumerState<AdminReportsScreen> {
     await SharePlus.instance.share(
       ShareParams(
         text: buf.toString(),
-        subject: 'تقرير vewo $from — $to',
+        subject: 'تقرير عقار تاون $from — $to',
       ),
     );
   }

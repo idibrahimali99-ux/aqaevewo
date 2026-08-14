@@ -6,15 +6,15 @@ declare(strict_types=1);
  */
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
-$apiHint = 'http://31.57.156.84/api/index.php';
+$apiHint = 'http://212.224.86.115/api/index.php';
 $envEntry = getenv('WEB_TOWN_API_ENTRY');
 $apiEntry = (is_string($envEntry) && trim($envEntry) !== '')
     ? trim($envEntry)
     : $apiHint;
 
 return [
-    'app_name' => 'ويب تاون',
-    'brand_name' => 'عقار تاون | Web Town',
+    'app_name' => 'عقار تاون',
+    'brand_name' => 'عقار تاون | AQAR TOWN',
     'api_entry' => $apiEntry,
     'api_base_hint' => $apiHint,
     'api_fallback_entry' => $scheme . '://' . $host . '/api/index.php',

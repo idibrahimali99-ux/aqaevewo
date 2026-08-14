@@ -8,7 +8,7 @@
     <div class="stat"><strong>0</strong><span>محادثات</span></div>
 </div>
 <div class="quick-grid">
-    <div class="quick-card"><h3>نشر عقار</h3><p class="muted">إضافة عقارات وتسويقها من نفس API.</p></div>
+    <div class="quick-card"><h3>نشر عقار</h3><p class="muted">إضافة عقارات وتسويقها بسهولة.</p></div>
     <div class="quick-card"><h3>مناطق العمل</h3><p class="muted">تظهر المحافظات والمناطق بعد ربط بيانات المسوق.</p></div>
     <div class="quick-card"><h3>الأداء</h3><p class="muted">مشاهدات، تفاعلات، وطلبات العملاء.</p></div>
 </div>

@@ -17,7 +17,7 @@ class AdminApp extends ConsumerWidget {
     final mode = ref.watch(adminThemeModeProvider);
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      title: 'عقار تاون Admin',
+      title: 'عقار تاون — لوحة التحكم',
       themeMode: mode,
       theme: AdminTheme.light(),
       darkTheme: AdminTheme.dark(),

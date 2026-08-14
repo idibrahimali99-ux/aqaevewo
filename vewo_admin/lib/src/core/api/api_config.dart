@@ -4,6 +4,6 @@ class ApiConfig {
 
   static const String baseUrl = String.fromEnvironment(
     'VEWO_API_BASE',
-    defaultValue: 'http://31.57.156.84/api',
+    defaultValue: 'http://212.224.86.115/api',
   );
 }

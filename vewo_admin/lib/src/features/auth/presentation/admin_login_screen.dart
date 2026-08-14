@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 
-import '../../../core/api/api_config.dart';
 import '../../../core/api/api_providers.dart';
 import '../../../core/api/vewo_api_client.dart';
 import '../../../core/theme/admin_theme.dart';
@@ -53,10 +52,8 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     } on SocketException {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'تعذر الاتصال بالشبكة. تحقق من الإنترنت وحاول مجدداً.',
-          ),
+        const SnackBar(
+          content: Text('تعذر الاتصال بالشبكة. تحقق من الإنترنت وحاول مجدداً.'),
         ),
       );
     } on http.ClientException {
@@ -64,7 +61,7 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تعذر إكمال الطلب. حاول مرة أخرى.')),
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('حدث خطأ. حاول مرة أخرى.')),
@@ -117,23 +114,32 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                               color: scheme.primary.withValues(alpha: 0.45),
                             ),
                           ),
-                          child: Icon(Icons.admin_panel_settings_rounded,
-                              size: 40, color: scheme.primary),
+                          child: Icon(
+                            Icons.admin_panel_settings_rounded,
+                            size: 40,
+                            color: scheme.primary,
+                          ),
                         ),
                         const SizedBox(width: 16),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'vewo',
-                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              'عقار تاون',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(
                                     fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.5,
+                                    letterSpacing: 0.2,
                                   ),
                             ),
                             Text(
-                              'لوحة المسؤول الرئيسي',
-                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              'لوحة التحكم',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(
                                     color: scheme.onSurfaceVariant,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -153,15 +159,18 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                             children: [
                               Text(
                                 'تسجيل الدخول',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(fontWeight: FontWeight.w800),
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                'يُقبل تسجيل الدخول لحساب المسؤول (admin) أو الموظف (staff).\n'
-                                'بعد سكربت إعادة المستخدمين: هاتف 07871456361 وكلمة المرور ChangeMe!Admin2026',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                'أدخل بيانات حساب المسؤول للمتابعة.',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
                                       color: scheme.onSurfaceVariant,
                                       height: 1.45,
                                     ),
@@ -173,7 +182,8 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                                 decoration: const InputDecoration(
                                   labelText: 'رقم الهاتف',
                                   hintText: '07XXXXXXXXX',
-                                  prefixIcon: Icon(Icons.phone_android_rounded),
+                                  prefixIcon:
+                                      Icon(Icons.phone_android_rounded),
                                 ),
                                 validator: (v) {
                                   final s = (v ?? '').trim();
@@ -193,10 +203,12 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                                 obscureText: _obscure,
                                 decoration: InputDecoration(
                                   labelText: 'كلمة المرور',
-                                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                  prefixIcon:
+                                      const Icon(Icons.lock_outline_rounded),
                                   suffixIcon: IconButton(
                                     tooltip: 'إظهار / إخفاء',
-                                    onPressed: () => setState(() => _obscure = !_obscure),
+                                    onPressed: () =>
+                                        setState(() => _obscure = !_obscure),
                                     icon: Icon(
                                       _obscure
                                           ? Icons.visibility_outlined
@@ -205,7 +217,9 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                                   ),
                                 ),
                                 validator: (v) =>
-                                    (v == null || v.length < 4) ? 'كلمة مرور غير صالحة' : null,
+                                    (v == null || v.length < 4)
+                                        ? 'كلمة مرور غير صالحة'
+                                        : null,
                               ),
                               const SizedBox(height: 24),
                               FilledButton.icon(
@@ -214,23 +228,19 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                                     ? const SizedBox(
                                         width: 20,
                                         height: 20,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
                                       )
                                     : const Icon(Icons.login_rounded),
-                                label: Text(_loading ? 'جاري الدخول…' : 'دخول آمن'),
+                                label: Text(
+                                  _loading ? 'جاري الدخول…' : 'دخول',
+                                ),
                               ),
                             ],
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      'عنوان الـAPI الحالي: ${ApiConfig.baseUrl}',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: scheme.onSurfaceVariant.withValues(alpha: 0.85),
-                          ),
                     ),
                   ],
                 ),

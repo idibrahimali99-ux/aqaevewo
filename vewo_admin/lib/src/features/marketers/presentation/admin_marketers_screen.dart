@@ -121,7 +121,7 @@ class _AdminMarketersScreenState extends ConsumerState<AdminMarketersScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 SwitchListTile(
-                  title: const Text('نشر بلا حدود (تجريبي)'),
+                  title: const Text('نشر بلا حدود'),
                   value: unlimited,
                   onChanged: (v) => setL(() => unlimited = v),
                 ),

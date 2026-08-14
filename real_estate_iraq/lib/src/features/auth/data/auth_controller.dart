@@ -168,7 +168,7 @@ class AuthController extends Notifier<AuthState> {
     } on VewoApiException catch (e) {
       return e.message;
     } catch (_) {
-      return 'تعذر الاتصال بالسيرفر. تحقق من إعداد VEWO_API_BASE والشبكة.';
+      return 'تعذر الاتصال بالسيرفر. تحقق من الشبكة وحاول مجدداً.';
     } finally {
       api.close();
     }
@@ -258,7 +258,7 @@ class AuthController extends Notifier<AuthState> {
     } on VewoApiException catch (e) {
       return e.message;
     } catch (_) {
-      return 'تعذر الاتصال بالسيرفر. تحقق من إعداد VEWO_API_BASE والشبكة.';
+      return 'تعذر الاتصال بالسيرفر. تحقق من الشبكة وحاول مجدداً.';
     } finally {
       api.close();
     }

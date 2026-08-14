@@ -877,7 +877,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
                                                           color: scheme.primary,
                                                         ),
                                                         label: const Text(
-                                                          'فيو',
+                                                          'موثّق',
                                                         ),
                                                         visualDensity:
                                                             VisualDensity

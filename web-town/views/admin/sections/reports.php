@@ -58,5 +58,5 @@ $summary = is_array($data) ? $data : [];
 <?php endif; ?>
 
 <div class="panel-card admin-form-card">
-    <p class="text-secondary mb-0">لتصدير CSV استخدم تطبيق Admin أو endpoint <code>admin/reports</code> مع نفس فترة التاريخ.</p>
+    <p class="text-secondary mb-0">يمكنك تصدير التقارير من تطبيق لوحة التحكم.</p>
 </div>

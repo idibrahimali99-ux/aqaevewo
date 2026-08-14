@@ -820,7 +820,7 @@ class _OfficePostingQuotaStrip extends ConsumerWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'الباقة التجريبية: نشر غير محدود حالياً',
+                  'الباقة الحالية: نشر غير محدود',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: scheme.onSecondaryContainer,

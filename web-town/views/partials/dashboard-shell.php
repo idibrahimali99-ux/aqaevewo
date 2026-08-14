@@ -27,8 +27,8 @@ $accountItems = [
     <aside class="sidebar admin-sidebar" data-dashboard-sidebar>
         <div class="side-head">
             <a class="brand compact-brand" href="<?= e(url('/dashboard')) ?>">
-                <span class="brand-mark">WT</span>
-                <span class="side-title"><strong>Web Town</strong><small>Admin Console</small></span>
+                <span class="brand-mark">AT</span>
+                <span class="side-title"><strong>عقار تاون</strong><small>لوحة التحكم</small></span>
             </a>
             <button class="collapse-toggle" type="button" data-dashboard-collapse aria-label="طي القائمة">⇔</button>
         </div>

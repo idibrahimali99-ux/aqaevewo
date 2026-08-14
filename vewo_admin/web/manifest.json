@@ -1,11 +1,11 @@
 {
-    "name": "vewo_admin",
-    "short_name": "vewo_admin",
+    "name": "عقار تاون — إدارة",
+    "short_name": "عقار تاون",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#17140B",
+    "theme_color": "#F6B60C",
+    "description": "لوحة تحكم عقار تاون",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

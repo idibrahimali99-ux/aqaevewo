@@ -68,7 +68,7 @@ class VewoApiClient {
     if (isHealthShape && !decoded.containsKey('user')) {
       throw VewoApiException(
         'السيرفر أعاد فحص الاتصال (health) بدل مسار تسجيل الدخول. '
-        'تحقق من VEWO_API_BASE.',
+        'تعذر قراءة بيانات الـAPI. تحقق من عنوان الخادم.',
       );
     }
   }

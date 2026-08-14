@@ -583,7 +583,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'عنوان الـAPI (VEWO_API_BASE)',
+                  'عنوان خادم الـAPI',
                   style: Theme.of(
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
@@ -594,14 +594,6 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: scheme.primary,
                     fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'عند البناء: flutter build apk --dart-define=VEWO_API_BASE=https://نطاقك/api',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    height: 1.5,
                   ),
                 ),
               ],
@@ -636,7 +628,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.cloud_done_outlined),
-                  label: Text(_checking ? 'جاري الفحص…' : 'اختبار health'),
+                  label: Text(_checking ? 'جاري الفحص…' : 'فحص الاتصال'),
                 ),
               ],
             ),

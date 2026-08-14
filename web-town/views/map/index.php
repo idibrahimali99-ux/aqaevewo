@@ -62,7 +62,7 @@ $markerJson = json_encode($markers, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON
 
             <div class="alert alert-info rounded-4 border-0">
 
-                لا توجد إحداثيات GPS في المنشورات الحالية. تأكد أن العقارات تحتوي موقعاً داخل <code>details_json.location</code>.
+                لا توجد إحداثيات موقع للمنشورات الحالية. أضف موقعاً للمنشورات لعرضها على الخريطة.
 
             </div>
 

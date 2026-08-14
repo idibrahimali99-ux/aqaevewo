@@ -344,6 +344,14 @@ body.site-body {
 }
 .site-footer { margin-top:4rem; padding:3rem 0; border-top:1px solid var(--at-line); background:#fff; }
 .site-footer a { color:inherit; text-decoration:none; }
+.social-link {
+  display:inline-flex; align-items:center; gap:.55rem;
+  padding:.55rem .9rem; border-radius:999px; color:#fff !important; font-weight:800;
+}
+.social-link.facebook { background:#1877F2; }
+.social-link.instagram { background:linear-gradient(135deg,#F58529,#DD2A7B,#8134AF); }
+.legal-page h2 { font-size:1.15rem; font-weight:800; margin-top:1.4rem; }
+.legal-page p { line-height:1.75; }
 .stat-card, .shortcut-card {
   background:#fff; border:1px solid var(--at-line); border-radius: var(--at-radius);
   box-shadow:0 14px 40px rgba(29,26,19,.06);

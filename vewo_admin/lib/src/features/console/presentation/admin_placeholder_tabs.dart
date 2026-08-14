@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+/// شاشات احتياطية — غير مستخدمة في التنقل الحالي.
 class AdminPlaceholderTabs {
   AdminPlaceholderTabs._();
 
@@ -7,8 +8,7 @@ class AdminPlaceholderTabs {
     return _list(context, [
       const _PlaceholderCard(
         title: 'موافقة حساب مكتب',
-        subtitle:
-            'عرض طلبات التسجيل كمكتب، قبول يفعّل office_approved في قاعدة البيانات (يُربط بالـAPI).',
+        subtitle: 'مراجعة طلبات تسجيل المكاتب.',
       ),
     ]);
   }
@@ -16,8 +16,8 @@ class AdminPlaceholderTabs {
   static Widget postApprovals(BuildContext context) {
     return _list(context, [
       const _PlaceholderCard(
-        title: 'موافقة منشورات الزبائن',
-        subtitle: 'قبول/رفض العقارات ذات approval_status = pending قبل ظهورها في التطبيق.',
+        title: 'موافقة المنشورات',
+        subtitle: 'مراجعة المنشورات قبل ظهورها في التطبيق.',
       ),
     ]);
   }
@@ -25,8 +25,8 @@ class AdminPlaceholderTabs {
   static Widget mediationChats(BuildContext context) {
     return _list(context, [
       const _PlaceholderCard(
-        title: 'محادثات وسيطة',
-        subtitle: 'لوحة وسيط الأدمن بين الزبون والمكتب (تصميم جاهز للربط لاحقاً).',
+        title: 'المحادثات',
+        subtitle: 'إدارة محادثات المنصة.',
       ),
     ]);
   }
@@ -35,7 +35,7 @@ class AdminPlaceholderTabs {
     return _list(context, [
       const _PlaceholderCard(
         title: 'المستخدمون',
-        subtitle: 'بحث، تفعيل/تعطيل، أدوار — واجهة احترافية بعد ربط جدول users.',
+        subtitle: 'إدارة حسابات المستخدمين.',
       ),
     ]);
   }
@@ -43,8 +43,8 @@ class AdminPlaceholderTabs {
   static Widget settings(BuildContext context) {
     return _list(context, [
       const _PlaceholderCard(
-        title: 'إعدادات اللوحة',
-        subtitle: 'عنوان API، السجلات، النسخ الاحتياطي — قيد التطوير.',
+        title: 'الإعدادات',
+        subtitle: 'إعدادات لوحة التحكم.',
       ),
     ]);
   }

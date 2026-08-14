@@ -8,7 +8,7 @@ $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
  * رابط API الموثوق للإنتاج (تجنّب فشل طلبات السيرفر لنفسه عبر الدومين).
  * يمكن تجاوزه بمتغير البيئة WEB_TOWN_API_ENTRY.
  */
-$apiHint = 'http://31.57.156.84/api/index.php';
+$apiHint = 'http://212.224.86.115/api/index.php';
 $envEntry = getenv('WEB_TOWN_API_ENTRY');
 $apiEntry = (is_string($envEntry) && trim($envEntry) !== '')
     ? trim($envEntry)

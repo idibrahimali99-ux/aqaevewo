@@ -3,7 +3,7 @@
     <div class="section-head">
         <div>
             <h1>العقارات</h1>
-            <p>ابحث في العقارات المنشورة من قاعدة بيانات عقار تاون.</p>
+            <p>ابحث في العقارات المنشورة على عقار تاون.</p>
         </div>
     </div>
     <form class="search-form" method="get" action="<?= e(url('/properties')) ?>">

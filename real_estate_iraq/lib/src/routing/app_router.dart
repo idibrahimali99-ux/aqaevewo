@@ -16,6 +16,7 @@ import '../features/search/presentation/search_screen.dart';
 import '../features/shell/presentation/app_shell.dart';
 import '../features/chat/presentation/chat_list_screen.dart';
 import '../features/chat/presentation/chat_room_screen.dart';
+import '../features/profile/presentation/legal_policy_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/requests/presentation/my_property_requests_screen.dart';
 import '../features/requests/presentation/property_request_form_screen.dart';
@@ -62,7 +63,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           loc.startsWith('${AppRoutes.officeProfile}/') ||
           loc.startsWith('${AppRoutes.marketerProfile}/') ||
           loc.startsWith(AppRoutes.propertyDetails) ||
-          loc.startsWith('${AppRoutes.newsDetail}/');
+          loc.startsWith('${AppRoutes.newsDetail}/') ||
+          loc == AppRoutes.privacyPolicy ||
+          loc == AppRoutes.termsOfService;
 
       // صفحات تتطلب تسجيل دخول
       final requiresAuth =
@@ -128,6 +131,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.profile,
             builder: (_, _) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.privacyPolicy,
+            builder: (_, _) =>
+                const LegalPolicyScreen(kind: AqarTownLegalKind.privacy),
+          ),
+          GoRoute(
+            path: AppRoutes.termsOfService,
+            builder: (_, _) =>
+                const LegalPolicyScreen(kind: AqarTownLegalKind.terms),
           ),
           GoRoute(
             path: AppRoutes.offices,

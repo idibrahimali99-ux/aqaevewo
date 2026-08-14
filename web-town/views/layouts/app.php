@@ -1,7 +1,7 @@
 <?php
 /** @var string $content */
 $title = page_title((string) ($title ?? ''));
-$description = (string) ($description ?? 'ويب تاون، منصة عقارية عراقية احترافية لعرض العقارات والمكاتب والمسوقين.');
+$description = (string) ($description ?? 'عقار تاون، منصة عقارية عراقية احترافية لعرض العقارات والمكاتب والمسوقين.');
 $user = auth_user();
 $isAdminConsole = str_starts_with(current_path(), '/dashboard/admin');
 ?>
@@ -24,11 +24,11 @@ $isAdminConsole = str_starts_with(current_path(), '/dashboard/admin');
 <div class="site-shell <?= $isAdminConsole ? 'admin-site-shell' : '' ?>">
     <?php if (!$isAdminConsole): ?>
     <header class="topbar">
-        <a class="brand" href="<?= e(url('/')) ?>" aria-label="Web Town">
-            <span class="brand-mark">WT</span>
+        <a class="brand" href="<?= e(url('/')) ?>" aria-label="عقار تاون">
+            <span class="brand-mark">AT</span>
             <span>
-                <strong>ويب تاون</strong>
-                <small>عقار تاون | Web</small>
+                <strong>عقار تاون</strong>
+                <small>AQAR TOWN</small>
             </span>
         </a>
         <nav class="main-nav" aria-label="التنقل الرئيسي">
@@ -55,10 +55,15 @@ $isAdminConsole = str_starts_with(current_path(), '/dashboard/admin');
     <?php if (!$isAdminConsole): ?>
     <footer class="footer">
         <div>
-            <strong>ويب تاون</strong>
-            <p>موقع عقاري احترافي متصل بنفس بيانات تطبيق عقار تاون.</p>
+            <strong>عقار تاون</strong>
+            <p>منصة عقارية عراقية لعرض العقارات والمكاتب والمسوقين.</p>
         </div>
         <a href="tel:<?= e((string) app_config('support_phone')) ?>">الدعم: <?= e((string) app_config('support_phone')) ?></a>
+        <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
+            <a href="https://www.facebook.com/profile.php?id=61591583834702" target="_blank" rel="noopener noreferrer">فيسبوك</a>
+            <span>·</span>
+            <a href="https://www.instagram.com/aqaretown" target="_blank" rel="noopener noreferrer">إنستغرام</a>
+        </div>
     </footer>
     <?php endif; ?>
 </div>

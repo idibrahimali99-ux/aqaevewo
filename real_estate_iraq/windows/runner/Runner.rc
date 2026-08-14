@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.aqaevewo" "\0"
-            VALUE "FileDescription", "real_estate_iraq" "\0"
+            VALUE "FileDescription", "Aqar Town" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "real_estate_iraq" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.aqaevewo. All rights reserved." "\0"
             VALUE "OriginalFilename", "real_estate_iraq.exe" "\0"
-            VALUE "ProductName", "real_estate_iraq" "\0"
+            VALUE "ProductName", "Aqar Town" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

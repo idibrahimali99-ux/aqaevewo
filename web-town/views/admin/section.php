@@ -17,7 +17,7 @@ $visibleSections = admin_visible_sections();
 <?php endif; ?>
 
 <?php if (empty($data['ok']) && !empty($data['error'])): ?>
-    <div class="alert alert-danger rounded-4 border-0"><?= e((string) $data['error']) ?> — endpoint: <code><?= e((string) ($section['endpoint'] ?? '')) ?></code></div>
+    <div class="alert alert-danger rounded-4 border-0"><?= e((string) $data['error']) ?></div>
 <?php endif; ?>
 
 <div class="d-flex flex-wrap gap-2 mb-4">
@@ -90,7 +90,7 @@ $visibleSections = admin_visible_sections();
     </form>
     <div class="panel-card">
         <div class="panel-head d-flex justify-content-between align-items-center">
-            <div><h2 class="mb-1">بيانات القسم</h2><p class="text-secondary mb-0"><?= e((string) ($section['endpoint'] ?? '')) ?></p></div>
+            <div><h2 class="mb-1">بيانات القسم</h2></div>
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle datatable">
@@ -125,7 +125,7 @@ $visibleSections = admin_visible_sections();
 
 <?php if ($operations !== []): ?>
     <div class="panel-card mt-4">
-        <div class="panel-head"><h2>العمليات</h2><p class="text-secondary mb-0">نفس endpoints تطبيق Admin — بدون تغيير منطق.</p></div>
+        <div class="panel-head"><h2>العمليات</h2></div>
         <div class="accordion accordion-flush" id="opsAccordion">
             <?php $i = 0; foreach ($operations as $operationKey => $operation): ?>
                 <?php if (admin_operation($sectionKey, (string) $operationKey) === null) continue; $i++; ?>

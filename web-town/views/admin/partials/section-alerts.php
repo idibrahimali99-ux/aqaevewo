@@ -16,7 +16,7 @@
 
     <div class="alert alert-danger rounded-4 border-0">
 
-        <?= e((string) $data['error']) ?> — endpoint: <code><?= e((string) ($section['endpoint'] ?? '')) ?></code>
+        <?= e((string) $data['error']) ?>
 
     </div>
 

@@ -14,6 +14,8 @@ import '../../auth/domain/user_role.dart';
 import '../../properties/data/properties_providers.dart';
 import '../../properties/domain/property.dart';
 import '../../properties/presentation/property_card.dart';
+import '../data/aqar_town_legal.dart';
+import 'social_brand_buttons.dart';
 
 final myReelsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((
   ref,
@@ -378,6 +380,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               ),
             ),
             const SizedBox(height: 12),
+            const _AboutAqarTownCard(),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Text(
@@ -536,6 +540,147 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AboutAqarTownCard extends StatelessWidget {
+  const _AboutAqarTownCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'عقار تاون',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'تابع صفحاتنا الرسمية على مواقع التواصل',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: _SocialLinkTile(
+                    label: 'فيسبوك',
+                    subtitle: 'صفحتنا',
+                    mark: const FacebookBrandMark(size: 46),
+                    onTap: () => openAqarTownSocialLink(
+                      context,
+                      AqarTownSocialLinks.facebook,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _SocialLinkTile(
+                    label: 'إنستغرام',
+                    subtitle: '@aqaretown',
+                    mark: const InstagramBrandMark(size: 46),
+                    onTap: () => openAqarTownSocialLink(
+                      context,
+                      AqarTownSocialLinks.instagram,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Divider(color: scheme.outlineVariant.withValues(alpha: 0.55)),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.privacy_tip_outlined, color: scheme.primary),
+              title: const Text(
+                AqarTownLegal.privacyTitle,
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: const Text('كيف نجمع بياناتك ونحميها'),
+              trailing: const Icon(Icons.chevron_left_rounded),
+              onTap: () => context.push(AppRoutes.privacyPolicy),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.gavel_outlined, color: scheme.primary),
+              title: const Text(
+                AqarTownLegal.termsTitle,
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: const Text('قواعد استخدام المنصة والنشر'),
+              trailing: const Icon(Icons.chevron_left_rounded),
+              onTap: () => context.push(AppRoutes.termsOfService),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SocialLinkTile extends StatelessWidget {
+  const _SocialLinkTile({
+    required this.label,
+    required this.subtitle,
+    required this.mark,
+    required this.onTap,
+  });
+
+  final String label;
+  final String subtitle;
+  final Widget mark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              mark,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

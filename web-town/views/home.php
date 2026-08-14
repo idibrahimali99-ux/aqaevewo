@@ -5,9 +5,9 @@ $promotions = isset($bootstrap['promotions']) && is_array($bootstrap['promotions
 ?>
 <section class="hero">
     <div class="hero-card">
-        <span class="eyebrow">منصة عراقية متصلة بتطبيق عقار تاون</span>
-        <h1>ويب تاون للعقارات بطريقة أذكى وأفخم.</h1>
-        <p>ابحث عن العقار المناسب، تابع المكاتب والمسوقين، وادخل إلى لوحة حسابك تلقائيا حسب نوعك: زبون، مكتب، مسوق، موظف أو أدمن.</p>
+        <span class="eyebrow">عقار تاون | AQAR TOWN</span>
+        <h1>منصة عقارية عراقية بتجربة أوضح وأفخم.</h1>
+        <p>ابحث عن العقار المناسب، تابع المكاتب والمسوقين، وادخل إلى لوحة حسابك حسب نوعك.</p>
         <div class="actions">
             <a class="btn primary" href="<?= e(url('/properties')) ?>">تصفح العقارات</a>
             <a class="btn ghost" href="<?= e(url('/login')) ?>">دخول لوحة التحكم</a>
@@ -15,8 +15,8 @@ $promotions = isset($bootstrap['promotions']) && is_array($bootstrap['promotions
     </div>
     <div class="hero-card hero-visual">
         <div class="visual-tile">
-            <span class="pill">Web Town</span>
-            <h2>نفس قاعدة البيانات، تجربة ويب احترافية.</h2>
+            <span class="pill">عقار تاون</span>
+            <h2>عقارات، مكاتب، ومسوقون في مكان واحد.</h2>
         </div>
         <div class="stats-row">
             <div class="stat"><strong><?= e(compact_number(count($properties))) ?></strong><span>عقارات مختارة</span></div>
@@ -27,14 +27,14 @@ $promotions = isset($bootstrap['promotions']) && is_array($bootstrap['promotions
 </section>
 
 <?php if (!empty($api_error)): ?>
-    <div class="alert"><?= e($api_error) ?>. تأكد أن مجلد `api` يعمل وأن رابط API في `web-town/config.php` صحيح.</div>
+    <div class="alert"><?= e($api_error) ?></div>
 <?php endif; ?>
 
 <section class="section">
     <div class="section-head">
         <div>
             <h2>عقارات مميزة</h2>
-            <p>أحدث العروض من نفس قاعدة بيانات التطبيق.</p>
+            <p>أحدث العروض المتاحة حالياً.</p>
         </div>
         <a class="btn ghost" href="<?= e(url('/properties')) ?>">عرض الكل</a>
     </div>

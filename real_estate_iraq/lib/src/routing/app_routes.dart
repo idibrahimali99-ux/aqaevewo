@@ -11,6 +11,8 @@ class AppRoutes {
   static const chats = '/app/chats';
   static const chatRoom = '/app/chat';
   static const profile = '/app/profile';
+  static const privacyPolicy = '/app/profile/privacy';
+  static const termsOfService = '/app/profile/terms';
 
   static const offices = '/app/offices';
   static const officeProfile = '/app/office';

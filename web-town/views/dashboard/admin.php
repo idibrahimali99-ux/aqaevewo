@@ -53,7 +53,7 @@ ob_start();
     </div>
 
     <section class="section">
-        <div class="section-head"><div><h2>اختصارات الأقسام</h2><p>نفس أقسام تطبيق Admin مرتبة في Console واحدة.</p></div></div>
+        <div class="section-head"><div><h2>اختصارات الأقسام</h2><p>انتقل بسرعة إلى أقسام لوحة التحكم.</p></div></div>
         <div class="admin-section-cards">
             <?php foreach ($visibleSections as $key => $item): ?>
                 <?php if ($key === 'overview') { continue; } ?>
@@ -88,9 +88,8 @@ ob_start();
     <div class="content-card-head">
         <div>
             <h2>بيانات القسم</h2>
-            <p class="muted">عرض مرتب من نفس endpoint الموجود في تطبيق Admin.</p>
+            <p class="muted">البيانات الحالية لهذا القسم.</p>
         </div>
-        <span class="pill"><?= e((string) ($section['endpoint'] ?? '')) ?></span>
     </div>
     <div class="admin-table-wrap">
         <table class="admin-table">
@@ -116,7 +115,7 @@ ob_start();
                 <?php endforeach; ?>
             <?php else: ?>
                 <tr>
-                    <td colspan="<?= e((string) count($headers)) ?>">لا توجد بيانات للعرض حاليا، أو أن endpoint يحتاج فلاتر إضافية.</td>
+                    <td colspan="<?= e((string) count($headers)) ?>">لا توجد بيانات للعرض حالياً.</td>
                 </tr>
             <?php endif; ?>
             </tbody>
@@ -127,14 +126,13 @@ ob_start();
 
 <?php if ($operations !== []): ?>
     <section class="section">
-        <div class="section-head"><div><h2>العمليات الموجودة</h2><p>هذه العمليات مأخوذة من تطبيق Admin الحالي فقط وتنفذ نفس endpoints.</p></div></div>
+        <div class="section-head"><div><h2>العمليات</h2><p>نفّذ الإجراءات المتاحة لهذا القسم.</p></div></div>
         <div class="operation-grid">
             <?php foreach ($operations as $operationKey => $operation): ?>
                 <?php if (admin_operation($sectionKey, (string) $operationKey) === null) { continue; } ?>
                 <details class="operation-card">
                     <summary>
                         <span><?= e((string) $operation['label']) ?></span>
-                        <small><?= e((string) $operation['method']) ?> · <?= e((string) $operation['endpoint']) ?></small>
                     </summary>
                     <form class="operation-form" method="post" action="<?= e(url('/dashboard/admin/' . $sectionKey)) ?>" <?= strtoupper((string) ($operation['method'] ?? 'POST')) === 'UPLOAD' ? 'enctype="multipart/form-data"' : '' ?>>
                         <?= csrf_field() ?>

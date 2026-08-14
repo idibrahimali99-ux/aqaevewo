@@ -56,7 +56,7 @@ class VewoApiClient {
         decoded.containsKey('time');
     if (isHealthShape && !decoded.containsKey('user')) {
       throw VewoApiException(
-        'السيرفر أعاد فحص الاتصال (health) بدل مسار الـAPI. تحقق من VEWO_API_BASE.',
+        'السيرفر أعاد فحص الاتصال بدل مسار الـAPI. تحقق من عنوان الخادم.',
       );
     }
   }

@@ -530,7 +530,7 @@ class _AddPromotionDialogState extends ConsumerState<_AddPromotionDialog> {
               decoration: const InputDecoration(
                 labelText: 'مكان الظهور في التطبيق',
                 helperText:
-                    'الرئيسية: سلايدر الإعلانات. البحث: يمكن ربطه لاحقاً بشاشة البحث.',
+                    'سلايدر إعلانات الصفحة الرئيسية.',
               ),
               items: const [
                 DropdownMenuItem(value: 'home', child: Text('الصفحة الرئيسية')),
