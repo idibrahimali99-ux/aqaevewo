@@ -1,4 +1,4 @@
-package com.aqaevewo.real_estate_iraq
+package com.aqartown.app
 
 import android.media.MediaCodec
 import android.media.MediaExtractor
@@ -12,7 +12,7 @@ import java.io.File
 import java.nio.ByteBuffer
 
 class MainActivity : FlutterActivity() {
-    private val mediaChannel = "com.aqaevewo.real_estate_iraq/media_tools"
+    private val mediaChannel = "com.aqartown.app/media_tools"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

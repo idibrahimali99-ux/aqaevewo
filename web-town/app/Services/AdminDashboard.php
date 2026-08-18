@@ -99,7 +99,7 @@ function admin_sections(): array
             'tabs' => ['مراجعة', 'منشورة', 'مرفوضة', 'الأكثر شعبية'],
             'operations' => [
                 'approve' => ['label' => 'موافقة ريل', 'endpoint' => 'admin/reels', 'method' => 'POST', 'fields' => ['id' => 'معرّف الريل'], 'fixed' => ['action' => 'approve']],
-                'reject' => ['label' => 'رفض ريل', 'endpoint' => 'admin/reels', 'method' => 'POST', 'fields' => ['id' => 'معرّف الريل', 'reject_note' => 'سبب الرفض'], 'fixed' => ['action' => 'reject']],
+                'reject' => ['label' => 'رفض ريل', 'endpoint' => 'admin/reels', 'method' => 'POST', 'fields' => ['id' => 'معرّف الريل', 'reject_note' => 'سبب الرفض', 'resubmission_allowed' => '1 للسماح بالتعديل'], 'fixed' => ['action' => 'reject']],
                 'delete' => ['label' => 'حذف ريل', 'endpoint' => 'admin/reels', 'method' => 'DELETE', 'fields' => ['id' => 'معرّف الريل']],
                 'engagement' => ['label' => 'جدولة تفاعل', 'endpoint' => 'admin/engagement', 'method' => 'POST', 'permission' => 'engagement', 'fields' => ['target_kind' => 'reel', 'target_public_no' => 'رقم الريل', 'views_per_hour' => 'مشاهدات/ساعة', 'likes_per_hour' => 'لايكات/ساعة', 'hours' => 'المدة بالساعات']],
             ],
@@ -278,7 +278,7 @@ function normalize_admin_value(string $key, string $value): mixed
     if ($value === '') {
         return null;
     }
-    if (in_array($key, ['is_active', 'verified', 'resubmission_allowed', 'requires_review', 'is_unlimited', 'is_marketer'], true)) {
+    if (in_array($key, ['is_active', 'verified', 'resubmission_allowed', 'requires_review', 'is_unlimited', 'is_marketer', 'is_private'], true)) {
         return (int) $value;
     }
     if (in_array($key, ['sort_order', 'popup_duration_sec', 'days', 'views_per_hour', 'likes_per_hour', 'hours', 'amount', 'posting_listings_remaining', 'listings_limit'], true)) {

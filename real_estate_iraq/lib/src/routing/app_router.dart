@@ -122,6 +122,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               openComposer: state.uri.queryParameters['compose'] == '1',
               initialReelId: state.uri.queryParameters['reel_id'],
               ownerId: state.uri.queryParameters['owner_id'],
+              includeMine: state.uri.queryParameters['include_mine'] == '1',
             ),
           ),
           GoRoute(

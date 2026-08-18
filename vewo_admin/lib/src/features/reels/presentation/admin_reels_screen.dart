@@ -88,11 +88,20 @@ class _AdminReelsScreenState extends ConsumerState<AdminReelsScreen>
     }
   }
 
-  Future<void> _action(String id, String action) async {
+  Future<void> _action(
+    String id,
+    String action, {
+    String? rejectNote,
+    bool resubmissionAllowed = true,
+  }) async {
     try {
       await ref.read(vewoApiClientProvider).postJson('admin/reels', {
         'id': id,
         'action': action,
+        if (action == 'reject') ...{
+          'reject_note': rejectNote ?? '',
+          'resubmission_allowed': resubmissionAllowed ? 1 : 0,
+        },
       });
       await _load();
     } on VewoApiException catch (e) {
@@ -101,6 +110,60 @@ class _AdminReelsScreenState extends ConsumerState<AdminReelsScreen>
         context,
       ).showSnackBar(SnackBar(content: Text(e.message)));
     }
+  }
+
+  Future<void> _reject(String id) async {
+    final noteCtrl = TextEditingController();
+    var allowResubmit = true;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('رفض الريل'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: noteCtrl,
+                minLines: 2,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  labelText: 'سبب الرفض',
+                  alignLabelWithHint: true,
+                ),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('قابل للتعديل وإعادة الإرسال'),
+                value: allowResubmit,
+                onChanged: (v) => setLocal(() => allowResubmit = v),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('رفض'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) {
+      noteCtrl.dispose();
+      return;
+    }
+    await _action(
+      id,
+      'reject',
+      rejectNote: noteCtrl.text.trim(),
+      resubmissionAllowed: allowResubmit,
+    );
+    noteCtrl.dispose();
   }
 
   Future<void> _scheduleEngagement(int publicNo) async {
@@ -314,7 +377,7 @@ class _AdminReelsScreenState extends ConsumerState<AdminReelsScreen>
                                     tooltip: 'رفض',
                                     onPressed: id.isEmpty
                                         ? null
-                                        : () => _action(id, 'reject'),
+                                        : () => _reject(id),
                                     icon: const Icon(Icons.close_rounded),
                                   ),
                                 ],

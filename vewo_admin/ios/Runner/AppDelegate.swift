@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import GoogleMaps
 import UserNotifications
 
 @main
@@ -8,6 +9,11 @@ import UserNotifications
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    if let apiKey = Bundle.main.object(forInfoDictionaryKey: "GMSApiKey") as? String,
+       !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      GMSServices.provideAPIKey(apiKey)
+    }
+
     // FCM / APNs — عرض الإشعارات في المقدمة + تسجيل الجهاز للتوكن.
     UNUserNotificationCenter.current().delegate = self
     application.registerForRemoteNotifications()

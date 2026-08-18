@@ -5,12 +5,27 @@ abstract final class AqarTownSocialLinks {
   static const facebook =
       'https://www.facebook.com/profile.php?id=61591583834702';
   static const instagram = 'https://www.instagram.com/aqaretown';
+  static const facebookNative = 'fb://profile/61591583834702';
+  static const instagramNative = 'instagram://user?username=aqaretown';
 }
 
 Future<void> openAqarTownSocialLink(BuildContext context, String url) async {
-  final uri = Uri.parse(url);
-  final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-  if (!ok && context.mounted) {
+  final candidates = <Uri>[
+    if (url.contains('facebook.com'))
+      Uri.parse(AqarTownSocialLinks.facebookNative),
+    if (url.contains('instagram.com'))
+      Uri.parse(AqarTownSocialLinks.instagramNative),
+    Uri.parse(url),
+  ];
+  for (final uri in candidates) {
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (ok) return;
+    } catch (_) {
+      // جرّب الرابط التالي (تطبيق غير مثبت أو سياسة iOS).
+    }
+  }
+  if (context.mounted) {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('تعذر فتح الرابط')));

@@ -220,7 +220,7 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
 
   bool _loading = false;
   static const _mediaTools = MethodChannel(
-    'com.aqaevewo.real_estate_iraq/media_tools',
+    'com.aqartown.app/media_tools',
   );
 
   /// مقاطعة من لوحة الإدارة (منشور «مقطع» المبسّط فقط).

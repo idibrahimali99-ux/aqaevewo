@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
-import '../../../core/api/api_config.dart';
-import '../../../core/api/vewo_api_client.dart';
+
 import '../../../core/api/api_providers.dart';
+import '../../../core/api/vewo_api_client.dart';
 import '../../../core/layout/app_responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_brand_mark.dart';
+import '../../../core/widgets/vewo_media_watermark.dart';
 import '../../../routing/app_routes.dart';
 import '../../../routing/auth_nav.dart';
 import '../../auth/data/auth_controller.dart';
-import '../../../core/widgets/vewo_media_watermark.dart';
 import 'reel_create_sheet.dart';
 
 class ReelsScreen extends ConsumerStatefulWidget {
@@ -21,12 +20,13 @@ class ReelsScreen extends ConsumerStatefulWidget {
     this.openComposer = false,
     this.initialReelId,
     this.ownerId,
+    this.includeMine = false,
   });
 
-  /// عند `?compose=1` تُفتح ورقة نشر الريل بعد التحميل.
   final bool openComposer;
   final String? initialReelId;
   final String? ownerId;
+  final bool includeMine;
 
   @override
   ConsumerState<ReelsScreen> createState() => _ReelsScreenState();
@@ -37,6 +37,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
   List<Map<String, dynamic>> _items = [];
   bool _loading = true;
   String? _error;
+  int _index = 0;
 
   @override
   void initState() {
@@ -75,14 +76,14 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
     });
     try {
       final ownerId = widget.ownerId?.trim();
+      final query = <String, String>{
+        if (ownerId != null && ownerId.isNotEmpty) 'owner_id': ownerId,
+        if (widget.includeMine) 'include_mine': '1',
+        'limit': '80',
+      };
       final data = await ref
           .read(vewoApiClientProvider)
-          .getJson(
-            'reels/list',
-            query: ownerId != null && ownerId.isNotEmpty
-                ? {'owner_id': ownerId}
-                : null,
-          );
+          .getJson('reels/list', query: query.isEmpty ? null : query);
       final raw = data['items'];
       final list = <Map<String, dynamic>>[];
       if (raw is List) {
@@ -103,12 +104,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
               .read(vewoApiClientProvider)
               .getJson('reels/detail', query: {'id': targetId});
           final item = detail['item'];
-          if (item is Map<String, dynamic>) {
-            final itemOwner = item['owner_user_id']?.toString();
-            if (ownerId == null || ownerId.isEmpty || itemOwner == ownerId) {
-              list.insert(0, item);
-            }
-          } else if (item is Map) {
+          if (item is Map) {
             final map = Map<String, dynamic>.from(item);
             final itemOwner = map['owner_user_id']?.toString();
             if (ownerId == null || ownerId.isEmpty || itemOwner == ownerId) {
@@ -121,7 +117,9 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
       setState(() {
         _items = list;
         _loading = false;
+        _index = 0;
       });
+      _jumpToInitialReel();
     } on VewoApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -142,10 +140,26 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
     if (id == null || id.isEmpty || _items.isEmpty) return;
     final index = _items.indexWhere((e) => e['id']?.toString() == id);
     if (index <= 0) return;
+    _index = index;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_page.hasClients) return;
       _page.jumpToPage(index);
     });
+  }
+
+  String _publisherOf(Map<String, dynamic> row) {
+    final raw = row['publisher_display']?.toString().trim() ?? '';
+    if (raw.isNotEmpty) return raw;
+    final isOffice =
+        row['publisher_is_office'] == true ||
+        row['publisher_is_office'] == 1 ||
+        '${row['publisher_is_office'] ?? ''}' == '1';
+    final isMarketer =
+        row['publisher_is_marketer'] == true ||
+        row['publisher_is_marketer'] == 1 ||
+        '${row['publisher_is_marketer'] ?? ''}' == '1';
+    if (isOffice || isMarketer) return AppBrandStrings.plainShort;
+    return AppBrandStrings.arabicName;
   }
 
   @override
@@ -180,13 +194,15 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                       child: PageView.builder(
                         controller: _page,
                         scrollDirection: Axis.vertical,
+                        allowImplicitScrolling: true,
                         itemCount: _items.length,
+                        onPageChanged: (index) {
+                          if (_index == index) return;
+                          setState(() => _index = index);
+                        },
                         itemBuilder: (context, index) {
                           final row = _items[index];
                           final caption = row['caption']?.toString() ?? '';
-                          final publisher =
-                              row['publisher_display']?.toString() ??
-                              AppBrandStrings.plainShort;
                           final propertyId = row['property_id']?.toString();
                           final reelId = row['id']?.toString() ?? '';
                           final likesCount = (row['likes_count'] is num)
@@ -199,18 +215,53 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                               row['liked_by_me'] == true ||
                               row['liked_by_me'] == 1 ||
                               '${row['liked_by_me'] ?? ''}' == '1';
+                          final status =
+                              row['approval_status']?.toString() ?? 'approved';
+                          final rejectNote =
+                              row['reject_note']?.toString().trim() ?? '';
+                          final canEdit =
+                              status == 'rejected' &&
+                              (row['resubmission_allowed'] == true ||
+                                  row['resubmission_allowed'] == 1 ||
+                                  '${row['resubmission_allowed'] ?? ''}' ==
+                                      '1');
+                          final myId =
+                              ref.read(authControllerProvider).userId ?? '';
+                          final isMine =
+                              myId.isNotEmpty &&
+                              row['owner_user_id']?.toString() == myId;
                           return _ReelPage(
+                            key: ValueKey(reelId.isEmpty ? 'reel-$index' : reelId),
                             reelId: reelId,
                             videoUrl: row['video_public_url']?.toString() ?? '',
-                            title: publisher,
+                            title: _publisherOf(row),
                             caption: caption,
                             likesCount: likesCount,
                             likedInitially: likedByMe,
-                            canInteract: isAuth,
+                            canInteract: isAuth && status == 'approved',
+                            isActive: index == _index,
+                            approvalStatus: status,
+                            rejectNote: rejectNote,
+                            canEdit: isMine && canEdit,
+                            onEdit: () async {
+                              final ok = await showReelCreateSheet(
+                                context,
+                                ref,
+                                existingReel: row,
+                              );
+                              if (ok != true || !context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('تم إرسال الريل للمراجعة'),
+                                ),
+                              );
+                              await _load();
+                            },
                             onChatOwner: () {
                               final q = <String, String>{
                                 if (reelId.isNotEmpty) 'reel_id': reelId,
-                                if (propertyId != null && propertyId.isNotEmpty)
+                                if (propertyId != null &&
+                                    propertyId.isNotEmpty)
                                   'property': propertyId,
                               };
                               final qs = q.entries
@@ -239,6 +290,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
 
 class _ReelPage extends ConsumerStatefulWidget {
   const _ReelPage({
+    super.key,
     required this.reelId,
     required this.videoUrl,
     required this.title,
@@ -247,6 +299,11 @@ class _ReelPage extends ConsumerStatefulWidget {
     required this.likedInitially,
     required this.canInteract,
     required this.onChatOwner,
+    required this.isActive,
+    this.approvalStatus = 'approved',
+    this.rejectNote = '',
+    this.canEdit = false,
+    this.onEdit,
   });
 
   final String reelId;
@@ -257,45 +314,139 @@ class _ReelPage extends ConsumerStatefulWidget {
   final bool likedInitially;
   final bool canInteract;
   final VoidCallback onChatOwner;
+  final bool isActive;
+  final String approvalStatus;
+  final String rejectNote;
+  final bool canEdit;
+  final VoidCallback? onEdit;
 
   @override
   ConsumerState<_ReelPage> createState() => _ReelPageState();
 }
 
 class _ReelPageState extends ConsumerState<_ReelPage> {
-  late VideoPlayerController _controller;
+  static const _videoHeaders = <String, String>{
+    'User-Agent':
+        'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/124.0.0.0 Mobile Safari/537.36',
+    'Accept': '*/*',
+  };
+
+  VideoPlayerController? _controller;
+  bool _ready = false;
   bool _liked = false;
   int _likes = 0;
   bool _saved = false;
   bool _viewReported = false;
   bool _heartBurst = false;
+  int _initAttempt = 0;
 
   @override
   void initState() {
     super.initState();
     _likes = widget.likesCount;
     _liked = widget.likedInitially;
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
-      ..setLooping(true)
-      ..initialize().then((_) {
-        if (mounted) {
-          _controller.play();
-          setState(() {});
-          _reportViewOnce();
+    _initPlayer();
+  }
+
+  Future<void> _initPlayer() async {
+    final url = widget.videoUrl.trim();
+    if (url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasScheme) return;
+
+    final attempt = ++_initAttempt;
+    final controller = VideoPlayerController.networkUrl(
+      uri,
+      httpHeaders: _videoHeaders,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    _controller = controller;
+    try {
+      await controller.initialize();
+      await controller.setLooping(true);
+      if (!mounted || attempt != _initAttempt) {
+        await controller.dispose();
+        return;
+      }
+      setState(() => _ready = true);
+      // Re-read isActive after await — page may have become active while loading.
+      if (widget.isActive) {
+        await controller.play();
+        _reportViewOnce();
+        if (mounted) setState(() {});
+      }
+    } catch (_) {
+      try {
+        await controller.dispose();
+      } catch (_) {}
+      if (!mounted || attempt != _initAttempt) return;
+      if (identical(_controller, controller)) {
+        _controller = null;
+        _ready = false;
+      }
+      // Silent auto-retry once (R2 may reject the first request without headers).
+      if (attempt < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        if (mounted && attempt == _initAttempt) {
+          await _initPlayer();
         }
-      });
+      } else if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _ReelPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoUrl != widget.videoUrl) {
+      _disposePlayer();
+      _ready = false;
+      _initAttempt = 0;
+      _initPlayer();
+      return;
+    }
+    if (oldWidget.isActive != widget.isActive) {
+      final c = _controller;
+      if (c == null || !c.value.isInitialized) return;
+      if (widget.isActive) {
+        c.play();
+        _reportViewOnce();
+        setState(() {});
+      } else {
+        c.pause();
+        setState(() {});
+      }
+    }
+  }
+
+  Future<void> _disposePlayer() async {
+    final c = _controller;
+    _controller = null;
+    if (c == null) return;
+    try {
+      await c.pause();
+      await c.dispose();
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    final c = _controller;
+    _controller = null;
+    c?.dispose();
+    super.dispose();
   }
 
   Future<void> _reportViewOnce() async {
     if (_viewReported || widget.reelId.isEmpty) return;
+    if (widget.approvalStatus != 'approved') return;
     _viewReported = true;
     try {
       await ref.read(vewoApiClientProvider).postJson('reels/view', {
         'reel_id': widget.reelId,
       });
-    } catch (_) {
-      // تجاهل فشل تسجيل المشاهدة (شبكة، إلخ)
-    }
+    } catch (_) {}
   }
 
   Future<void> _setLike(bool liked) async {
@@ -346,9 +497,10 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
   }
 
   void _togglePlayback() {
-    if (!_controller.value.isInitialized) return;
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return;
     setState(() {
-      _controller.value.isPlaying ? _controller.pause() : _controller.play();
+      c.value.isPlaying ? c.pause() : c.play();
     });
   }
 
@@ -360,30 +512,11 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
     widget.onChatOwner();
   }
 
-  Future<void> _shareReel() async {
-    if (widget.reelId.isEmpty) return;
-    final link = Uri.parse('${ApiConfig.baseUrl}/index.php')
-        .replace(queryParameters: {'r': 'reels/detail', 'id': widget.reelId})
-        .toString();
-    await SharePlus.instance.share(
-      ShareParams(
-        text: '${widget.caption.isEmpty ? 'ريل عقاري' : widget.caption}\n$link',
-        subject: 'ريل عقاري',
-      ),
-    );
-  }
-
   String _formatDuration(Duration d) {
     final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     final hours = d.inHours;
     return hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 
   @override
@@ -395,10 +528,13 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
     final progressBottom = bottomSafe;
     final captionBottom = bottomSafe + 52;
     final actionBottom = bottomSafe + 68;
+    final controller = _controller;
+    final ready = _ready && controller != null && controller.value.isInitialized;
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (_controller.value.isInitialized)
+        if (ready)
           GestureDetector(
             onTap: _togglePlayback,
             onDoubleTap: _onDoubleTapLike,
@@ -406,9 +542,9 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
             child: FittedBox(
               fit: BoxFit.cover,
               child: SizedBox(
-                width: _controller.value.size.width,
-                height: _controller.value.size.height,
-                child: VideoPlayer(_controller),
+                width: controller.value.size.width,
+                height: controller.value.size.height,
+                child: VideoPlayer(controller),
               ),
             ),
           )
@@ -432,6 +568,58 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
           ),
         ),
         const VewoReelWatermark(),
+        if (widget.approvalStatus == 'pending' ||
+            widget.approvalStatus == 'rejected')
+          Positioned(
+            top: 16,
+            left: 16,
+            right: 16,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: widget.approvalStatus == 'rejected'
+                    ? Colors.red.withValues(alpha: 0.82)
+                    : const Color(0xFFF6B60C).withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.approvalStatus == 'rejected'
+                          ? 'مرفوض'
+                          : 'قيد المراجعة',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    if (widget.rejectNote.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.rejectNote,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    if (widget.canEdit && widget.onEdit != null) ...[
+                      const SizedBox(height: 8),
+                      FilledButton.tonal(
+                        onPressed: widget.onEdit,
+                        child: const Text('تعديل وإعادة إرسال'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
         if (_heartBurst)
           Center(
             child: TweenAnimationBuilder<double>(
@@ -473,15 +661,15 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
             ],
           ),
         ),
-        if (_controller.value.isInitialized)
+        if (ready)
           Positioned(
             left: 14,
             right: 14,
             bottom: progressBottom,
             child: AnimatedBuilder(
-              animation: _controller,
+              animation: controller,
               builder: (context, _) {
-                final value = _controller.value;
+                final value = controller.value;
                 final duration = value.duration;
                 final position = value.position > duration
                     ? duration
@@ -522,7 +710,7 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
                           max: max,
                           value: current,
                           onChanged: (v) {
-                            _controller.seekTo(
+                            controller.seekTo(
                               Duration(milliseconds: v.round()),
                             );
                             setState(() {});
@@ -565,12 +753,6 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
                   }
                   setState(() => _saved = !_saved);
                 },
-              ),
-              const SizedBox(height: 12),
-              _ReelAction(
-                icon: Icons.share_outlined,
-                label: 'مشاركة',
-                onTap: _shareReel,
               ),
               const SizedBox(height: 12),
               _ReelAction(

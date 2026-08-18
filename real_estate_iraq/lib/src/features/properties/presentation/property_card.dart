@@ -4,10 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart';
 
 import 'package:vewo_shared/vewo_shared.dart' show IQDFormatter;
-import '../../../core/api/api_config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/property_image_gallery.dart';
 import '../../../core/widgets/property_video_player.dart';
@@ -125,21 +123,6 @@ class PropertyCard extends ConsumerWidget {
         ? IQDFormatter.format(property.priceIqd)
         : 'حسب الاتفاق';
     const border = AppColors.cardBorder;
-    Future<void> shareProperty() async {
-      final link = Uri.parse('${ApiConfig.baseUrl}/index.php')
-          .replace(queryParameters: {'r': 'properties/get', 'id': property.id})
-          .toString();
-      final text = [
-        property.title.trim().isEmpty
-            ? property.displayCategoryAr
-            : property.title.trim(),
-        if (property.publicNo != null) 'رقم المنشور: #${property.publicNo}',
-        link,
-      ].join('\n');
-      await SharePlus.instance.share(
-        ShareParams(text: text, subject: property.title.trim()),
-      );
-    }
 
     Future<void> toggleSaved() async {
       final messenger = ScaffoldMessenger.maybeOf(context);
@@ -544,15 +527,6 @@ class PropertyCard extends ConsumerWidget {
                   SizedBox(height: _ch(5)),
                   Row(
                     children: [
-                      Expanded(
-                        child: _PropertyInlineAction(
-                          icon: Icons.ios_share_rounded,
-                          label: 'مشاركة',
-                          tooltip: 'مشاركة',
-                          onTap: shareProperty,
-                        ),
-                      ),
-                      SizedBox(width: _cw(6)),
                       Expanded(
                         child: _PropertyInlineAction(
                           icon: isSaved

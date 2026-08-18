@@ -62,6 +62,11 @@
             <input type="hidden" name="_operation" value="reject">
             <input type="hidden" name="id" value="${escapeHtml(id)}">
             <div class="col-12"><input class="form-control" name="reject_note" placeholder="سبب الرفض" required></div>
+            <div class="col-12 form-check">
+              <input type="hidden" name="resubmission_allowed" value="0">
+              <input class="form-check-input" type="checkbox" name="resubmission_allowed" value="1" id="reelResubmit" checked>
+              <label class="form-check-label" for="reelResubmit">قابل للتعديل وإعادة الإرسال</label>
+            </div>
             <div class="col-12"><button type="submit" class="btn btn-danger rounded-pill">تأكيد الرفض</button></div>
           </form>
         </div>`;

@@ -35,7 +35,14 @@ class _PropertyVideoPlayerState extends State<PropertyVideoPlayer> {
   Future<void> _init() async {
     final uri = Uri.tryParse(widget.url);
     if (uri == null) return;
-    final c = VideoPlayerController.networkUrl(uri);
+    final c = VideoPlayerController.networkUrl(
+      uri,
+      httpHeaders: const {
+        'User-Agent':
+            'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/124.0.0.0 Mobile Safari/537.36',
+        'Accept': '*/*',
+      },
+    );
     _controller = c;
     try {
       await c.initialize();

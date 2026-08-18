@@ -735,6 +735,89 @@ function vewo_reels_has_comments_enabled_column(PDO $pdo): bool
     }
 }
 
+function vewo_reels_has_review_meta_columns(PDO $pdo): bool
+{
+    try {
+        $chk = $pdo->query(
+            "SELECT COUNT(*) FROM information_schema.columns
+             WHERE table_schema = DATABASE() AND table_name = 'reels' AND column_name = 'reject_note'"
+        );
+
+        return $chk !== false && (int) $chk->fetchColumn() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function vewo_reels_has_resubmission_column(PDO $pdo): bool
+{
+    try {
+        $chk = $pdo->query(
+            "SELECT COUNT(*) FROM information_schema.columns
+             WHERE table_schema = DATABASE() AND table_name = 'reels' AND column_name = 'resubmission_allowed'"
+        );
+
+        return $chk !== false && (int) $chk->fetchColumn() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * @param array<string,mixed> $row
+ * @return array<string,mixed>
+ */
+function vewo_reel_public_item(array $row, bool $includeModeration = false): array
+{
+    $role = (string) ($row['role'] ?? '');
+    $officeName = trim((string) ($row['office_name'] ?? ''));
+    $fullName = trim((string) ($row['full_name'] ?? ''));
+    $isMarketer = (int) ($row['is_marketer'] ?? 0) === 1
+        || (string) ($row['is_marketer'] ?? '') === '1';
+    $isOfficeRole = $role === 'office';
+    $likedRaw = (int) ($row['liked_me'] ?? 0);
+
+    // الزبون الشخصي يظهر كـ عقار تاون؛ المكتب/المسوق باسمهم.
+    if ($isOfficeRole) {
+        if ($isMarketer) {
+            $publisher = $fullName !== '' ? $fullName : ($officeName !== '' ? $officeName : 'مسوق عقاري');
+            $avatar = trim((string) ($row['profile_photo_url'] ?? $row['office_photo_url'] ?? ''));
+        } else {
+            $publisher = $officeName !== '' ? $officeName : ($fullName !== '' ? $fullName : 'مكتب عقاري');
+            $avatar = trim((string) ($row['office_photo_url'] ?? ''));
+        }
+    } else {
+        $publisher = 'عقار تاون';
+        $avatar = '';
+    }
+
+    $item = [
+        'id' => (string) $row['id'],
+        'owner_user_id' => (string) ($row['owner_user_id'] ?? ''),
+        'property_id' => $row['property_id'] !== null && (string) $row['property_id'] !== ''
+            ? (string) $row['property_id'] : null,
+        'video_public_url' => (string) $row['video_public_url'],
+        'caption' => (string) ($row['caption'] ?? ''),
+        'comments_enabled' => false,
+        'comments_count' => 0,
+        'view_count' => (int) ($row['view_count'] ?? 0),
+        'likes_count' => (int) ($row['likes_count'] ?? 0),
+        'liked_by_me' => $likedRaw > 0,
+        'created_at' => (string) ($row['created_at'] ?? ''),
+        'approval_status' => (string) ($row['approval_status'] ?? 'approved'),
+        'publisher_display' => $publisher,
+        'publisher_avatar_url' => $avatar !== '' ? $avatar : null,
+        'publisher_is_office' => $isOfficeRole && !$isMarketer,
+        'publisher_is_marketer' => $isOfficeRole && $isMarketer,
+    ];
+    if ($includeModeration) {
+        $item['reject_note'] = (string) ($row['reject_note'] ?? '');
+        $item['resubmission_allowed'] = (int) ($row['resubmission_allowed'] ?? 0) === 1;
+    }
+
+    return $item;
+}
+
 function vewo_normalize_staff_permissions(mixed $raw): string
 {
     $allowed = ['promotions', 'news', 'offices', 'parcels', 'properties', 'reels', 'engagement', 'chats', 'users', 'settings'];
@@ -2629,6 +2712,10 @@ function public_properties_list_route(PDO $pdo): void
     if (function_exists('vewo_properties_has_synthetic_likes') && vewo_properties_has_synthetic_likes($pdo)) {
         $listExtras[] = 'COALESCE(p.synthetic_likes, 0) AS synthetic_likes';
     }
+    if (vewo_properties_has_review_meta_columns($pdo)) {
+        $listExtras[] = 'p.reject_note';
+        $listExtras[] = 'p.resubmission_allowed';
+    }
     $extraListSql = $listExtras === [] ? '' : ', ' . implode(', ', $listExtras);
 
     $where = "p.approval_status = 'approved'";
@@ -4502,6 +4589,7 @@ function user_property_update_route(PDO $pdo): void
 
 /**
  * قائمة الريلز المعتمدة للتطبيق (عمومي) — مشاهدات ولايكات حقيقية من قاعدة البيانات.
+ * مع include_mine=1 يظهر صاحب الحساب ريلزاته بكل الحالات (قيد المراجعة / مرفوض).
  */
 function public_reels_list_route(PDO $pdo): void
 {
@@ -4516,6 +4604,7 @@ function public_reels_list_route(PDO $pdo): void
     if ($ownerFilter !== '' && !preg_match('/^[0-9a-fA-F-]{36}$/', $ownerFilter)) {
         json_error(400, 'owner_id غير صالح');
     }
+    $includeMine = (string) ($_GET['include_mine'] ?? $_GET['includeMine'] ?? '') === '1';
     $uid = null;
     $su = vewo_try_session_user($pdo);
     if (is_array($su)) {
@@ -4524,53 +4613,53 @@ function public_reels_list_route(PDO $pdo): void
             $uid = null;
         }
     }
+    $viewingOwn = $includeMine && $uid !== null && ($ownerFilter === '' || $ownerFilter === $uid);
+    $statusWhere = $viewingOwn
+        ? ($ownerFilter !== ''
+            ? '1=1'
+            : "(r.approval_status = 'approved' OR r.owner_user_id = :me_status)")
+        : "r.approval_status = 'approved'";
+    $ownerWhere = $ownerFilter !== '' ? ' AND r.owner_user_id = :owner_filter' : '';
+    $reviewSelect = vewo_reels_has_review_meta_columns($pdo)
+        ? 'r.reject_note, ' . (vewo_reels_has_resubmission_column($pdo) ? 'r.resubmission_allowed' : '0 AS resubmission_allowed')
+        : 'NULL AS reject_note, 0 AS resubmission_allowed';
     $hasEng = vewo_reels_has_engagement_columns($pdo);
     try {
-        if ($hasEng) {
-            $likedExpr = $uid !== null
-                ? "(SELECT COUNT(*) FROM reel_reactions rx WHERE rx.reel_id = r.id AND rx.user_id = :uid AND rx.reaction_type = 'like') AS liked_me"
-                : '0 AS liked_me';
-            $ownerWhere = $ownerFilter !== '' ? ' AND r.owner_user_id = :owner_filter' : '';
-            $sql = "SELECT r.id, r.property_id, r.video_public_url, r.caption, r.comments_enabled, r.created_at,
-                    r.view_count, r.synthetic_likes,
+        $likedExpr = ($uid !== null && $hasEng)
+            ? "(SELECT COUNT(*) FROM reel_reactions rx WHERE rx.reel_id = r.id AND rx.user_id = :uid AND rx.reaction_type = 'like') AS liked_me"
+            : '0 AS liked_me';
+        $engCols = $hasEng ? 'r.view_count, r.synthetic_likes,' : '0 AS view_count, 0 AS synthetic_likes,';
+        $likesExpr = $hasEng
+            ? '((SELECT COUNT(*) FROM reel_reactions rr WHERE rr.reel_id = r.id AND rr.reaction_type = \'like\') + COALESCE(r.synthetic_likes, 0))'
+            : '(SELECT COUNT(*) FROM reel_reactions rr WHERE rr.reel_id = r.id AND rr.reaction_type = \'like\')';
+        $marketerCol = vewo_users_has_is_marketer_column($pdo)
+            ? 'COALESCE(u.is_marketer, 0) AS is_marketer'
+            : '0 AS is_marketer';
+        $profileCol = function_exists('vewo_users_has_profile_photo_column') && vewo_users_has_profile_photo_column($pdo)
+            ? 'u.profile_photo_url'
+            : 'NULL AS profile_photo_url';
+        $sql = "SELECT r.id, r.property_id, r.video_public_url, r.caption, r.created_at, r.approval_status,
+                    {$engCols} {$reviewSelect},
                     u.id AS owner_user_id, u.full_name, u.role, u.office_name, u.office_photo_url,
-                    COALESCE((SELECT COUNT(*) FROM reel_comments c WHERE c.reel_id = r.id), 0) AS comments_count,
-                    ((SELECT COUNT(*) FROM reel_reactions rr WHERE rr.reel_id = r.id AND rr.reaction_type = 'like')
-                      + COALESCE(r.synthetic_likes, 0)) AS likes_count,
+                    {$marketerCol}, {$profileCol},
+                    {$likesExpr} AS likes_count,
                     {$likedExpr}
              FROM reels r
              INNER JOIN users u ON u.id = r.owner_user_id
-             WHERE r.approval_status = 'approved'{$ownerWhere}
+             WHERE {$statusWhere}{$ownerWhere}
              ORDER BY r.created_at DESC
              LIMIT {$lim}";
-            $stmt = $pdo->prepare($sql);
-            if ($uid !== null) {
-                $stmt->bindValue(':uid', $uid, PDO::PARAM_STR);
-            }
-            if ($ownerFilter !== '') {
-                $stmt->bindValue(':owner_filter', $ownerFilter, PDO::PARAM_STR);
-            }
-            $stmt->execute();
-        } else {
-            $ownerWhere = $ownerFilter !== '' ? ' AND r.owner_user_id = :owner_filter' : '';
-            $stmt = $pdo->prepare(
-                "SELECT r.id, r.property_id, r.video_public_url, r.caption, r.comments_enabled, r.created_at,
-                    u.id AS owner_user_id, u.full_name, u.role, u.office_name, u.office_photo_url,
-                    COALESCE((SELECT COUNT(*) FROM reel_comments c WHERE c.reel_id = r.id), 0) AS comments_count,
-                    0 AS view_count,
-                    (SELECT COUNT(*) FROM reel_reactions rr WHERE rr.reel_id = r.id AND rr.reaction_type = 'like') AS likes_count,
-                    0 AS liked_me
-             FROM reels r
-             INNER JOIN users u ON u.id = r.owner_user_id
-             WHERE r.approval_status = 'approved'{$ownerWhere}
-             ORDER BY r.created_at DESC
-             LIMIT {$lim}"
-            );
-            if ($ownerFilter !== '') {
-                $stmt->bindValue(':owner_filter', $ownerFilter, PDO::PARAM_STR);
-            }
-            $stmt->execute();
+        $stmt = $pdo->prepare($sql);
+        if ($uid !== null && $hasEng) {
+            $stmt->bindValue(':uid', $uid, PDO::PARAM_STR);
         }
+        if ($viewingOwn && $ownerFilter === '') {
+            $stmt->bindValue(':me_status', $uid, PDO::PARAM_STR);
+        }
+        if ($ownerFilter !== '') {
+            $stmt->bindValue(':owner_filter', $ownerFilter, PDO::PARAM_STR);
+        }
+        $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Throwable $e) {
         echo json_encode(['ok' => true, 'items' => []], JSON_UNESCAPED_UNICODE);
@@ -4579,26 +4668,7 @@ function public_reels_list_route(PDO $pdo): void
     }
     $items = [];
     foreach ($rows as $row) {
-        $role = (string) ($row['role'] ?? '');
-        $officeName = trim((string) ($row['office_name'] ?? ''));
-        $isOffice = $role === 'office' && $officeName !== '';
-        $likedRaw = (int) ($row['liked_me'] ?? 0);
-        $items[] = [
-            'id' => (string) $row['id'],
-            'property_id' => $row['property_id'] !== null && (string) $row['property_id'] !== ''
-                ? (string) $row['property_id'] : null,
-            'video_public_url' => (string) $row['video_public_url'],
-            'caption' => (string) $row['caption'],
-            'comments_enabled' => false,
-            'comments_count' => 0,
-            'view_count' => (int) ($row['view_count'] ?? 0),
-            'likes_count' => (int) ($row['likes_count'] ?? 0),
-            'liked_by_me' => $likedRaw > 0,
-            'created_at' => (string) $row['created_at'],
-            'publisher_display' => $isOffice ? $officeName : null,
-            'publisher_avatar_url' => $isOffice ? trim((string) ($row['office_photo_url'] ?? '')) : null,
-            'publisher_is_office' => $isOffice,
-        ];
+        $items[] = vewo_reel_public_item($row, $viewingOwn);
     }
     echo json_encode(['ok' => true, 'items' => $items], JSON_UNESCAPED_UNICODE);
 }
@@ -4629,15 +4699,24 @@ function public_reel_detail_route(PDO $pdo): void
     $likesExpr = $hasEng
         ? '((SELECT COUNT(*) FROM reel_reactions rr WHERE rr.reel_id = r.id AND rr.reaction_type = \'like\') + COALESCE(r.synthetic_likes, 0))'
         : '(SELECT COUNT(*) FROM reel_reactions rr WHERE rr.reel_id = r.id AND rr.reaction_type = \'like\')';
-    $sql = "SELECT r.id, r.property_id, r.video_public_url, r.caption, r.comments_enabled, r.created_at,
-            {$engCols}
+    $reviewSelect = vewo_reels_has_review_meta_columns($pdo)
+        ? 'r.reject_note, ' . (vewo_reels_has_resubmission_column($pdo) ? 'r.resubmission_allowed' : '0 AS resubmission_allowed')
+        : 'NULL AS reject_note, 0 AS resubmission_allowed';
+    $marketerCol = vewo_users_has_is_marketer_column($pdo)
+        ? 'COALESCE(u.is_marketer, 0) AS is_marketer'
+        : '0 AS is_marketer';
+    $profileCol = vewo_users_has_profile_photo_column($pdo)
+        ? 'u.profile_photo_url'
+        : 'NULL AS profile_photo_url';
+    $sql = "SELECT r.id, r.property_id, r.video_public_url, r.caption, r.created_at, r.approval_status,
+            {$engCols} {$reviewSelect},
             u.id AS owner_user_id, u.full_name, u.role, u.office_name, u.office_photo_url,
-            COALESCE((SELECT COUNT(*) FROM reel_comments c WHERE c.reel_id = r.id), 0) AS comments_count,
+            {$marketerCol}, {$profileCol},
             {$likesExpr} AS likes_count,
             {$likedExpr}
      FROM reels r
      INNER JOIN users u ON u.id = r.owner_user_id
-     WHERE r.id = :id AND r.approval_status = 'approved'
+     WHERE r.id = :id
      LIMIT 1";
     $stmt = $pdo->prepare($sql);
     $stmt->bindValue(':id', $id, PDO::PARAM_STR);
@@ -4649,26 +4728,13 @@ function public_reel_detail_route(PDO $pdo): void
     if (!is_array($row)) {
         json_error(404, 'الريل غير موجود');
     }
-    $role = (string) ($row['role'] ?? '');
-    $officeName = trim((string) ($row['office_name'] ?? ''));
-    $isOffice = $role === 'office' && $officeName !== '';
-    $item = [
-        'id' => (string) $row['id'],
-        'property_id' => $row['property_id'] !== null && (string) $row['property_id'] !== ''
-            ? (string) $row['property_id'] : null,
-        'video_public_url' => (string) $row['video_public_url'],
-        'caption' => (string) $row['caption'],
-        'comments_enabled' => false,
-        'comments_count' => 0,
-        'view_count' => (int) ($row['view_count'] ?? 0),
-        'likes_count' => (int) ($row['likes_count'] ?? 0),
-        'liked_by_me' => (int) ($row['liked_me'] ?? 0) > 0,
-        'created_at' => (string) $row['created_at'],
-        'publisher_display' => $isOffice ? $officeName : (string) ($row['full_name'] ?? ''),
-        'publisher_avatar_url' => $isOffice ? trim((string) ($row['office_photo_url'] ?? '')) : null,
-        'publisher_is_office' => $isOffice,
-    ];
-    echo json_encode(['ok' => true, 'item' => $item], JSON_UNESCAPED_UNICODE);
+    $status = (string) ($row['approval_status'] ?? '');
+    $ownerId = (string) ($row['owner_user_id'] ?? '');
+    $isOwner = $uid !== null && $ownerId !== '' && $ownerId === $uid;
+    if ($status !== 'approved' && !$isOwner) {
+        json_error(404, 'الريل غير موجود');
+    }
+    echo json_encode(['ok' => true, 'item' => vewo_reel_public_item($row, $isOwner)], JSON_UNESCAPED_UNICODE);
 }
 
 /**
@@ -4776,7 +4842,7 @@ function reels_create_route(PDO $pdo): void
     if (!preg_match('#^https?://#i', $videoUrl)) {
         json_error(400, 'رابط الفيديو غير صالح');
     }
-    $caption = mb_substr(trim((string) ($in['caption'] ?? '')), 0, 500);
+    $caption = mb_substr(trim((string) ($in['caption'] ?? '')), 0, 200);
     $commentsEnabled = 0;
     $propertyId = trim((string) ($in['property_id'] ?? $in['propertyId'] ?? ''));
     if ($propertyId !== '' && !preg_match('/^[0-9a-fA-F-]{36}$/', $propertyId)) {
@@ -4855,6 +4921,101 @@ function reels_create_route(PDO $pdo): void
         'id' => $rid,
         'approval_status' => $approvalStatus,
     ], JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * تعديل ريل مرفوض وإعادة إرساله للمراجعة (إذا سمحت الإدارة).
+ */
+function reels_update_route(PDO $pdo): void
+{
+    $me = require_auth_user($pdo);
+    $uid = (string) ($me['id'] ?? '');
+    $in = read_json_body();
+    $id = trim((string) ($in['id'] ?? $in['reel_id'] ?? $in['reelId'] ?? ''));
+    if (!preg_match('/^[0-9a-fA-F-]{36}$/', $id)) {
+        json_error(400, 'معرّف الريل غير صالح');
+    }
+    $hasReview = vewo_reels_has_review_meta_columns($pdo);
+    $hasResub = vewo_reels_has_resubmission_column($pdo);
+    $reviewSelect = $hasReview
+        ? 'reject_note, ' . ($hasResub ? 'resubmission_allowed' : '0 AS resubmission_allowed')
+        : 'NULL AS reject_note, 0 AS resubmission_allowed';
+    $stmt = $pdo->prepare(
+        "SELECT id, owner_user_id, approval_status, video_public_url, video_storage_key, {$reviewSelect}
+         FROM reels WHERE id = :id LIMIT 1"
+    );
+    $stmt->execute([':id' => $id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($row)) {
+        json_error(404, 'الريل غير موجود');
+    }
+    if ((string) ($row['owner_user_id'] ?? '') !== $uid) {
+        json_error(403, 'ليست لديك صلاحية تعديل هذا الريل');
+    }
+    if ((string) ($row['approval_status'] ?? '') !== 'rejected') {
+        json_error(400, 'يمكن إعادة إرسال الريلز المرفوضة فقط');
+    }
+    if ((int) ($row['resubmission_allowed'] ?? 0) !== 1) {
+        json_error(403, 'الإدارة لم تمنح صلاحية تعديل هذا الريل');
+    }
+
+    $caption = mb_substr(trim((string) ($in['caption'] ?? '')), 0, 200);
+    $videoUrl = trim((string) ($in['video_public_url'] ?? $in['videoPublicUrl'] ?? ''));
+    $storageKey = (string) ($row['video_storage_key'] ?? '');
+    if ($videoUrl !== '') {
+        if (strlen($videoUrl) > 1000 || !preg_match('#^https?://#i', $videoUrl)) {
+            json_error(400, 'رابط الفيديو غير صالح');
+        }
+        $path = parse_url($videoUrl, PHP_URL_PATH);
+        $storageKey = is_string($path) && $path !== '' ? basename($path) : $storageKey;
+        if ($storageKey === '' || strlen($storageKey) > 500) {
+            json_error(400, 'تعذر استخراج اسم الملف من الرابط');
+        }
+    } else {
+        $videoUrl = (string) ($row['video_public_url'] ?? '');
+    }
+
+    $set = [
+        'caption = :cap',
+        'video_public_url = :url',
+        'video_storage_key = :sk',
+        "approval_status = 'pending'",
+    ];
+    $params = [
+        ':id' => $id,
+        ':cap' => $caption,
+        ':url' => $videoUrl,
+        ':sk' => $storageKey,
+    ];
+    if ($hasReview) {
+        $set[] = 'reject_note = NULL';
+    }
+    if ($hasResub) {
+        $set[] = 'resubmission_allowed = 0';
+    }
+    $upd = $pdo->prepare('UPDATE reels SET ' . implode(', ', $set) . ' WHERE id = :id LIMIT 1');
+    $upd->execute($params);
+
+    if (function_exists('vewo_fcm_send') && function_exists('vewo_device_tokens_for_user')) {
+        try {
+            $adminId = first_admin_user_id($pdo);
+            if ($adminId !== '') {
+                vewo_fcm_send(
+                    vewo_device_tokens_for_user($pdo, $adminId, true),
+                    'ريل بعد التعديل',
+                    'يوجد ريل معدّل بانتظار الموافقة',
+                    [
+                        'type' => 'admin_reel_pending',
+                        'section' => 'reels',
+                        'reel_id' => $id,
+                    ]
+                );
+            }
+        } catch (Throwable $e) {
+        }
+    }
+
+    echo json_encode(['ok' => true, 'id' => $id, 'approval_status' => 'pending'], JSON_UNESCAPED_UNICODE);
 }
 
 function reels_comments_list_route(PDO $pdo): void
@@ -5069,7 +5230,10 @@ function admin_reels_route(PDO $pdo): void
         } else {
             $engExtra = ', 0 AS view_count, 0 AS synthetic_likes, 0 AS real_likes_count';
         }
-        $sql = "SELECT r.id, {$pubCol}, r.video_public_url, r.caption, {$commentsSelect}, r.approval_status, r.created_at,
+        $reviewSelect = vewo_reels_has_review_meta_columns($pdo)
+            ? 'r.reject_note, ' . (vewo_reels_has_resubmission_column($pdo) ? 'r.resubmission_allowed' : '0 AS resubmission_allowed')
+            : 'NULL AS reject_note, 0 AS resubmission_allowed';
+        $sql = "SELECT r.id, {$pubCol}, r.video_public_url, r.caption, {$commentsSelect}, r.approval_status, {$reviewSelect}, r.created_at,
                     u.full_name, u.role, u.office_name, u.phone
                     {$engExtra}
              FROM reels r
@@ -5134,7 +5298,14 @@ function admin_reels_route(PDO $pdo): void
         $ownerStmt = $pdo->prepare('SELECT owner_user_id FROM reels WHERE id = :id LIMIT 1');
         $ownerStmt->execute([':id' => $id]);
         $ownerId = (string) ($ownerStmt->fetchColumn() ?: '');
-        $stmt = $pdo->prepare("UPDATE reels SET approval_status = 'approved' WHERE id = :id LIMIT 1");
+        $set = ["approval_status = 'approved'"];
+        if (vewo_reels_has_review_meta_columns($pdo)) {
+            $set[] = 'reject_note = NULL';
+        }
+        if (vewo_reels_has_resubmission_column($pdo)) {
+            $set[] = 'resubmission_allowed = 0';
+        }
+        $stmt = $pdo->prepare('UPDATE reels SET ' . implode(', ', $set) . ' WHERE id = :id LIMIT 1');
         $stmt->execute([':id' => $id]);
         if (vewo_reels_has_public_no_column($pdo)) {
             try {
@@ -5168,14 +5339,33 @@ function admin_reels_route(PDO $pdo): void
         $ownerStmt = $pdo->prepare('SELECT owner_user_id FROM reels WHERE id = :id LIMIT 1');
         $ownerStmt->execute([':id' => $id]);
         $ownerId = (string) ($ownerStmt->fetchColumn() ?: '');
-        $stmt = $pdo->prepare("UPDATE reels SET approval_status = 'rejected' WHERE id = :id LIMIT 1");
-        $stmt->execute([':id' => $id]);
+        $note = mb_substr(trim((string) ($in['reject_note'] ?? $in['rejectNote'] ?? '')), 0, 2000);
+        $allowResubmit = (int) ($in['resubmission_allowed'] ?? $in['resubmissionAllowed'] ?? 1) === 1 ? 1 : 0;
+        $hasReview = vewo_reels_has_review_meta_columns($pdo);
+        $hasResub = vewo_reels_has_resubmission_column($pdo);
+        if ($hasReview && $hasResub) {
+            $stmt = $pdo->prepare(
+                "UPDATE reels SET approval_status = 'rejected', reject_note = :n, resubmission_allowed = :a WHERE id = :id LIMIT 1"
+            );
+            $stmt->execute([':n' => $note !== '' ? $note : null, ':a' => $allowResubmit, ':id' => $id]);
+        } elseif ($hasReview) {
+            $stmt = $pdo->prepare(
+                "UPDATE reels SET approval_status = 'rejected', reject_note = :n WHERE id = :id LIMIT 1"
+            );
+            $stmt->execute([':n' => $note !== '' ? $note : null, ':id' => $id]);
+        } else {
+            $stmt = $pdo->prepare("UPDATE reels SET approval_status = 'rejected' WHERE id = :id LIMIT 1");
+            $stmt->execute([':id' => $id]);
+        }
         if ($ownerId !== '' && function_exists('vewo_fcm_send') && function_exists('vewo_device_tokens_for_user')) {
             try {
+                $body = $note !== ''
+                    ? $note
+                    : 'لم تتم الموافقة على الريل — يمكنك تعديله وإعادة الإرسال إن سُمح بذلك';
                 vewo_fcm_send(
                     vewo_device_tokens_for_user($pdo, $ownerId, false),
                     'تم رفض الريل',
-                    'لم تتم الموافقة على الريل — يمكنك تعديله وإعادة الإرسال',
+                    $body,
                     ['type' => 'reel_rejected', 'reel_id' => $id]
                 );
             } catch (Throwable $e) {

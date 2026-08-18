@@ -13,15 +13,23 @@ import '../../../core/widgets/local_video_preview.dart';
 import '../../../core/widgets/vewo_media_watermark.dart';
 
 /// نشر ريل من ورقة سفلية — يُستدعى من زر + في الشريط السفلي أو من شاشة الريلز.
-Future<bool?> showReelCreateSheet(BuildContext context, WidgetRef ref) async {
-  final captionCtrl = TextEditingController();
+Future<bool?> showReelCreateSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  Map<String, dynamic>? existingReel,
+}) async {
+  final captionCtrl = TextEditingController(
+    text: existingReel?['caption']?.toString() ?? '',
+  );
+  final editingId = existingReel?['id']?.toString().trim() ?? '';
+  final isEdit = editingId.isNotEmpty;
   XFile? picked;
   XFile? previewedUploadVideo;
   Duration? duration;
   RangeValues? trimRange;
   bool uploading = false;
   bool previewing = false;
-  const mediaTools = MethodChannel('com.aqaevewo.real_estate_iraq/media_tools');
+  const mediaTools = MethodChannel('com.aqartown.app/media_tools');
 
   Future<XFile> trimVideoForUpload(XFile source) async {
     final d = duration;
@@ -96,14 +104,16 @@ Future<bool?> showReelCreateSheet(BuildContext context, WidgetRef ref) async {
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                       children: [
                         Text(
-                          'نشر ريل جديد',
+                          isEdit ? 'تعديل الريل' : 'نشر ريل جديد',
                           style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'اختر الفيديو ثم اسحب طرفي الشريط لتحديد أي جزء تريده بدون مدة ثابتة.',
+                          isEdit
+                              ? 'عدّل الوصف أو استبدل الفيديو ثم أعد الإرسال للمراجعة. الوصف حتى 200 حرف.'
+                              : 'اختر الفيديو ثم اسحب طرفي الشريط لتحديد أي جزء تريده. الوصف حتى 200 حرف.',
                           style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                             color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                           ),
@@ -139,7 +149,7 @@ Future<bool?> showReelCreateSheet(BuildContext context, WidgetRef ref) async {
                           icon: const Icon(Icons.video_library_outlined),
                           label: Text(
                             picked == null
-                                ? 'اختر فيديو'
+                                ? (isEdit ? 'استبدال الفيديو (اختياري)' : 'اختر فيديو')
                                 : 'تم الاختيار (${_formatTrimTime((duration?.inMilliseconds ?? 0) / 1000)})',
                           ),
                         ),
@@ -191,10 +201,28 @@ Future<bool?> showReelCreateSheet(BuildContext context, WidgetRef ref) async {
                           controller: captionCtrl,
                           minLines: 2,
                           maxLines: 4,
+                          maxLength: 200,
                           decoration: const InputDecoration(
                             labelText: 'وصف الريل',
                             hintText: 'اكتب وصفاً مختصراً يظهر تحت الفيديو',
                             prefixIcon: Icon(Icons.notes_outlined),
+                            counterText: '',
+                          ),
+                        ),
+                        Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: ValueListenableBuilder<TextEditingValue>(
+                            valueListenable: captionCtrl,
+                            builder: (_, value, _) => Text(
+                              '${value.text.characters.length}/200',
+                              style: Theme.of(ctx).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      ctx,
+                                    ).colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
                           ),
                         ),
                       ],
@@ -214,11 +242,14 @@ Future<bool?> showReelCreateSheet(BuildContext context, WidgetRef ref) async {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                         child: FilledButton.icon(
-                          onPressed: picked == null || uploading || previewing
+                          onPressed:
+                              (picked == null && !isEdit) ||
+                                  uploading ||
+                                  previewing
                               ? null
                               : () async {
-                                  var uploadVideo = previewedUploadVideo;
-                                  if (uploadVideo == null) {
+                                  XFile? uploadVideo = previewedUploadVideo;
+                                  if (picked != null && uploadVideo == null) {
                                     setLocal(() => previewing = true);
                                     uploadVideo = await previewTrimmedVideo(
                                       ctx,
@@ -234,30 +265,50 @@ Future<bool?> showReelCreateSheet(BuildContext context, WidgetRef ref) async {
                                   setLocal(() => uploading = true);
                                   try {
                                     final api = ref.read(vewoApiClientProvider);
-                                    final bytes = await uploadVideo
-                                        .readAsBytes();
-                                    final up = await api.postMultipartBytes(
-                                      'properties/upload',
-                                      'file',
-                                      bytes,
-                                      uploadVideo.name.isEmpty
-                                          ? 'reel.mp4'
-                                          : uploadVideo.name,
-                                    );
-                                    final url =
-                                        up['public_url']?.toString() ?? '';
-                                    await api.postJson('reels/create', {
-                                      'video_public_url': url,
-                                      'caption': captionCtrl.text.trim(),
-                                      'comments_enabled': 0,
-                                    });
+                                    String? url;
+                                    if (uploadVideo != null) {
+                                      final bytes = await uploadVideo
+                                          .readAsBytes();
+                                      final up = await api.postMultipartBytes(
+                                        'properties/upload',
+                                        'file',
+                                        bytes,
+                                        uploadVideo.name.isEmpty
+                                            ? 'reel.mp4'
+                                            : uploadVideo.name,
+                                      );
+                                      url = up['public_url']?.toString() ?? '';
+                                    }
+                                    final caption = captionCtrl.text
+                                        .trim()
+                                        .characters
+                                        .take(200)
+                                        .toString();
+                                    if (isEdit) {
+                                      await api.postJson('reels/update', {
+                                        'id': editingId,
+                                        'caption': caption,
+                                        if (url != null && url.isNotEmpty)
+                                          'video_public_url': url,
+                                      });
+                                    } else {
+                                      await api.postJson('reels/create', {
+                                        'video_public_url': url,
+                                        'caption': caption,
+                                        'comments_enabled': 0,
+                                      });
+                                    }
                                     if (ctx.mounted) Navigator.pop(ctx, true);
                                   } catch (e) {
                                     setLocal(() => uploading = false);
                                     if (ctx.mounted) {
                                       ScaffoldMessenger.of(ctx).showSnackBar(
                                         SnackBar(
-                                          content: Text('تعذر نشر الريل: $e'),
+                                          content: Text(
+                                            isEdit
+                                                ? 'تعذر تعديل الريل: $e'
+                                                : 'تعذر نشر الريل: $e',
+                                          ),
                                         ),
                                       );
                                     }
@@ -274,9 +325,11 @@ Future<bool?> showReelCreateSheet(BuildContext context, WidgetRef ref) async {
                               : const Icon(Icons.publish_rounded),
                           label: Text(
                             uploading
-                                ? 'جاري النشر…'
+                                ? (isEdit ? 'جاري الحفظ…' : 'جاري النشر…')
                                 : previewing
                                 ? 'جاري المعاينة…'
+                                : isEdit
+                                ? 'حفظ وإعادة الإرسال'
                                 : 'نشر',
                           ),
                         ),

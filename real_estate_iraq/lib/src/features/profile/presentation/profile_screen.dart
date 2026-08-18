@@ -13,7 +13,8 @@ import '../../auth/data/auth_state.dart';
 import '../../auth/domain/user_role.dart';
 import '../../properties/data/properties_providers.dart';
 import '../../properties/domain/property.dart';
-import '../../properties/presentation/property_card.dart';
+import '../../properties/presentation/property_cards_grid.dart';
+import '../../reels/presentation/reel_create_sheet.dart';
 import '../data/aqar_town_legal.dart';
 import 'social_brand_buttons.dart';
 
@@ -24,7 +25,10 @@ final myReelsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((
   if (userId == null || userId.isEmpty) return const [];
   final data = await ref
       .read(vewoApiClientProvider)
-      .getJson('reels/list', query: {'owner_id': userId, 'limit': '30'});
+      .getJson(
+        'reels/list',
+        query: {'owner_id': userId, 'include_mine': '1', 'limit': '80'},
+      );
   final raw = data['items'];
   if (raw is! List) return const [];
   final out = <Map<String, dynamic>>[];
@@ -392,7 +396,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 ),
                 const Spacer(),
                 TextButton.icon(
-                  onPressed: () => context.push('${AppRoutes.reels}?compose=1'),
+                  onPressed: () async {
+                    final ok = await showReelCreateSheet(context, ref);
+                    if (ok == true && context.mounted) {
+                      ref.invalidate(myReelsProvider);
+                    }
+                  },
                   icon: const Icon(Icons.add_rounded),
                   label: const Text('نشر ريل'),
                 ),
@@ -413,14 +422,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       child: Center(child: Text('لا توجد ريلز منشورة بعد')),
                     )
                   : SizedBox(
-                      height: 156,
+                      height: 188,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: items.length,
                         separatorBuilder: (_, _) => const SizedBox(width: 10),
                         itemBuilder: (context, index) {
                           final reel = items[index];
-                          return _MyReelCard(reel: reel);
+                          return _MyReelCard(
+                            reel: reel,
+                            ownerId: auth.userId ?? '',
+                            onEdited: () => ref.invalidate(myReelsProvider),
+                          );
                         },
                       ),
                     ),
@@ -485,55 +498,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                         ),
                       );
                     }
-                    return Column(
-                      children: [
-                        for (final p in items)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                SizedBox(
-                                  height: p.approvalStatus == 'rejected'
-                                      ? 304
-                                      : 270,
-                                  child: PropertyCard(
-                                    property: p,
-                                    showPublisherModeration: true,
-                                    viewerIsOffice:
-                                        auth.role == UserRole.office,
-                                    onTap: () => context.push(
-                                      '${AppRoutes.propertyDetails}/${p.id}',
-                                    ),
-                                  ),
-                                ),
-                                if (p.approvalStatus == 'rejected') ...[
-                                  const SizedBox(height: 8),
-                                  if (p.resubmissionAllowed)
-                                    FilledButton.icon(
-                                      onPressed: () => context.push(
-                                        '${AppRoutes.addProperty}?edit_property_id=${Uri.encodeComponent(p.id)}',
-                                      ),
-                                      icon: const Icon(Icons.edit_note_rounded),
-                                      label: const Text('تعديل وإعادة إرسال'),
-                                    )
-                                  else
-                                    Card(
-                                      color: scheme.errorContainer.withValues(
-                                        alpha: 0.45,
-                                      ),
-                                      child: const Padding(
-                                        padding: EdgeInsets.all(12),
-                                        child: Text(
-                                          'هذا المنشور مرفوض ولا توجد صلاحية تعديل حالياً. راجع ملاحظة الإدارة.',
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ],
-                            ),
-                          ),
-                      ],
+                    return PropertyCardsGrid(
+                      items: items,
+                      showPublisherModeration: true,
+                      viewerIsOffice: auth.role == UserRole.office,
+                      onRejectedEdit: (p) => context.push(
+                        '${AppRoutes.addProperty}?edit_property_id=${Uri.encodeComponent(p.id)}',
+                      ),
                     );
                   },
                 ),
@@ -799,19 +770,42 @@ class _ProfileInfoTile extends StatelessWidget {
   }
 }
 
-class _MyReelCard extends StatelessWidget {
-  const _MyReelCard({required this.reel});
+class _MyReelCard extends ConsumerWidget {
+  const _MyReelCard({
+    required this.reel,
+    required this.ownerId,
+    this.onEdited,
+  });
 
   final Map<String, dynamic> reel;
+  final String ownerId;
+  final VoidCallback? onEdited;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final id = reel['id']?.toString() ?? '';
     final caption = reel['caption']?.toString().trim() ?? '';
     final videoUrl = reel['video_public_url']?.toString().trim() ?? '';
     final views = reel['view_count'] ?? reel['views_count'] ?? 0;
     final likes = reel['likes_count'] ?? 0;
+    final status = reel['approval_status']?.toString() ?? 'approved';
+    final rejectNote = reel['reject_note']?.toString().trim() ?? '';
+    final canEdit =
+        status == 'rejected' &&
+        (reel['resubmission_allowed'] == true ||
+            reel['resubmission_allowed'] == 1 ||
+            '${reel['resubmission_allowed'] ?? ''}' == '1');
+
+    String? badge;
+    Color badgeColor = Colors.white;
+    if (status == 'pending') {
+      badge = 'قيد المراجعة';
+      badgeColor = const Color(0xFFF6B60C);
+    } else if (status == 'rejected') {
+      badge = 'مرفوض';
+      badgeColor = scheme.error;
+    }
 
     return SizedBox(
       width: 132,
@@ -820,7 +814,17 @@ class _MyReelCard extends StatelessWidget {
         child: InkWell(
           onTap: id.isEmpty
               ? null
-              : () => context.push('${AppRoutes.reels}?reel_id=$id'),
+              : () {
+                  final q = <String, String>{
+                    'owner_id': ownerId,
+                    'include_mine': '1',
+                    'reel_id': id,
+                  };
+                  final qs = q.entries
+                      .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
+                      .join('&');
+                  context.push('${AppRoutes.reels}?$qs');
+                },
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -837,6 +841,31 @@ class _MyReelCard extends StatelessWidget {
                         color: Colors.white70,
                         size: 42,
                       ),
+                      if (badge != null)
+                        PositionedDirectional(
+                          top: 8,
+                          start: 8,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: badgeColor.withValues(alpha: 0.92),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              child: Text(
+                                badge,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       PositionedDirectional(
                         top: 8,
                         end: 8,
@@ -879,6 +908,37 @@ class _MyReelCard extends StatelessWidget {
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
+                    if (status == 'rejected' && rejectNote.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        rejectNote,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: scheme.error,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                    if (canEdit)
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(0, 28),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        onPressed: () async {
+                          final ok = await showReelCreateSheet(
+                            context,
+                            ref,
+                            existingReel: reel,
+                          );
+                          if (ok == true) onEdited?.call();
+                        },
+                        child: const Text('تعديل وإعادة إرسال'),
+                      ),
                   ],
                 ),
               ),

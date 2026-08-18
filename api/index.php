@@ -484,6 +484,13 @@ switch ($route) {
         reels_create_route($pdo);
         break;
 
+    case 'reels/update':
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            json_error(405, 'Method not allowed');
+        }
+        reels_update_route($pdo);
+        break;
+
     case 'reels/view':
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
             json_error(405, 'Method not allowed');
