@@ -1230,12 +1230,27 @@ function app_notifications_poll_route(PDO $pdo): void
                 "SELECT COALESCE(SUM(
                     CASE WHEN t.office_user_id = :uid1 THEN COALESCE(t.office_unread_count, 0)
                          WHEN t.customer_user_id = :uid2 THEN COALESCE(t.customer_unread_count, 0)
-                         ELSE COALESCE(t.customer_unread_count, 0)
+                         ELSE 0
                     END
                  ), 0) AS u
                  FROM chat_threads t
-                 WHERE ((t.thread_type = 'mediated' AND (t.customer_user_id = :uid3 OR t.office_user_id = :uid4))
-                    OR (t.thread_type = 'direct' AND (t.customer_user_id = :uid5 OR t.office_user_id = :uid6)))"
+                 WHERE (
+                    (t.thread_type = 'direct' AND t.customer_user_id = :uid5)
+                    OR (t.thread_type = 'direct' AND t.office_user_id = :uid6 AND t.last_message_at IS NOT NULL)
+                    OR (t.thread_type = 'mediated' AND t.customer_user_id = :uid3)
+                    OR (
+                        t.thread_type = 'mediated'
+                        AND t.office_user_id = :uid4
+                        AND EXISTS (
+                            SELECT 1
+                            FROM chat_messages m_unlock
+                            INNER JOIN users u_unlock ON u_unlock.id = m_unlock.sender_user_id
+                            WHERE m_unlock.thread_id = t.id
+                              AND m_unlock.visibility = 'office_only'
+                              AND u_unlock.role IN ('admin','staff')
+                        )
+                    )
+                 )"
             );
             $stmt->execute([
                 ':uid1' => $uid,

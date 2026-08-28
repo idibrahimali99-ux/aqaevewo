@@ -125,6 +125,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               : const <String, dynamic>{});
     final type = (payload['type'] ?? row['event_type'])?.toString() ?? '';
     final propertyId = payload['property_id']?.toString().trim() ?? '';
+    final newsId = payload['news_id']?.toString().trim() ?? '';
     final propRaw = row['property'];
     final property = propRaw is Map<String, dynamic>
         ? propRaw
@@ -135,7 +136,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         (property['resubmission_allowed'] is num &&
             (property['resubmission_allowed'] as num).toInt() == 1) ||
         '${property['resubmission_allowed'] ?? ''}' == '1';
-    if ((type.startsWith('property_') || type == 'property_sold') &&
+    if (type == 'property_news' && newsId.isNotEmpty) {
+      context.push('${AppRoutes.newsDetail}/$newsId');
+      return;
+    }
+    if (type == 'home_promotion') {
+      context.go(AppRoutes.home);
+      return;
+    }
+    if ((type.startsWith('property_') ||
+            type == 'property_sold' ||
+            type == 'urgent_sale_public') &&
         propertyId.isNotEmpty) {
       if ((type == 'property_rejected' || type == 'property_needs_edit') &&
           editable) {

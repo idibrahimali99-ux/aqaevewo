@@ -23,12 +23,24 @@ void navigateFromNotificationPayload(
     case 'property_updated':
     case 'property_sold':
     case 'property_urgent_sale':
+    case 'urgent_sale_public':
       final pid = data['property_id']?.toString().trim();
       if (pid != null && pid.isNotEmpty) {
         router.go('${AppRoutes.propertyDetails}/$pid');
       } else {
         router.go(AppRoutes.notifications);
       }
+      return;
+    case 'property_news':
+      final nid = data['news_id']?.toString().trim();
+      if (nid != null && nid.isNotEmpty) {
+        router.go('${AppRoutes.newsDetail}/$nid');
+      } else {
+        router.go(AppRoutes.home);
+      }
+      return;
+    case 'home_promotion':
+      router.go(AppRoutes.home);
       return;
     case 'reel_comment':
     case 'reel_like':

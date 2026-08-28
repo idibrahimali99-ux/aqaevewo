@@ -59,6 +59,13 @@ require __DIR__ . '/../partials/section-alerts.php';
         <div class="col-12"><textarea name="body" class="form-control" rows="3" placeholder="المحتوى"></textarea></div>
         <div class="col-md-4"><input type="url" name="image_url" class="form-control" placeholder="رابط الصورة"></div>
         <div class="col-md-2"><input type="number" name="sort_order" class="form-control" value="0"></div>
+        <div class="col-md-3 d-flex align-items-center">
+            <input type="hidden" name="notify_all" value="0">
+            <label class="form-check m-0">
+                <input type="checkbox" class="form-check-input" name="notify_all" value="1" checked>
+                إشعار فوري لكل المستخدمين
+            </label>
+        </div>
         <div class="col-md-2"><button type="submit" class="btn btn-primary rounded-pill w-100">إضافة</button></div>
     </form>
 </div>

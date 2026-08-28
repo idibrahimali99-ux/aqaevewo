@@ -33,7 +33,7 @@ function admin_sections(): array
             'endpoint' => 'admin/property-news', 'description' => 'إدارة أخبار العقارات.',
             'tabs' => ['القائمة', 'إضافة/تعديل', 'حذف', 'رفع صورة'],
             'operations' => [
-                'create' => ['label' => 'إضافة خبر', 'endpoint' => 'admin/property-news', 'method' => 'POST', 'fields' => ['title' => 'العنوان', 'image_url' => 'رابط الصورة', 'body' => 'المحتوى', 'sort_order' => 'الترتيب']],
+                'create' => ['label' => 'إضافة خبر', 'endpoint' => 'admin/property-news', 'method' => 'POST', 'fields' => ['title' => 'العنوان', 'image_url' => 'رابط الصورة', 'body' => 'المحتوى', 'sort_order' => 'الترتيب', 'notify_all' => '1 لإشعار الجميع'], 'fixed' => []],
                 'update' => ['label' => 'تعديل خبر', 'endpoint' => 'admin/property-news', 'method' => 'POST', 'fields' => ['id' => 'معرّف الخبر', 'title' => 'العنوان', 'image_url' => 'رابط الصورة', 'body' => 'المحتوى', 'sort_order' => 'الترتيب'], 'fixed' => ['action' => 'update']],
                 'delete' => ['label' => 'حذف خبر', 'endpoint' => 'admin/property-news', 'method' => 'DELETE', 'fields' => ['id' => 'معرّف الخبر']],
                 'upload' => ['label' => 'رفع صورة', 'endpoint' => 'admin/upload', 'method' => 'UPLOAD', 'fields' => []],
@@ -87,7 +87,7 @@ function admin_sections(): array
                 'approve' => ['label' => 'موافقة ونشر', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور'], 'fixed' => ['action' => 'approve']],
                 'reject' => ['label' => 'رفض مع ملاحظة', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور', 'reject_note' => 'سبب الرفض', 'resubmission_allowed' => '1 أو 0'], 'fixed' => ['action' => 'reject']],
                 'mark_sold' => ['label' => 'تعليم تم البيع', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور'], 'fixed' => ['action' => 'mark_sold']],
-                'urgent_sale' => ['label' => 'تفعيل البيع العاجل', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور', 'days' => '1-365'], 'fixed' => ['action' => 'urgent_sale']],
+                'urgent_sale' => ['label' => 'تفعيل البيع العاجل', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور', 'days' => '1-365', 'notify_all' => '1 لإشعار الجميع'], 'fixed' => ['action' => 'urgent_sale']],
                 'cancel_urgent_sale' => ['label' => 'إلغاء البيع العاجل', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور'], 'fixed' => ['action' => 'cancel_urgent_sale']],
                 'update' => ['label' => 'تعديل منشور', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور', 'title' => 'العنوان', 'governorate' => 'المحافظة', 'address_line' => 'العنوان التفصيلي', 'purpose' => 'sale/rent', 'price_iqd' => 'السعر', 'area_sqm' => 'المساحة', 'description' => 'الوصف', 'requires_review' => '1 أو 0'], 'fixed' => ['action' => 'update']],
                 'delete' => ['label' => 'حذف نهائي', 'endpoint' => 'admin/properties', 'method' => 'DELETE', 'fields' => ['id' => 'معرّف المنشور']],
@@ -284,7 +284,7 @@ function normalize_admin_value(string $key, string $value): mixed
     if ($value === '') {
         return null;
     }
-    if (in_array($key, ['is_active', 'verified', 'resubmission_allowed', 'requires_review', 'is_unlimited', 'is_marketer', 'is_private'], true)) {
+    if (in_array($key, ['is_active', 'verified', 'resubmission_allowed', 'requires_review', 'is_unlimited', 'is_marketer', 'is_private', 'notify_all'], true)) {
         return (int) $value;
     }
     if (in_array($key, ['sort_order', 'popup_duration_sec', 'days', 'views_per_hour', 'likes_per_hour', 'hours', 'amount', 'posting_listings_remaining', 'listings_limit', 'floors_count', 'units_per_floor'], true)) {

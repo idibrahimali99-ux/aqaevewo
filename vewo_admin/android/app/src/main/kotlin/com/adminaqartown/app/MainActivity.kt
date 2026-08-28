@@ -1,4 +1,4 @@
-package com.vewo.vewo_admin
+package com.adminaqartown.app
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -144,14 +144,48 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
       final data = await api.postJson('admin/fcm/test', {});
       if (!mounted) return;
       final mode = data['mode']?.toString() ?? '';
-      final tokens = data['tokens'];
+      final sent = data['sent'] ?? data['tokens'];
+      final failed = data['failed'];
+      final platforms = data['platforms'];
+      final hint = data['hint']?.toString();
+      final errors = data['errors'];
+      final ok = data['ok'] == true;
+      final parts = <String>[
+        ok ? 'FCM أُرسل ($mode)' : 'FCM فشل جزئياً ($mode)',
+        'نجاح: $sent',
+        if (failed != null) 'فشل: $failed',
+        if (platforms is Map) 'منصات: $platforms',
+      ];
+      if (errors is List && errors.isNotEmpty) {
+        parts.add('أخطاء: ${errors.take(3).join(' | ')}');
+      }
+      if (hint != null && hint.isNotEmpty) {
+        parts.add(hint);
+      } else if (ok) {
+        parts.add('أغلق التطبيق تماماً وتحقق من ظهور الإشعار');
+      }
+      final msg = parts.join('\n');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'تم إرسال اختبار FCM ($mode) إلى $tokens جهاز — أغلق التطبيق وتحقق',
-          ),
+          content: Text(msg),
+          duration: Duration(seconds: ok ? 6 : 12),
         ),
       );
+      if (!ok || (hint != null && hint.isNotEmpty)) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(ok ? 'تنبيه FCM' : 'تشخيص FCM'),
+            content: SingleChildScrollView(child: Text(msg)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('حسناً'),
+              ),
+            ],
+          ),
+        );
+      }
     } on VewoApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(

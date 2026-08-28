@@ -1447,7 +1447,27 @@ function admin_promotions_route(PDO $pdo): void
             $params[$k] = $v;
         }
         $stmt->execute($params);
-        echo json_encode(['ok' => true, 'id' => $id], JSON_UNESCAPED_UNICODE);
+        $pushCount = 0;
+        $notifyAll = !array_key_exists('notify_all', $in) || vewo_truthy_flag($in['notify_all'] ?? true);
+        if ($notifyAll) {
+            $pushBody = $subtitle !== '' ? $subtitle : 'إعلان جديد على الرئيسية — افتح التطبيق للاطلاع';
+            $pushCount = vewo_fcm_notify_all_users(
+                $pdo,
+                'إعلان جديد',
+                $title . ($subtitle !== '' ? ' — ' . $subtitle : ''),
+                [
+                    'type' => 'home_promotion',
+                    'promotion_id' => $id,
+                    'title' => $title,
+                    'body' => $pushBody,
+                ]
+            );
+        }
+        echo json_encode([
+            'ok' => true,
+            'id' => $id,
+            'push_tokens' => $pushCount,
+        ], JSON_UNESCAPED_UNICODE);
         return;
     }
     if ($method === 'DELETE') {
@@ -1542,7 +1562,27 @@ function admin_property_news_route(PDO $pdo): void
             ':bo' => $body,
             ':so' => $sortOrder,
         ]);
-        echo json_encode(['ok' => true, 'id' => $id], JSON_UNESCAPED_UNICODE);
+        $pushCount = 0;
+        $notifyAll = !array_key_exists('notify_all', $in) || vewo_truthy_flag($in['notify_all'] ?? true);
+        if ($notifyAll) {
+            $snippet = mb_substr(preg_replace('/\s+/u', ' ', $body) ?? $body, 0, 120);
+            $pushCount = vewo_fcm_notify_all_users(
+                $pdo,
+                'خبر عقاري جديد',
+                $title . ($snippet !== '' ? ' — ' . $snippet : ''),
+                [
+                    'type' => 'property_news',
+                    'news_id' => $id,
+                    'title' => $title,
+                    'body' => $snippet,
+                ]
+            );
+        }
+        echo json_encode([
+            'ok' => true,
+            'id' => $id,
+            'push_tokens' => $pushCount,
+        ], JSON_UNESCAPED_UNICODE);
 
         return;
     }
@@ -1639,6 +1679,74 @@ function allocate_thread_public_no(PDO $pdo): int
 }
 
 /**
+ * هل وُجدت رسالة فعلية في المحادثة؟
+ */
+function vewo_chat_thread_has_any_message(PDO $pdo, string $threadId): bool
+{
+    if ($threadId === '') {
+        return false;
+    }
+    try {
+        $st = $pdo->prepare('SELECT 1 FROM chat_messages WHERE thread_id = :t LIMIT 1');
+        $st->execute([':t' => $threadId]);
+        return (bool) $st->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * في المحادثة الموسّطة: هل ردّ الأدمن/الموظف على خانة المعلن؟
+ * عندها فقط تظهر المحادثة للمعلن.
+ */
+function vewo_chat_mediated_advertiser_unlocked(PDO $pdo, string $threadId): bool
+{
+    if ($threadId === '') {
+        return false;
+    }
+    try {
+        $st = $pdo->prepare(
+            "SELECT 1
+             FROM chat_messages m
+             INNER JOIN users u ON u.id = m.sender_user_id
+             WHERE m.thread_id = :t
+               AND m.visibility = 'office_only'
+               AND u.role IN ('admin','staff')
+             LIMIT 1"
+        );
+        $st->execute([':t' => $threadId]);
+        return (bool) $st->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * في المحادثة الموسّطة: هل ردّ الأدمن/الموظف على خانة المستفسر؟
+ */
+function vewo_chat_mediated_inquirer_has_admin_reply(PDO $pdo, string $threadId): bool
+{
+    if ($threadId === '') {
+        return false;
+    }
+    try {
+        $st = $pdo->prepare(
+            "SELECT 1
+             FROM chat_messages m
+             INNER JOIN users u ON u.id = m.sender_user_id
+             WHERE m.thread_id = :t
+               AND m.visibility = 'customer_only'
+               AND u.role IN ('admin','staff')
+             LIMIT 1"
+        );
+        $st->execute([':t' => $threadId]);
+        return (bool) $st->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
  * @return array<string,mixed>
  */
 function assert_thread_access(PDO $pdo, string $threadId, array $me): array
@@ -1656,10 +1764,24 @@ function assert_thread_access(PDO $pdo, string $threadId, array $me): array
         return $t;
     }
 
-    $ok = (string) ($t['customer_user_id'] ?? '') === $uid
-        || (string) ($t['office_user_id'] ?? '') === $uid;
-    if (!$ok) {
+    $isInquirer = (string) ($t['customer_user_id'] ?? '') === $uid;
+    $isAdvertiser = (string) ($t['office_user_id'] ?? '') === $uid;
+    if (!$isInquirer && !$isAdvertiser) {
         json_error(403, 'ليس لديك صلاحية على هذه المحادثة');
+    }
+
+    $threadType = (string) ($t['thread_type'] ?? '');
+    // المباشر: الطرف الثاني لا يدخل إلا بعد وجود رسالة فعلية.
+    if ($threadType === 'direct' && $isAdvertiser && !vewo_chat_thread_has_any_message($pdo, $threadId)) {
+        json_error(403, 'المحادثة لم تُفتح بعد — بانتظار رسالة من الطرف الآخر');
+    }
+    // الموسّطة: المعلن لا يدخل إلا بعد رد الأدمن/الموظف على خانته.
+    if (
+        $threadType === 'mediated' &&
+        $isAdvertiser &&
+        !vewo_chat_mediated_advertiser_unlocked($pdo, $threadId)
+    ) {
+        json_error(403, 'المحادثة لم تُفتح بعد — بانتظار رد الإدارة');
     }
 
     return $t;
@@ -1689,6 +1811,62 @@ function vewo_chat_threads_has_reel_id_column(PDO $pdo): bool
         $has = false;
     }
     return $has;
+}
+
+/**
+ * طرف محادثة "محترف" = مكتب أو مسوّق.
+ * المسوّق عادة role=office مع is_marketer=1 (وقد يكون role=marketer).
+ */
+function vewo_chat_is_pro_party(string $role, $isMarketerFlag = 0): bool
+{
+    if ($role === 'marketer' || $role === 'office') {
+        return true;
+    }
+    return $isMarketerFlag === true
+        || (int) $isMarketerFlag === 1
+        || (string) $isMarketerFlag === '1';
+}
+
+/** زبون شخصي حقيقي (ليس مسوّقاً). */
+function vewo_chat_is_customer_party(string $role, $isMarketerFlag = 0): bool
+{
+    if ($role !== 'customer') {
+        return false;
+    }
+    return !vewo_chat_is_pro_party($role, $isMarketerFlag);
+}
+
+/**
+ * قواعد الطرف الثالث (أدمن/موظف):
+ * - زبون ↔ زبون → mediated
+ * - مكتب/مسوق → زبون → mediated
+ * - زبون → مكتب/مسوق → direct
+ * - مكتب ↔ مسوق (وبالعكس، وأي محترف↔محترف) → direct
+ */
+function vewo_chat_should_open_direct(
+    string $requesterRole,
+    $requesterIsMarketer,
+    string $peerRole,
+    $peerIsMarketer
+): bool {
+    $reqPro = vewo_chat_is_pro_party($requesterRole, $requesterIsMarketer);
+    $peerPro = vewo_chat_is_pro_party($peerRole, $peerIsMarketer);
+    $reqCust = vewo_chat_is_customer_party($requesterRole, $requesterIsMarketer);
+    $peerCust = vewo_chat_is_customer_party($peerRole, $peerIsMarketer);
+
+    if ($reqCust && $peerCust) {
+        return false;
+    }
+    if ($reqPro && $peerCust) {
+        return false;
+    }
+    if ($reqCust && $peerPro) {
+        return true;
+    }
+    if ($reqPro && $peerPro) {
+        return true;
+    }
+    return false;
 }
 
 function vewo_chat_open_direct_response(
@@ -1879,6 +2057,7 @@ function chat_thread_open(PDO $pdo): void
     $reelContext = null;
     $reelOwnerId = null;
     $reelOwnerRole = null;
+    $isMarketerReelOwner = false;
     if ($rawReelId !== '') {
         $rstmt = $pdo->prepare(
             "SELECT r.id, r.property_id, r.owner_user_id, r.caption, r.video_public_url, r.created_at,
@@ -1923,29 +2102,44 @@ function chat_thread_open(PDO $pdo): void
     vewo_chat_normalize_mediated_parties($pdo);
     $cid = (string) $me['id'];
     $requesterRole = (string) ($me['role'] ?? '');
+    $requesterIsMarketer = $me['is_marketer'] ?? 0;
     $threadCustomerId = $cid;
     $advertiserId = null;
 
     if ($propertyId !== null) {
+        $marketerSelect = function_exists('vewo_users_has_is_marketer_column') && vewo_users_has_is_marketer_column($pdo)
+            ? 'COALESCE(u.is_marketer, 0) AS owner_is_marketer'
+            : '0 AS owner_is_marketer';
         $owStmt = $pdo->prepare(
-            'SELECT u.id AS owner_id, u.role AS owner_role
+            "SELECT u.id AS owner_id, u.role AS owner_role, {$marketerSelect}
              FROM properties p INNER JOIN users u ON u.id = p.owner_user_id
-             WHERE p.id = :pid LIMIT 1'
+             WHERE p.id = :pid LIMIT 1"
         );
         $owStmt->execute([':pid' => $propertyId]);
         $own = $owStmt->fetch(PDO::FETCH_ASSOC);
         if (is_array($own)) {
             $ownerId = (string) ($own['owner_id'] ?? '');
             $ownerRole = (string) ($own['owner_role'] ?? '');
+            $ownerIsMarketer = $own['owner_is_marketer'] ?? 0;
             if ($ownerId !== '' && $ownerId === $cid) {
                 json_error(400, 'لا يمكن فتح محادثة مع نفسك من هذا المنشور');
             }
             if ($ownerId !== '') {
                 $advertiserId = $ownerId;
             }
-            // أي حساب يبدأ مع صاحب المنشور: محادثة مباشرة طبيعية،
-            // مع بقاء الأدمن قادراً على المشاهدة والتدخل.
-            if ($advertiserId !== null && $ownerRole !== '') {
+            // بادئ المحادثة = المستفسر، صاحب المنشور = المعلن.
+            $threadCustomerId = $cid;
+            if (
+                $advertiserId !== null &&
+                $ownerRole !== '' &&
+                vewo_chat_should_open_direct(
+                    $requesterRole,
+                    $requesterIsMarketer,
+                    $ownerRole,
+                    $ownerIsMarketer
+                )
+            ) {
+                // زبون → مكتب/مسوق، أو مكتب ↔ مسوق: مباشرة بدون وسيط.
                 vewo_chat_open_direct_response(
                     $pdo,
                     $cid,
@@ -1958,9 +2152,7 @@ function chat_thread_open(PDO $pdo): void
                 );
                 return;
             }
-            // باقي الحالات عبر الإدارة: بادئ المحادثة هو المستفسر،
-            // وصاحب المنشور/الريل هو المعلن، بغض النظر عن نوع الحساب.
-            $threadCustomerId = $cid;
+            // زبون ↔ زبون، أو مكتب/مسوق → زبون: عبر الإدارة/الموظف.
         }
     }
 
@@ -1972,17 +2164,29 @@ function chat_thread_open(PDO $pdo): void
         $reelOwnerRole !== '' &&
         in_array($requesterRole, ['customer', 'office', 'marketer'], true)
     ) {
-        vewo_chat_open_direct_response(
-            $pdo,
-            $cid,
-            $reelOwnerId,
-            null,
-            $rawReelId,
-            $hasReelThreadColumn,
-            $adminId,
-            $reelContext
-        );
-        return;
+        $reelOwnerIsMarketer = !empty($isMarketerReelOwner) ? 1 : 0;
+        if (
+            vewo_chat_should_open_direct(
+                $requesterRole,
+                $requesterIsMarketer,
+                $reelOwnerRole,
+                $reelOwnerIsMarketer
+            )
+        ) {
+            vewo_chat_open_direct_response(
+                $pdo,
+                $cid,
+                $reelOwnerId,
+                null,
+                $rawReelId,
+                $hasReelThreadColumn,
+                $adminId,
+                $reelContext
+            );
+            return;
+        }
+        $threadCustomerId = $cid;
+        $advertiserId = $reelOwnerId;
     }
 
     if ($propertyId === null && $reelOwnerId !== null && $reelOwnerId !== '' && $reelOwnerId !== $cid) {
@@ -2157,7 +2361,7 @@ function chat_threads_list(PDO $pdo): void
              LEFT JOIN users ofc ON ofc.id = t.office_user_id
              LEFT JOIN properties p ON p.id = t.property_id
              ' . $reelJoin . '
-             WHERE 1=1';
+             WHERE t.last_message_at IS NOT NULL';
         if ($filterNo !== null) {
             $sql .= ' AND t.thread_public_no = :tpn';
         }
@@ -2194,9 +2398,23 @@ function chat_threads_list(PDO $pdo): void
              LEFT JOIN properties p ON p.id = t.property_id
              ' . $reelJoin . '
              WHERE (
-                (t.thread_type = \'direct\' AND (t.customer_user_id = :c3 OR t.office_user_id = :c6))
+                -- مباشر: البادئ يرى محادثته، والطرف الثاني فقط بعد رسالة فعلية
+                (t.thread_type = \'direct\' AND t.customer_user_id = :c3)
+                OR (t.thread_type = \'direct\' AND t.office_user_id = :c6 AND t.last_message_at IS NOT NULL)
+                -- موسّطة: المستفسر يرى محادثته، والمعلن فقط بعد رد الإدارة على خانته
                 OR (t.thread_type = \'mediated\' AND t.customer_user_id = :c4)
-                OR (t.thread_type = \'mediated\' AND t.office_user_id = :c7)
+                OR (
+                    t.thread_type = \'mediated\'
+                    AND t.office_user_id = :c7
+                    AND EXISTS (
+                        SELECT 1
+                        FROM chat_messages m_unlock
+                        INNER JOIN users u_unlock ON u_unlock.id = m_unlock.sender_user_id
+                        WHERE m_unlock.thread_id = t.id
+                          AND m_unlock.visibility = \'office_only\'
+                          AND u_unlock.role IN (\'admin\',\'staff\')
+                    )
+                )
              )';
         if ($filterNo !== null) {
             $sql .= ' AND t.thread_public_no = :tpn';
@@ -2229,18 +2447,24 @@ function chat_threads_list(PDO $pdo): void
             $r['unread_count'] = (int) ($r['admin_unread_count'] ?? 0);
         }
         if ($role !== 'admin' && $role !== 'staff' && $tt === 'mediated') {
-            $visibleSet = $isAdvertiserSide
-                ? "('all','office_only')"
-                : "('all','customer_only')";
+            $laneVis = $isAdvertiserSide ? 'office_only' : 'customer_only';
             try {
                 $pv = $pdo->prepare(
                     "SELECT body, media_public_url
                      FROM chat_messages
-                     WHERE thread_id = :tid AND visibility IN $visibleSet
+                     WHERE thread_id = :tid
+                       AND (
+                         visibility = :lane
+                         OR (visibility = 'all' AND sender_user_id = :uid)
+                       )
                      ORDER BY created_at DESC
                      LIMIT 1"
                 );
-                $pv->execute([':tid' => (string) ($r['id'] ?? '')]);
+                $pv->execute([
+                    ':tid' => (string) ($r['id'] ?? ''),
+                    ':lane' => $laneVis,
+                    ':uid' => $uid,
+                ]);
                 $pr = $pv->fetch(PDO::FETCH_ASSOC);
                 if (is_array($pr)) {
                     $preview = trim((string) ($pr['body'] ?? ''));
@@ -2294,10 +2518,20 @@ function chat_messages_list(PDO $pdo): void
             // admin/staff see everything
         }
     } elseif ($role !== 'admin' && $role !== 'staff') {
+        // موسّطة: كل طرف يرى خانته فقط مع ردود الإدارة الموجّهة له.
+        // لا نعرض visibility=all حتى لا تتسرب رسائل الطرف الآخر القديمة.
         if ((string) ($t['office_user_id'] ?? '') === $uid) {
-            $where .= " AND visibility IN ('all','office_only')";
+            $where .= " AND (
+                visibility = 'office_only'
+                OR (visibility = 'all' AND sender_user_id = :uid_self_o)
+            )";
+            $params[':uid_self_o'] = $uid;
         } elseif ((string) ($t['customer_user_id'] ?? '') === $uid) {
-            $where .= " AND visibility IN ('all','customer_only')";
+            $where .= " AND (
+                visibility = 'customer_only'
+                OR (visibility = 'all' AND sender_user_id = :uid_self_c)
+            )";
+            $params[':uid_self_c'] = $uid;
         } else {
             json_error(403, 'ليس لديك صلاحية على هذه المحادثة');
         }
@@ -2457,6 +2691,11 @@ function chat_messages_list(PDO $pdo): void
         'reel' => $reel,
         'items' => $rows,
     ];
+    if ((string) ($t['thread_type'] ?? '') === 'mediated') {
+        $out['awaiting_admin_reply'] = !vewo_chat_mediated_inquirer_has_admin_reply($pdo, $tid);
+    } else {
+        $out['awaiting_admin_reply'] = false;
+    }
     if ($role === 'admin' || $role === 'staff') {
         try {
             $ts = $pdo->prepare(
@@ -2508,9 +2747,9 @@ function chat_messages_post(PDO $pdo): void
     $role = (string) ($me['role'] ?? '');
     $senderId = (string) $me['id'];
 
-    // Enforce visibility rules. Web chat is a natural conversation by default:
-    // direct messages are public to both parties, and mediated messages now use
-    // `all` unless an older admin tool explicitly targets one side.
+    // Enforce visibility rules.
+    // direct: الطرفان يريان بعضاً (all). الأدمن قد يستهدف طرفاً واحداً.
+    // mediated: المستفسر والمعلن لا يريان بعضاً أبداً — فقط الأدمن/الموظف يرى الطرفين.
     if ($threadType === 'direct') {
         if ($role === 'admin' || $role === 'staff') {
             if (!in_array($visibility, ['customer_only', 'office_only', 'all'], true)) {
@@ -2520,15 +2759,19 @@ function chat_messages_post(PDO $pdo): void
             $visibility = 'all';
         }
     } else {
-        $isThreadParty = $senderId === (string) ($t['customer_user_id'] ?? '')
-            || $senderId === (string) ($t['office_user_id'] ?? '');
-        if (($role === 'customer' || $role === 'office' || $role === 'marketer') && $isThreadParty) {
-            $visibility = 'all';
-        }
-        if (($role === 'admin' || $role === 'staff') && $threadType === 'mediated') {
-            if (!in_array($visibility, ['customer_only', 'office_only', 'all'], true)) {
-                $visibility = 'all';
+        $custIdForVis = (string) ($t['customer_user_id'] ?? '');
+        $officeIdForVis = (string) ($t['office_user_id'] ?? '');
+        if ($role === 'admin' || $role === 'staff') {
+            // الأدمن يرد على خانة واحدة فقط (مستفسر أو معلن).
+            if (!in_array($visibility, ['customer_only', 'office_only'], true)) {
+                $visibility = 'customer_only';
             }
+        } elseif ($senderId === $custIdForVis) {
+            $visibility = 'customer_only';
+        } elseif ($officeIdForVis !== '' && $senderId === $officeIdForVis) {
+            $visibility = 'office_only';
+        } else {
+            json_error(403, 'ليس لديك صلاحية لإرسال رسالة في هذه المحادثة');
         }
     }
 
@@ -2942,8 +3185,10 @@ function vewo_fcm_send_legacy(array $tokens, string $title, string $body, array 
     }
 }
 
-/** @param string[] $tokens */
-function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $data = []): void
+/** @param string[] $tokens
+ *  @return array{sent:int,failed:int,errors:string[]}
+ */
+function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $data = []): array
 {
     $accessToken = vewo_fcm_access_token();
     $projectId = vewo_fcm_config_value('project_id');
@@ -2951,8 +3196,11 @@ function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $dat
     if ($projectId === '' && is_array($sa)) {
         $projectId = trim((string) ($sa['project_id'] ?? ''));
     }
+    $report = ['sent' => 0, 'failed' => 0, 'errors' => []];
     if ($accessToken === '' || $projectId === '' || empty($tokens)) {
-        return;
+        $report['failed'] = count($tokens);
+        $report['errors'][] = 'missing_access_token_or_project';
+        return $report;
     }
 
     $cleanData = vewo_fcm_clean_data($data, $title, $body);
@@ -2966,7 +3214,6 @@ function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $dat
         'Authorization: Bearer ' . $accessToken,
     ];
 
-    // إرسال متوازٍ على دفعات لتسريع البث الجماعي.
     $unique = [];
     foreach (array_values(array_unique($tokens)) as $token) {
         $token = trim((string) $token);
@@ -3003,10 +3250,15 @@ function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $dat
                         ],
                         'payload' => [
                             'aps' => [
-                                'alert' => ['title' => $title, 'body' => $body],
+                                'alert' => [
+                                    'title' => $title,
+                                    'body' => $body,
+                                ],
                                 'sound' => 'default',
                                 'badge' => 1,
                                 'content-available' => 1,
+                                'mutable-content' => 1,
+                                'interruption-level' => 'time-sensitive',
                             ],
                         ],
                     ],
@@ -3016,7 +3268,7 @@ function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $dat
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 12);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
             curl_multi_add_handle($mh, $ch);
             $handles[] = $ch;
@@ -3029,11 +3281,46 @@ function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $dat
             }
         } while ($running > 0 && $status === CURLM_OK);
         foreach ($handles as $ch) {
+            $raw = (string) curl_multi_getcontent($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $decoded = json_decode($raw, true);
+            if ($code >= 200 && $code < 300) {
+                $report['sent']++;
+            } else {
+                $report['failed']++;
+                $err = '';
+                if (is_array($decoded)) {
+                    $err = (string) ($decoded['error']['status'] ?? '');
+                    $msg = (string) ($decoded['error']['message'] ?? '');
+                    if ($err === '' && $msg !== '') {
+                        $err = $msg;
+                    } elseif ($msg !== '' && $err !== '') {
+                        $err .= ': ' . $msg;
+                    }
+                    $details = $decoded['error']['details'] ?? null;
+                    if (is_array($details)) {
+                        foreach ($details as $d) {
+                            if (!is_array($d)) continue;
+                            $ec = (string) ($d['errorCode'] ?? '');
+                            if ($ec !== '') {
+                                $err .= ' [' . $ec . ']';
+                            }
+                        }
+                    }
+                }
+                if ($err === '') {
+                    $err = 'http_' . $code;
+                }
+                if (count($report['errors']) < 8) {
+                    $report['errors'][] = $err;
+                }
+            }
             curl_multi_remove_handle($mh, $ch);
             curl_close($ch);
         }
         curl_multi_close($mh);
     }
+    return $report;
 }
 
 /** @param string[] $tokens */
@@ -3139,6 +3426,88 @@ function vewo_device_tokens_all(PDO $pdo, ?bool $adminApp = false): array
     }
 }
 
+/**
+ * إشعار فوري مرتّب لجميع أجهزة تطبيق المستخدمين (ليس الأدمن).
+ * @return int عدد التوكنات المستهدفة
+ */
+function vewo_fcm_notify_all_users(PDO $pdo, string $title, string $body, array $data = []): int
+{
+    if (!function_exists('vewo_fcm_send')) {
+        return 0;
+    }
+    $title = trim($title);
+    $body = trim($body);
+    if ($title === '' && $body === '') {
+        return 0;
+    }
+    if ($title === '') {
+        $title = 'عقار تاون';
+    }
+    $tokens = vewo_device_tokens_all($pdo, false);
+    if (empty($tokens)) {
+        return 0;
+    }
+    vewo_fcm_send($tokens, $title, $body, $data);
+    return count($tokens);
+}
+
+function vewo_truthy_flag(mixed $v): bool
+{
+    if (is_bool($v)) {
+        return $v;
+    }
+    if (is_int($v) || is_float($v)) {
+        return ((int) $v) === 1;
+    }
+    $s = strtolower(trim((string) $v));
+    return in_array($s, ['1', 'true', 'yes', 'on'], true);
+}
+
+/** تنسيق سعر عراقي للإشعارات */
+function vewo_format_iqd_price(int $price): string
+{
+    if ($price <= 0) {
+        return '';
+    }
+    return number_format($price, 0, '.', ',') . ' د.ع';
+}
+
+/**
+ * نص إشعار بيع عاجل مرتّب: العنوان · السعر · المنطقة · المساحة
+ * @param array<string,mixed> $info
+ */
+function vewo_urgent_sale_public_body(array $info, int $days = 0): string
+{
+    $title = trim((string) ($info['title'] ?? ''));
+    if ($title === '') {
+        $title = trim((string) ($info['address_line'] ?? ''));
+    }
+    if ($title === '') {
+        $title = 'عقار للبيع';
+    }
+    $parts = [$title];
+    $price = vewo_format_iqd_price((int) ($info['price_iqd'] ?? 0));
+    if ($price !== '') {
+        $parts[] = 'السعر ' . $price;
+    }
+    $place = trim((string) ($info['governorate'] ?? ''));
+    $addr = trim((string) ($info['address_line'] ?? ''));
+    if ($addr !== '' && $addr !== $title) {
+        $place = $place !== '' ? ($place . '، ' . $addr) : $addr;
+    }
+    if ($place !== '') {
+        $parts[] = 'منطقة ' . $place;
+    }
+    $area = (int) ($info['area_sqm'] ?? 0);
+    if ($area > 0) {
+        $parts[] = $area . ' م²';
+    }
+    if ($days > 0) {
+        $parts[] = $days . ' يوم';
+    }
+    return implode(' · ', $parts);
+}
+
 function app_device_register_route(PDO $pdo): void
 {
     if (!vewo_device_tokens_ensure($pdo)) {
@@ -3206,6 +3575,13 @@ function admin_fcm_test_route(PDO $pdo): void
     $admin = require_admin_from_bearer($pdo);
     $uid = (string) ($admin['id'] ?? '');
     $sa = vewo_fcm_service_account();
+    $saFile = vewo_fcm_config_value('service_account_file');
+    $saPath = '';
+    if ($saFile !== '') {
+        $saPath = preg_match('/^[A-Za-z]:[\\\\\\/]|^\//', $saFile)
+            ? $saFile
+            : (__DIR__ . '/' . ltrim($saFile, '/\\'));
+    }
     $projectId = vewo_fcm_config_value('project_id');
     if ($projectId === '' && is_array($sa)) {
         $projectId = trim((string) ($sa['project_id'] ?? ''));
@@ -3215,29 +3591,97 @@ function admin_fcm_test_route(PDO $pdo): void
     if ($sa !== null && $projectId !== '') {
         $mode = 'http_v1';
         if (vewo_fcm_access_token() === '') {
-            json_error(500, 'فشل الحصول على access token من Google — تحقق من Service Account');
+            json_error(500, 'فشل access token من Google — تحقق من Service Account على سيرفر لينكس (openssl + firebase-sa.json)');
         }
     } elseif ($legacy !== '') {
         $mode = 'legacy';
     } else {
-        json_error(503, 'FCM غير مضبوط: ضع service_account_file في api/config.php');
+        $hint = $saPath !== '' ? (' الملف المتوقع: ' . $saPath) : '';
+        json_error(503, 'FCM غير مضبوط على السيرفر.' . $hint . ' ارفع api/secrets/firebase-sa.json وحدّث config.php');
     }
 
-    $tokens = $uid !== '' ? vewo_device_tokens_for_user($pdo, $uid, true) : [];
-    if (empty($tokens)) {
-        json_error(400, 'لا يوجد توكن جهاز مسجّل لهذا الحساب — افتح تطبيق الأدمن وهو متصل');
+    if (!vewo_device_tokens_ensure($pdo)) {
+        json_error(500, 'جدول الأجهزة غير جاهز');
     }
-    vewo_fcm_send(
-        $tokens,
-        'اختبار FCM',
-        'إذا وصلك هذا الإشعار فـ Firebase يعمل بنجاح',
-        ['type' => 'broadcast', 'kind' => 'fcm_test']
-    );
+
+    $tokenRows = [];
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT token, platform, last_seen_at FROM device_tokens
+             WHERE user_id = :u AND is_admin_app = 1
+             ORDER BY last_seen_at DESC LIMIT 30'
+        );
+        $stmt->execute([':u' => $uid]);
+        $tokenRows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        $tokenRows = [];
+    }
+
+    $tokens = [];
+    $platforms = ['ios' => 0, 'android' => 0, 'other' => 0];
+    foreach ($tokenRows as $row) {
+        $t = trim((string) ($row['token'] ?? ''));
+        if ($t === '') continue;
+        $tokens[] = $t;
+        $p = strtolower(trim((string) ($row['platform'] ?? 'other')));
+        if ($p === 'ios') {
+            $platforms['ios']++;
+        } elseif ($p === 'android') {
+            $platforms['android']++;
+        } else {
+            $platforms['other']++;
+        }
+    }
+    $tokens = array_values(array_unique($tokens));
+    if (empty($tokens)) {
+        json_error(400, 'لا يوجد توكن جهاز مسجّل لهذا الحساب — افتح تطبيق الأدمن على جهاز حقيقي وهو متصل بالإنترنت');
+    }
+
+    $report = ['sent' => 0, 'failed' => 0, 'errors' => []];
+    if ($mode === 'http_v1') {
+        $report = vewo_fcm_send_v1(
+            $tokens,
+            'اختبار FCM',
+            'إذا وصلك هذا الإشعار والتطبيق مغلق فـ iOS/Android يعملان',
+            ['type' => 'broadcast', 'kind' => 'fcm_test', 'section' => 'settings']
+        );
+    } else {
+        vewo_fcm_send_legacy(
+            $tokens,
+            'اختبار FCM',
+            'إذا وصلك هذا الإشعار والتطبيق مغلق فـ iOS/Android يعملان',
+            ['type' => 'broadcast', 'kind' => 'fcm_test']
+        );
+        $report['sent'] = count($tokens);
+    }
+
+    $hint = null;
+    foreach ($report['errors'] as $e) {
+        $el = strtolower($e);
+        if (str_contains($el, 'invalidapnscredential') || str_contains($el, 'apns')) {
+            $hint = 'ارفع مفتاح APNs (.p8) في Firebase → Project settings → Cloud Messaging — بدون هذا الآيفون لن يستقبل إشعارات خارج التطبيق';
+            break;
+        }
+        if (str_contains($el, 'unregistered') || str_contains($el, 'notfound')) {
+            $hint = 'توكن قديم — أغلق التطبيق وافتحه من جديد لتسجيل توكن جديد';
+        }
+    }
+    if ($hint === null && ($platforms['ios'] ?? 0) > 0 && ($report['failed'] ?? 0) > 0) {
+        $hint = 'فشل إرسال لـ iOS غالباً بسبب APNs غير مربوط في Firebase';
+    }
+
+    $ok = ((int) ($report['sent'] ?? 0)) > 0;
     echo json_encode([
-        'ok' => true,
+        'ok' => $ok,
         'mode' => $mode,
-        'tokens' => count($tokens),
         'project_id' => $projectId,
+        'tokens' => count($tokens),
+        'platforms' => $platforms,
+        'sent' => (int) ($report['sent'] ?? 0),
+        'failed' => (int) ($report['failed'] ?? 0),
+        'errors' => array_values(array_unique($report['errors'] ?? [])),
+        'hint' => $hint,
+        'sa_file_exists' => ($saPath !== '' && is_file($saPath)),
     ], JSON_UNESCAPED_UNICODE);
 }
 
@@ -3529,16 +3973,22 @@ function admin_properties_route(PDO $pdo): void
             return;
         }
         if ($action === 'urgent_sale') {
-            $infoStmt = $pdo->prepare('SELECT owner_user_id, details_json FROM properties WHERE id = :id LIMIT 1');
+            $infoStmt = $pdo->prepare(
+                'SELECT owner_user_id, details_json, title, governorate, address_line, price_iqd, area_sqm
+                 FROM properties WHERE id = :id LIMIT 1'
+            );
             $infoStmt->execute([':id' => $id]);
             $info = $infoStmt->fetch(PDO::FETCH_ASSOC);
             if (!is_array($info)) {
                 json_error(404, 'المنشور غير موجود');
             }
-            $days = (int) ($in['urgent_sale_days'] ?? 1);
+            $days = (int) ($in['urgent_sale_days'] ?? $in['days'] ?? 1);
             if ($days < 1 || $days > 365) {
                 json_error(400, 'مدة البيع العاجل يجب أن تكون بين 1 و 365 يوم');
             }
+            // افتراضياً: إشعار لكل المستخدمين (يمكن إلغاؤه بـ notify_all=0)
+            $notifyAll = !array_key_exists('notify_all', $in)
+                || vewo_truthy_flag($in['notify_all'] ?? true);
             $ownerId = (string) ($info['owner_user_id'] ?? '');
             $details = [];
             $rawDetails = (string) ($info['details_json'] ?? '');
@@ -3578,7 +4028,27 @@ function admin_properties_route(PDO $pdo): void
                     ['type' => 'property_urgent_sale', 'property_id' => $id]
                 );
             }
-            echo json_encode(['ok' => true, 'updated' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
+            $pushCount = 0;
+            if ($notifyAll) {
+                $publicBody = vewo_urgent_sale_public_body($info, $days);
+                $pushCount = vewo_fcm_notify_all_users(
+                    $pdo,
+                    'بيع عاجل',
+                    $publicBody,
+                    [
+                        'type' => 'urgent_sale_public',
+                        'property_id' => $id,
+                        'title' => 'بيع عاجل',
+                        'body' => $publicBody,
+                    ]
+                );
+            }
+            echo json_encode([
+                'ok' => true,
+                'updated' => $stmt->rowCount(),
+                'notify_all' => $notifyAll,
+                'push_tokens' => $pushCount,
+            ], JSON_UNESCAPED_UNICODE);
 
             return;
         }

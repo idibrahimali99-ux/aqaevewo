@@ -70,11 +70,16 @@ require __DIR__ . '/../partials/section-alerts.php';
                             <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill">تم البيع</button>
                         </form>
                         <?php if (!$isUrgent): ?>
-                            <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="d-inline-flex gap-1 align-items-center">
+                            <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="d-inline-flex flex-wrap gap-1 align-items-center">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="_operation" value="urgent_sale">
                                 <input type="hidden" name="id" value="<?= e($pid) ?>">
                                 <input type="number" name="days" value="7" min="1" max="365" class="form-control form-control-sm" style="width:4rem" title="أيام">
+                                <input type="hidden" name="notify_all" value="0">
+                                <label class="form-check form-check-inline m-0 small">
+                                    <input type="checkbox" class="form-check-input" name="notify_all" value="1" checked>
+                                    إشعار للجميع
+                                </label>
                                 <button type="submit" class="btn btn-outline-warning btn-sm rounded-pill">بيع عاجل</button>
                             </form>
                         <?php else: ?>

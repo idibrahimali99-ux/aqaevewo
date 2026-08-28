@@ -252,30 +252,50 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
 
   Future<void> _enableUrgentSale(String id) async {
     final daysCtrl = TextEditingController(text: '3');
+    var notifyAll = true;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('تفعيل البيع العاجل'),
-        content: TextField(
-          controller: daysCtrl,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'عدد الأيام',
-            hintText: 'مثال: 5',
-            prefixIcon: Icon(Icons.timer_outlined),
-            helperText: 'يمكن كتابة أي مدة من 1 إلى 365 يوم',
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('تفعيل البيع العاجل'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: daysCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'عدد الأيام',
+                  hintText: 'مثال: 5',
+                  prefixIcon: Icon(Icons.timer_outlined),
+                  helperText: 'يمكن كتابة أي مدة من 1 إلى 365 يوم',
+                ),
+              ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: notifyAll,
+                onChanged: (v) => setLocal(() => notifyAll = v ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('إشعار لجميع المستخدمين'),
+                subtitle: const Text(
+                  'إرسال إشعار فوري لكل أجهزة تطبيق عقار تاون',
+                ),
+              ),
+            ],
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('تفعيل'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('تفعيل'),
-          ),
-        ],
       ),
     );
     final days = int.tryParse(daysCtrl.text.trim()) ?? 0;
@@ -289,14 +309,23 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
     }
     try {
       final api = ref.read(vewoApiClientProvider);
-      await api.postJson('admin/properties', {
+      final data = await api.postJson('admin/properties', {
         'id': id,
         'action': 'urgent_sale',
         'urgent_sale_days': days,
+        'notify_all': notifyAll,
       });
       if (!mounted) return;
+      final pushed = data['push_tokens'];
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تم تفعيل البيع العاجل لمدة $days أيام')),
+        SnackBar(
+          content: Text(
+            notifyAll
+                ? 'تم تفعيل البيع العاجل لمدة $days أيام'
+                    '${pushed != null ? ' · إشعار لـ $pushed جهاز' : ''}'
+                : 'تم تفعيل البيع العاجل لمدة $days أيام بدون إشعار جماعي',
+          ),
+        ),
       );
       await _load();
     } on VewoApiException catch (e) {
