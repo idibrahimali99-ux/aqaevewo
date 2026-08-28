@@ -37,33 +37,47 @@ class AdminNotificationService {
 
   Future<void> init() async {
     if (_ready) return;
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const settings = InitializationSettings(
-      android: android,
-      iOS: DarwinInitializationSettings(),
-    );
-    final launch = await _plugin.getNotificationAppLaunchDetails();
-    if (launch?.didNotificationLaunchApp == true) {
-      _pendingLaunchPayload = _decodePayload(launch?.notificationResponse?.payload);
+    try {
+      const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const ios = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
+      const settings = InitializationSettings(
+        android: android,
+        iOS: ios,
+      );
+      final launch = await _plugin.getNotificationAppLaunchDetails();
+      if (launch?.didNotificationLaunchApp == true) {
+        _pendingLaunchPayload = _decodePayload(launch?.notificationResponse?.payload);
+      }
+      await _plugin.initialize(
+        settings: settings,
+        onDidReceiveNotificationResponse: (resp) {
+          final data = _decodePayload(resp.payload);
+          if (data == null) return;
+          if (_onTap != null) {
+            _onTap!(data);
+          } else {
+            _pendingLaunchPayload = data;
+          }
+        },
+      );
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.requestNotificationsPermission();
+      await _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >()
+          ?.requestPermissions(alert: true, badge: true, sound: true);
+      _ready = true;
+    } catch (_) {
+      _ready = false;
     }
-    await _plugin.initialize(
-      settings: settings,
-      onDidReceiveNotificationResponse: (resp) {
-        final data = _decodePayload(resp.payload);
-        if (data == null) return;
-        if (_onTap != null) {
-          _onTap!(data);
-        } else {
-          _pendingLaunchPayload = data;
-        }
-      },
-    );
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.requestNotificationsPermission();
-    _ready = true;
   }
 
   Future<void> show({
@@ -73,6 +87,8 @@ class AdminNotificationService {
     Map<String, dynamic>? payload,
   }) async {
     if (!_ready) await init();
+    if (!_ready) return;
+    try {
     const details = NotificationDetails(
       android: AndroidNotificationDetails(
         'vewo_high_alerts',
@@ -98,5 +114,6 @@ class AdminNotificationService {
       notificationDetails: details,
       payload: payload == null ? null : jsonEncode(payload),
     );
+    } catch (_) {}
   }
 }

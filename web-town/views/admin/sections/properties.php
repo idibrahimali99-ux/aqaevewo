@@ -77,8 +77,8 @@ require __DIR__ . '/../partials/section-alerts.php';
                                 <input type="number" name="days" value="7" min="1" max="365" class="form-control form-control-sm" style="width:4rem" title="أيام">
                                 <input type="hidden" name="notify_all" value="0">
                                 <label class="form-check form-check-inline m-0 small">
-                                    <input type="checkbox" class="form-check-input" name="notify_all" value="1" checked>
-                                    إشعار للجميع
+                                    <input type="checkbox" class="form-check-input" name="notify_all" value="1">
+                                    إرسال إشعار للمستخدمين
                                 </label>
                                 <button type="submit" class="btn btn-outline-warning btn-sm rounded-pill">بيع عاجل</button>
                             </form>

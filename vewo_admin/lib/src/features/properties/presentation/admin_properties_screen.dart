@@ -252,50 +252,30 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
 
   Future<void> _enableUrgentSale(String id) async {
     final daysCtrl = TextEditingController(text: '3');
-    var notifyAll = true;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('تفعيل البيع العاجل'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: daysCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'عدد الأيام',
-                  hintText: 'مثال: 5',
-                  prefixIcon: Icon(Icons.timer_outlined),
-                  helperText: 'يمكن كتابة أي مدة من 1 إلى 365 يوم',
-                ),
-              ),
-              const SizedBox(height: 8),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                value: notifyAll,
-                onChanged: (v) => setLocal(() => notifyAll = v ?? false),
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('إشعار لجميع المستخدمين'),
-                subtitle: const Text(
-                  'إرسال إشعار فوري لكل أجهزة تطبيق عقار تاون',
-                ),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: const Text('تفعيل البيع العاجل'),
+        content: TextField(
+          controller: daysCtrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'عدد الأيام (للإدارة فقط)',
+            hintText: 'مثال: 5',
+            prefixIcon: Icon(Icons.timer_outlined),
+            helperText: 'المدة تظهر للمسؤول والموظف فقط — لا تُرسل للمستخدمين',
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('تفعيل'),
-            ),
-          ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('تفعيل'),
+          ),
+        ],
       ),
     );
     final days = int.tryParse(daysCtrl.text.trim()) ?? 0;
@@ -307,6 +287,28 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
       );
       return;
     }
+    final notifyChoice = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('إرسال إشعار للمستخدمين؟'),
+        content: const Text(
+          'تم تجهيز البيع العاجل. هل تريد إرسال إشعار لكل مستخدمي التطبيق؟\n'
+          'إذا اخترت «تفعيل فقط» يظهر العقار في قسم البيع العاجل دون إشعار.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('تفعيل فقط'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('نعم، أرسل إشعار'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    final notifyAll = notifyChoice == true;
     try {
       final api = ref.read(vewoApiClientProvider);
       final data = await api.postJson('admin/properties', {
@@ -323,7 +325,7 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
             notifyAll
                 ? 'تم تفعيل البيع العاجل لمدة $days أيام'
                     '${pushed != null ? ' · إشعار لـ $pushed جهاز' : ''}'
-                : 'تم تفعيل البيع العاجل لمدة $days أيام بدون إشعار جماعي',
+                : 'تم تفعيل البيع العاجل لمدة $days أيام بدون إشعار للمستخدمين',
           ),
         ),
       );

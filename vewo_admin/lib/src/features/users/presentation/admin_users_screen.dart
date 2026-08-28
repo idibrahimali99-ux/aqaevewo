@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -263,13 +265,18 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('تم إنشاء الحساب')));
+        ).showSnackBar(const SnackBar(content: Text('تم إنشاء الحساب')));
         await _load();
       } on VewoApiException catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.message)));
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر إنشاء الحساب — حاول مرة أخرى')),
+        );
       }
     } finally {
       nameCtrl.dispose();
@@ -302,6 +309,8 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
     final id = u['id']?.toString() ?? '';
     if (id.isEmpty) return;
     final role = u['role']?.toString() ?? '';
+    final canEditPerms =
+        ref.read(adminSessionProvider).role == 'admin' && role == 'staff';
     final nameCtrl = TextEditingController(
       text: u['full_name']?.toString() ?? '',
     );
@@ -344,7 +353,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
                       ),
                     ),
                   ],
-                  if (role == 'staff') ...[
+                  if (canEditPerms) ...[
                     const SizedBox(height: 12),
                     Align(
                       alignment: AlignmentDirectional.centerStart,
@@ -393,7 +402,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
         'full_name': nameCtrl.text.trim(),
         'email': emailCtrl.text.trim(),
         if (role == 'office') 'office_name': officeCtrl.text.trim(),
-        if (role == 'staff') 'permissions': permissions.toList(),
+        if (canEditPerms) 'permissions': permissions.toList(),
       });
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -405,6 +414,11 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر التحديث — حاول مرة أخرى')),
+      );
     } finally {
       nameCtrl.dispose();
       officeCtrl.dispose();
@@ -424,13 +438,94 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
 
   Set<String> _parsePermissions(dynamic raw) {
     if (raw is List) return raw.map((e) => e.toString()).toSet();
+    if (raw is Map) {
+      return raw.values.map((e) => e.toString()).toSet();
+    }
     final text = raw?.toString() ?? '';
     if (text.isEmpty || text == 'null') return <String>{};
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is List) {
+        return decoded.map((e) => e.toString()).toSet();
+      }
+    } catch (_) {}
     final out = <String>{};
     for (final key in _permissionLabels.keys) {
       if (text.contains('"$key"') || text.contains(key)) out.add(key);
     }
     return out;
+  }
+
+  Future<void> _editStaffPermissions(Map<String, dynamic> u) async {
+    final id = u['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    if (ref.read(adminSessionProvider).role != 'admin') return;
+    final name = u['full_name']?.toString() ?? 'موظف';
+    final permissions = _parsePermissions(u['staff_permissions_json']);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text('صلاحيات $name'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'حدّد الأقسام التي يعمل عليها هذا الموظف.',
+                  style: Theme.of(ctx).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 8),
+                for (final entry in _permissionLabels.entries)
+                  CheckboxListTile(
+                    dense: true,
+                    value: permissions.contains(entry.key),
+                    title: Text(entry.value),
+                    onChanged: (v) => setLocal(() {
+                      if (v == true) {
+                        permissions.add(entry.key);
+                      } else {
+                        permissions.remove(entry.key);
+                      }
+                    }),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('حفظ الصلاحيات'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      final api = ref.read(vewoApiClientProvider);
+      await api.postJson('admin/users', {
+        'action': 'update_user',
+        'user_id': id,
+        'full_name': (u['full_name']?.toString() ?? name).trim(),
+        'email': (u['email']?.toString() ?? '').trim(),
+        'permissions': permissions.toList(),
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم تحديث صلاحيات الموظف')));
+      await _load();
+    } on VewoApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 
   Future<void> _resetPassword(String userId, String displayName) async {
@@ -761,6 +856,9 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
                           final canEdit = id.isNotEmpty && id != myId;
                           final profileUrl =
                               u['profile_photo_url']?.toString().trim() ?? '';
+                          final staffPerms = role == 'staff'
+                              ? _parsePermissions(u['staff_permissions_json'])
+                              : <String>{};
 
                           final titleText =
                               role == 'office' && officeName.isNotEmpty
@@ -947,6 +1045,38 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
                                                         ),
                                                   ),
                                                 ),
+                                              if (role == 'staff') ...[
+                                                const SizedBox(height: 8),
+                                                Wrap(
+                                                  spacing: 6,
+                                                  runSpacing: 4,
+                                                  children: [
+                                                    for (final key in staffPerms)
+                                                      Chip(
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
+                                                        label: Text(
+                                                          _permissionLabels[key] ??
+                                                              key,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 11,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    if (staffPerms.isEmpty)
+                                                      Chip(
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
+                                                        label: const Text(
+                                                          'بدون صلاحيات',
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ],
                                             ],
                                           ),
                                         ),
@@ -967,6 +1097,18 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
                                               size: 18,
                                             ),
                                             label: const Text('تعديل'),
+                                          ),
+                                        if (isSuperAdmin &&
+                                            role == 'staff' &&
+                                            id.isNotEmpty)
+                                          FilledButton.tonalIcon(
+                                            onPressed: () =>
+                                                _editStaffPermissions(u),
+                                            icon: const Icon(
+                                              Icons.admin_panel_settings_outlined,
+                                              size: 18,
+                                            ),
+                                            label: const Text('صلاحيات'),
                                           ),
                                         if (isSuperAdmin && id.isNotEmpty)
                                           OutlinedButton.icon(

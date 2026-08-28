@@ -50,6 +50,7 @@ class AdminFcmClient {
         alert: true,
         badge: true,
         sound: true,
+        announcement: true,
         provisional: false,
       );
       await messaging.setForegroundNotificationPresentationOptions(
@@ -58,6 +59,10 @@ class AdminFcmClient {
         sound: true,
       );
       await _registerCurrentToken();
+      if (Platform.isIOS) {
+        Future<void>.delayed(const Duration(seconds: 3), _registerCurrentToken);
+        Future<void>.delayed(const Duration(seconds: 10), _registerCurrentToken);
+      }
       messaging.onTokenRefresh.listen((t) async {
         try {
           await _registerToken(t);
@@ -70,6 +75,7 @@ class AdminFcmClient {
             n?.title ?? msg.data['title']?.toString() ?? 'تنبيه الإدارة';
         final body = n?.body ?? msg.data['body']?.toString() ?? '';
         if (title.isEmpty && body.isEmpty) return;
+        if (Platform.isIOS && n != null) return;
         await AdminNotificationService.instance.show(
           id: DateTime.now().millisecondsSinceEpoch % 100000,
           title: title,
@@ -166,11 +172,12 @@ class AdminFcmClient {
       final messaging = FirebaseMessaging.instance;
       if (Platform.isIOS) {
         String? apns;
-        for (var i = 0; i < 8; i++) {
+        for (var i = 0; i < 20; i++) {
           apns = await messaging.getAPNSToken();
           if (apns != null && apns.isNotEmpty) break;
           await Future<void>.delayed(const Duration(milliseconds: 500));
         }
+        if (apns == null || apns.isEmpty) return;
       }
       final token = await messaging.getToken();
       if (token != null && token.isNotEmpty) {

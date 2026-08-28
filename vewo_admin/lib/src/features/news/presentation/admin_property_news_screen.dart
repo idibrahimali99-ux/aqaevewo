@@ -301,6 +301,7 @@ class _AddNewsDialogState extends ConsumerState<_AddNewsDialog> {
         'image_url': _imageUrl.text.trim(),
         'body': _body.text.trim(),
         'sort_order': int.tryParse(_sort.text.trim()) ?? 0,
+        if (!_editing) 'notify_all': 1,
       });
       if (!mounted) return;
       Navigator.pop(context);

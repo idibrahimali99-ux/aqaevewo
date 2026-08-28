@@ -385,6 +385,7 @@ class _AddPromotionDialogState extends ConsumerState<_AddPromotionDialog> {
         'campaign_days': int.tryParse(_campaignDays.text.trim()) ?? 0,
         'sort_order': int.tryParse(_sort.text.trim()) ?? 0,
         'slot': _slot,
+        if (!_editing) 'notify_all': 1,
       });
       if (!mounted) return;
       Navigator.pop(context);

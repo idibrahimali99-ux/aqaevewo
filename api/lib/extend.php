@@ -522,6 +522,32 @@ function vewo_users_has_staff_permissions_column(PDO $pdo): bool
     }
 }
 
+function vewo_users_ensure_staff_permissions_column(PDO $pdo): bool
+{
+    if (vewo_users_has_staff_permissions_column($pdo)) {
+        return true;
+    }
+    try {
+        $pdo->exec('ALTER TABLE users ADD COLUMN staff_permissions_json JSON NULL');
+        return true;
+    } catch (Throwable $e) {
+        return vewo_users_has_staff_permissions_column($pdo);
+    }
+}
+
+function vewo_users_write_fail(PDOException $e): void
+{
+    $code = (int) ($e->errorInfo[1] ?? 0);
+    $msg = $e->getMessage();
+    if ($code === 1062 || str_contains($msg, 'Duplicate')) {
+        if (stripos($msg, 'email') !== false) {
+            json_error(409, 'البريد الإلكتروني مسجّل مسبقاً');
+        }
+        json_error(409, 'رقم الهاتف مسجّل مسبقاً');
+    }
+    json_error(500, 'تعذر حفظ الحساب. تحقق من البيانات وحاول مرة أخرى');
+}
+
 function vewo_users_has_email_column(PDO $pdo): bool
 {
     try {
@@ -2366,21 +2392,34 @@ function admin_users_route(PDO $pdo): void
             $role = $action === 'create_office' ? 'office' : 'customer';
             $id = uuid_v4();
             $hash = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare(
-                'INSERT INTO users (id, full_name, office_name, phone, email, password_hash, role, office_approved, is_active, created_by, created_at)
-                 VALUES (:id, :fn, :on, :ph, :email, :pw, :rl, :oa, 1, :cb, NOW(3))'
-            );
-            $stmt->execute([
+            $hasEmail = vewo_users_has_email_column($pdo);
+            $params = [
                 ':id' => $id,
                 ':fn' => $fullName,
-                ':on' => $role === 'office' ? $officeName : null,
+                ':on' => $role === 'office' ? $officeName : '',
                 ':ph' => $phone,
-                ':email' => $email !== '' ? $email : null,
                 ':pw' => $hash,
                 ':rl' => $role,
                 ':oa' => $role === 'office' ? 1 : 0,
                 ':cb' => $admin['id'],
-            ]);
+            ];
+            try {
+                if ($hasEmail) {
+                    $stmt = $pdo->prepare(
+                        'INSERT INTO users (id, full_name, office_name, phone, email, password_hash, role, office_approved, is_active, created_by, created_at)
+                         VALUES (:id, :fn, :on, :ph, :email, :pw, :rl, :oa, 1, :cb, NOW(3))'
+                    );
+                    $params[':email'] = $email !== '' ? $email : null;
+                } else {
+                    $stmt = $pdo->prepare(
+                        'INSERT INTO users (id, full_name, office_name, phone, password_hash, role, office_approved, is_active, created_by, created_at)
+                         VALUES (:id, :fn, :on, :ph, :pw, :rl, :oa, 1, :cb, NOW(3))'
+                    );
+                }
+                $stmt->execute($params);
+            } catch (PDOException $e) {
+                vewo_users_write_fail($e);
+            }
             if ($action === 'create_office' && vewo_users_has_is_marketer_column($pdo)
                 && (int) ($in['is_marketer'] ?? 0) === 1) {
                 try {
@@ -2401,6 +2440,7 @@ function admin_users_route(PDO $pdo): void
             $phone = trim((string) ($in['phone'] ?? ''));
             $email = trim(strtolower((string) ($in['email'] ?? '')));
             $password = (string) ($in['password'] ?? '');
+            vewo_users_ensure_staff_permissions_column($pdo);
             $permissionsJson = vewo_normalize_staff_permissions($in['permissions'] ?? []);
             if ($fullName === '' || mb_strlen($fullName) < 3) {
                 json_error(400, 'اسم الموظف غير صالح');
@@ -2416,6 +2456,10 @@ function admin_users_route(PDO $pdo): void
             }
             $id = uuid_v4();
             $hash = password_hash($password, PASSWORD_DEFAULT);
+            $hasEmail = vewo_users_has_email_column($pdo);
+            $hasPerm = vewo_users_has_staff_permissions_column($pdo);
+            $cols = ['id', 'full_name', 'office_name', 'phone'];
+            $vals = [':id', ':fn', "''", ':ph'];
             $params = [
                 ':id' => $id,
                 ':fn' => $fullName,
@@ -2423,20 +2467,36 @@ function admin_users_route(PDO $pdo): void
                 ':pw' => $hash,
                 ':cb' => $admin['id'],
             ];
-            if (vewo_users_has_staff_permissions_column($pdo)) {
-                $stmt = $pdo->prepare(
-                    'INSERT INTO users (id, full_name, phone, email, password_hash, role, office_approved, is_active, created_by, staff_permissions_json, created_at)
-                     VALUES (:id, :fn, :ph, :email, :pw, \'staff\', 0, 1, :cb, :perm, NOW(3))'
-                );
-                $params[':perm'] = $permissionsJson;
-            } else {
-                $stmt = $pdo->prepare(
-                    'INSERT INTO users (id, full_name, phone, email, password_hash, role, office_approved, is_active, created_by, created_at)
-                     VALUES (:id, :fn, :ph, :email, :pw, \'staff\', 0, 1, :cb, NOW(3))'
-                );
+            if ($hasEmail) {
+                $cols[] = 'email';
+                $vals[] = ':email';
+                $params[':email'] = $email !== '' ? $email : null;
             }
-            $params[':email'] = $email !== '' ? $email : null;
-            $stmt->execute($params);
+            $cols[] = 'password_hash';
+            $vals[] = ':pw';
+            $cols[] = 'role';
+            $vals[] = "'staff'";
+            $cols[] = 'office_approved';
+            $vals[] = '0';
+            $cols[] = 'is_active';
+            $vals[] = '1';
+            $cols[] = 'created_by';
+            $vals[] = ':cb';
+            if ($hasPerm) {
+                $cols[] = 'staff_permissions_json';
+                $vals[] = ':perm';
+                $params[':perm'] = $permissionsJson;
+            }
+            $cols[] = 'created_at';
+            $vals[] = 'NOW(3)';
+            try {
+                $stmt = $pdo->prepare(
+                    'INSERT INTO users (' . implode(', ', $cols) . ') VALUES (' . implode(', ', $vals) . ')'
+                );
+                $stmt->execute($params);
+            } catch (PDOException $e) {
+                vewo_users_write_fail($e);
+            }
             echo json_encode(['ok' => true, 'id' => $id], JSON_UNESCAPED_UNICODE);
 
             return;
@@ -2464,18 +2524,31 @@ function admin_users_route(PDO $pdo): void
             }
             $id = uuid_v4();
             $hash = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare(
-                'INSERT INTO users (id, full_name, phone, email, password_hash, role, office_approved, is_active, created_by, created_at)
-                 VALUES (:id, :fn, :ph, :email, :pw, \'admin\', 0, 1, :cb, NOW(3))'
-            );
-            $stmt->execute([
+            $hasEmail = vewo_users_has_email_column($pdo);
+            $params = [
                 ':id' => $id,
                 ':fn' => $fullName,
                 ':ph' => $phone,
-                ':email' => $email !== '' ? $email : null,
                 ':pw' => $hash,
                 ':cb' => $admin['id'],
-            ]);
+            ];
+            try {
+                if ($hasEmail) {
+                    $stmt = $pdo->prepare(
+                        'INSERT INTO users (id, full_name, office_name, phone, email, password_hash, role, office_approved, is_active, created_by, created_at)
+                         VALUES (:id, :fn, \'\', :ph, :email, :pw, \'admin\', 0, 1, :cb, NOW(3))'
+                    );
+                    $params[':email'] = $email !== '' ? $email : null;
+                } else {
+                    $stmt = $pdo->prepare(
+                        'INSERT INTO users (id, full_name, office_name, phone, password_hash, role, office_approved, is_active, created_by, created_at)
+                         VALUES (:id, :fn, \'\', :ph, :pw, \'admin\', 0, 1, :cb, NOW(3))'
+                    );
+                }
+                $stmt->execute($params);
+            } catch (PDOException $e) {
+                vewo_users_write_fail($e);
+            }
             echo json_encode(['ok' => true, 'id' => $id], JSON_UNESCAPED_UNICODE);
 
             return;
@@ -2502,19 +2575,30 @@ function admin_users_route(PDO $pdo): void
             $roleStmt = $pdo->prepare('SELECT role FROM users WHERE id = :id LIMIT 1');
             $roleStmt->execute([':id' => $targetId]);
             $tr = (string) ($roleStmt->fetchColumn() ?: '');
+            $hasEmail = vewo_users_has_email_column($pdo);
+            $hasPerm = vewo_users_ensure_staff_permissions_column($pdo);
+            $isAdminCaller = ($admin['role'] ?? '') === 'admin';
+            $sets = ['full_name = :fn'];
+            $params = [':fn' => $fullName, ':id' => $targetId];
+            if ($hasEmail) {
+                $sets[] = 'email = :email';
+                $params[':email'] = $email !== '' ? $email : null;
+            }
             if ($tr === 'office') {
+                $sets[] = 'office_name = :on';
+                $params[':on'] = $officeName;
+            }
+            if ($tr === 'staff' && $hasPerm && $isAdminCaller && array_key_exists('permissions', $in)) {
+                $sets[] = 'staff_permissions_json = :perm';
+                $params[':perm'] = $permissionsJson;
+            }
+            try {
                 $stmt = $pdo->prepare(
-                    'UPDATE users SET full_name = :fn, email = :email, office_name = :on WHERE id = :id LIMIT 1'
+                    'UPDATE users SET ' . implode(', ', $sets) . ' WHERE id = :id LIMIT 1'
                 );
-                $stmt->execute([':fn' => $fullName, ':email' => $email !== '' ? $email : null, ':on' => $officeName, ':id' => $targetId]);
-            } elseif ($tr === 'staff' && vewo_users_has_staff_permissions_column($pdo)) {
-                $stmt = $pdo->prepare(
-                    'UPDATE users SET full_name = :fn, email = :email, staff_permissions_json = :perm WHERE id = :id LIMIT 1'
-                );
-                $stmt->execute([':fn' => $fullName, ':email' => $email !== '' ? $email : null, ':perm' => $permissionsJson, ':id' => $targetId]);
-            } else {
-                $stmt = $pdo->prepare('UPDATE users SET full_name = :fn, email = :email WHERE id = :id LIMIT 1');
-                $stmt->execute([':fn' => $fullName, ':email' => $email !== '' ? $email : null, ':id' => $targetId]);
+                $stmt->execute($params);
+            } catch (PDOException $e) {
+                vewo_users_write_fail($e);
             }
             echo json_encode(['ok' => true, 'updated' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
 

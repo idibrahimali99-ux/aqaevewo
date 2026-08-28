@@ -1448,21 +1448,18 @@ function admin_promotions_route(PDO $pdo): void
         }
         $stmt->execute($params);
         $pushCount = 0;
-        $notifyAll = !array_key_exists('notify_all', $in) || vewo_truthy_flag($in['notify_all'] ?? true);
-        if ($notifyAll) {
-            $pushBody = $subtitle !== '' ? $subtitle : 'إعلان جديد على الرئيسية — افتح التطبيق للاطلاع';
-            $pushCount = vewo_fcm_notify_all_users(
-                $pdo,
-                'إعلان جديد',
-                $title . ($subtitle !== '' ? ' — ' . $subtitle : ''),
-                [
-                    'type' => 'home_promotion',
-                    'promotion_id' => $id,
-                    'title' => $title,
-                    'body' => $pushBody,
-                ]
-            );
-        }
+        $pushBody = $subtitle !== '' ? $subtitle : 'إعلان جديد على الرئيسية — افتح التطبيق للاطلاع';
+        $pushCount = vewo_fcm_notify_all_users(
+            $pdo,
+            'إعلان جديد',
+            $title . ($subtitle !== '' ? ' — ' . $subtitle : ''),
+            [
+                'type' => 'home_promotion',
+                'promotion_id' => $id,
+                'title' => $title,
+                'body' => $pushBody,
+            ]
+        );
         echo json_encode([
             'ok' => true,
             'id' => $id,
@@ -1563,21 +1560,18 @@ function admin_property_news_route(PDO $pdo): void
             ':so' => $sortOrder,
         ]);
         $pushCount = 0;
-        $notifyAll = !array_key_exists('notify_all', $in) || vewo_truthy_flag($in['notify_all'] ?? true);
-        if ($notifyAll) {
-            $snippet = mb_substr(preg_replace('/\s+/u', ' ', $body) ?? $body, 0, 120);
-            $pushCount = vewo_fcm_notify_all_users(
-                $pdo,
-                'خبر عقاري جديد',
-                $title . ($snippet !== '' ? ' — ' . $snippet : ''),
-                [
-                    'type' => 'property_news',
-                    'news_id' => $id,
-                    'title' => $title,
-                    'body' => $snippet,
-                ]
-            );
-        }
+        $snippet = mb_substr(preg_replace('/\s+/u', ' ', $body) ?? $body, 0, 120);
+        $pushCount = vewo_fcm_notify_all_users(
+            $pdo,
+            'خبر عقاري جديد',
+            $title . ($snippet !== '' ? ' — ' . $snippet : ''),
+            [
+                'type' => 'property_news',
+                'news_id' => $id,
+                'title' => $title,
+                'body' => $snippet,
+            ]
+        );
         echo json_encode([
             'ok' => true,
             'id' => $id,
@@ -3158,7 +3152,6 @@ function vewo_fcm_send_legacy(array $tokens, string $title, string $body, array 
         $payload = [
             'registration_ids' => array_values($chunk),
             'priority' => 'high',
-            'content_available' => true,
             'collapse_key' => $collapse,
             'time_to_live' => 86400,
             'notification' => [
@@ -3256,9 +3249,6 @@ function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $dat
                                 ],
                                 'sound' => 'default',
                                 'badge' => 1,
-                                'content-available' => 1,
-                                'mutable-content' => 1,
-                                'interruption-level' => 'time-sensitive',
                             ],
                         ],
                     ],
@@ -3502,9 +3492,7 @@ function vewo_urgent_sale_public_body(array $info, int $days = 0): string
     if ($area > 0) {
         $parts[] = $area . ' م²';
     }
-    if ($days > 0) {
-        $parts[] = $days . ' يوم';
-    }
+    // المدة بالأيام للإدارة فقط — لا تُدرج في إشعار المستخدمين.
     return implode(' · ', $parts);
 }
 
@@ -3986,9 +3974,9 @@ function admin_properties_route(PDO $pdo): void
             if ($days < 1 || $days > 365) {
                 json_error(400, 'مدة البيع العاجل يجب أن تكون بين 1 و 365 يوم');
             }
-            // افتراضياً: إشعار لكل المستخدمين (يمكن إلغاؤه بـ notify_all=0)
-            $notifyAll = !array_key_exists('notify_all', $in)
-                || vewo_truthy_flag($in['notify_all'] ?? true);
+            // إشعار المستخدمين اختياري — التفعيل وحده لا يرسل إشعاراً جماعياً.
+            $notifyAll = array_key_exists('notify_all', $in)
+                && vewo_truthy_flag($in['notify_all']);
             $ownerId = (string) ($info['owner_user_id'] ?? '');
             $details = [];
             $rawDetails = (string) ($info['details_json'] ?? '');
@@ -4030,7 +4018,7 @@ function admin_properties_route(PDO $pdo): void
             }
             $pushCount = 0;
             if ($notifyAll) {
-                $publicBody = vewo_urgent_sale_public_body($info, $days);
+                $publicBody = vewo_urgent_sale_public_body($info);
                 $pushCount = vewo_fcm_notify_all_users(
                     $pdo,
                     'بيع عاجل',

@@ -22,9 +22,17 @@ import FirebaseMessaging
       GMSServices.provideAPIKey(apiKey)
     }
 
-    // FCM / APNs — عرض الإشعارات في المقدمة + تسجيل الجهاز للتوكن.
     UNUserNotificationCenter.current().delegate = self
-    application.registerForRemoteNotifications()
+    UNUserNotificationCenter.current().requestAuthorization(
+      options: [.alert, .badge, .sound]
+    ) { granted, _ in
+      DispatchQueue.main.async {
+        application.registerForRemoteNotifications()
+      }
+      if !granted {
+        NSLog("APNs permission not granted")
+      }
+    }
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -43,6 +51,26 @@ import FirebaseMessaging
   ) {
     NSLog("APNs registration failed: \(error.localizedDescription)")
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+  }
+
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+    if #available(iOS 14.0, *) {
+      completionHandler([.banner, .list, .sound, .badge])
+    } else {
+      completionHandler([.alert, .sound, .badge])
+    }
+  }
+
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    super.userNotificationCenter(center, didReceive: response, withCompletionHandler: completionHandler)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
