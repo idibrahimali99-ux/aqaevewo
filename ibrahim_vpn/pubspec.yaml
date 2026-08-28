@@ -1,0 +1,34 @@
+name: ibrahim_vpn
+description: ابراهيم VPN — عميل WireGuard خاص.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_wireguard: ^0.2.2
+  google_fonts: ^6.2.1
+  http: ^1.4.0
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon/app_icon.png
+
+flutter_launcher_icons:
+  android: true
+  image_path: assets/icon/app_icon.png
+  adaptive_icon_background: "#070B14"
+  adaptive_icon_foreground: assets/icon/app_icon.png
+  min_sdk_android: 26
