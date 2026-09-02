@@ -1,17 +1,25 @@
-﻿ارفع هذه الملفات إلى سيرفر لينكس:
+﻿تحديث API — حذف الحساب (Apple 5.1.1)
+=====================================
 
-1) index.php  →  /مسار/api/index.php
-2) extend.php →  /مسار/api/lib/extend.php
+ارفع هذه الملفات إلى سيرفر لينكس:
 
-مثال scp:
-scp index.php root@212.224.86.115:/var/www/html/api/index.php
-scp extend.php root@212.224.86.115:/var/www/html/api/lib/extend.php
+1) index.php  →  /var/www/aqartown/api/index.php
+2) extend.php →  /var/www/aqartown/api/lib/extend.php
 
-ثم تحقق:
+(عدّل المسار إن كان api عندك في مكان آخر)
+
+--- Windows PowerShell (scp) ---
+scp api\_deploy_linux_fcm\index.php root@212.224.86.115:/var/www/aqartown/api/index.php
+scp api\_deploy_linux_fcm\extend.php root@212.224.86.115:/var/www/aqartown/api/lib/extend.php
+
+--- أو من FileZilla / WinSCP ---
+ارفع index.php و extend.php إلى نفس المسارات أعلاه.
+
+--- تحقق بعد الرفع ---
 curl -s "http://212.224.86.115/api/?r=health"
 
-ما الجديد في هذا التحديث:
-- بيع عاجل + notify_all → إشعار لكل المستخدمين
-- نشر خبر → إشعار فوري للجميع
-- نشر إعلان رئيسية → إشعار فوري للجميع
-- تشخيص FCM أقوى لـ iOS/APNs
+يجب أن يرجع ok.
+
+--- ما الجديد ---
+- POST users/delete-account — حذف الحساب نهائياً من التطبيق
+- confirm: "DELETE" في body JSON
