@@ -56,6 +56,15 @@ workflows:
       - name: Build IPA
         script: |
           cd vewo_admin
+          flutter clean
+          flutter pub get
+          ICON="ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png"
+          ICON_SIZE=$(stat -f%z "$ICON")
+          echo "Admin icon size: $ICON_SIZE bytes"
+          if [ "$ICON_SIZE" -gt 600000 ]; then
+            echo "ERROR: Admin icon looks like the old main-app icon (>600KB). Aborting."
+            exit 1
+          fi
           flutter build ipa --release \
             --export-options-plist=$HOME/export_options.plist
     artifacts:
