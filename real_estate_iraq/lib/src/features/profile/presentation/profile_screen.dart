@@ -239,6 +239,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     officeNameController.dispose();
   }
 
+  Future<void> _confirmDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('حذف الحساب'),
+        content: const Text(
+          'سيتم حذف حسابك نهائياً مع إعلاناتك وريلزاتك ومحادثاتك. '
+          'لا يمكن التراجع عن هذا الإجراء.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('حذف نهائي'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final err = await ref.read(authControllerProvider.notifier).deleteAccount();
+    if (!mounted) return;
+    if (err != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(err)));
+      return;
+    }
+    context.go(AppRoutes.login);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('تم حذف حسابك بنجاح')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
@@ -381,6 +421,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 subtitle: const Text('متابعة حالة طلبات اطلب عقارك'),
                 trailing: const Icon(Icons.chevron_left_rounded),
                 onTap: () => context.push(AppRoutes.myPropertyRequests),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: Icon(Icons.delete_forever_outlined, color: scheme.error),
+                title: Text(
+                  'حذف الحساب',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: scheme.error,
+                  ),
+                ),
+                subtitle: const Text(
+                  'حذف نهائي لحسابك وبياناتك من المنصة',
+                ),
+                trailing: Icon(Icons.chevron_left_rounded, color: scheme.error),
+                onTap: _confirmDeleteAccount,
               ),
             ),
             const SizedBox(height: 12),

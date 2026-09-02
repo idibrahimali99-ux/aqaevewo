@@ -353,4 +353,22 @@ class AuthController extends Notifier<AuthState> {
       return 'تعذر تحديث الحساب الآن';
     }
   }
+
+  /// حذف الحساب نهائياً (Apple Guideline 5.1.1).
+  Future<String?> deleteAccount() async {
+    if (!state.isAuthenticated) return 'سجّل الدخول أولاً';
+    if (state.role == UserRole.admin) {
+      return 'حساب المسؤول لا يُحذف من التطبيق';
+    }
+    final api = ref.read(vewoApiClientProvider);
+    try {
+      await api.postJson('users/delete-account', {'confirm': 'DELETE'});
+      await signOut();
+      return null;
+    } on VewoApiException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'تعذر حذف الحساب. تحقق من الشبكة وحاول مجدداً.';
+    }
+  }
 }

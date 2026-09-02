@@ -112,6 +112,7 @@ if ($route === 'admin_parcels') {
 
 require_once __DIR__ . '/lib/r2_storage.php';
 require_once __DIR__ . '/lib/extend.php';
+require_once __DIR__ . '/lib/backup_telegram.php';
 require_once __DIR__ . '/lib/social.php';
 
 switch ($route) {
@@ -164,6 +165,13 @@ switch ($route) {
             json_error(405, 'Method not allowed');
         }
         users_update_profile_route($pdo);
+        break;
+
+    case 'users/delete-account':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            json_error(405, 'Method not allowed');
+        }
+        users_delete_account_route($pdo);
         break;
 
     case 'auth/register':
@@ -355,6 +363,24 @@ switch ($route) {
     case 'cron/push-reminders':
     case 'cron_push_reminders':
         cron_push_reminders_route($pdo);
+        break;
+
+    case 'cron/hourly-backup':
+    case 'cron_hourly_backup':
+        vewo_cron_hourly_backup_route();
+        break;
+
+    case 'admin/server-stats':
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
+            json_error(405, 'Method not allowed');
+        }
+        vewo_require_admin_permission($pdo, 'settings');
+        admin_server_stats_route($pdo);
+        break;
+
+    case 'admin/telegram':
+        vewo_require_admin_permission($pdo, 'settings');
+        admin_telegram_settings_route($pdo);
         break;
 
     case 'chat/messages':
