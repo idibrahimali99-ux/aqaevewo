@@ -108,6 +108,7 @@ class VewoApiClient {
     String route,
     String fieldName,
     String filePath, {
+    String? filename,
     Map<String, String>? headers,
   }) async {
     final uri = _uri(route);
@@ -117,7 +118,13 @@ class VewoApiClient {
       ..._authHeaders(),
       ...?headers,
     });
-    request.files.add(await http.MultipartFile.fromPath(fieldName, filePath));
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        fieldName,
+        filePath,
+        filename: filename,
+      ),
+    );
     final streamed = await request.send();
     final res = await http.Response.fromStream(streamed);
     final decoded = _decodeMap(res);

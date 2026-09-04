@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -12,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/media/vewo_image_watermark_burn.dart';
+import '../../../core/media/vewo_video_prepare.dart';
 
 import 'package:vewo_shared/vewo_shared.dart' show Iraq;
 import '../../../core/widgets/app_brand_mark.dart';
@@ -219,9 +219,6 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
   LatLng? _pickedLocation;
 
   bool _loading = false;
-  static const _mediaTools = MethodChannel(
-    'com.aqartown.app/media_tools',
-  );
 
   /// مقاطعة من لوحة الإدارة (منشور «مقطع» المبسّط فقط).
   String? _selectedParcelId;
@@ -1017,19 +1014,15 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
       String? videoUrl = _removeExistingVideo ? null : _existingVideoUrl;
       if (_pickedVideo != null && _pickedVideo!.path.isNotEmpty) {
         final uploadVideo = await _trimVideoForUpload(_pickedVideo!);
-        final vb = await uploadVideo.readAsBytes();
-        if (vb.isNotEmpty) {
-          final vn = uploadVideo.name.trim().isNotEmpty
+        final uv = await api.postMultipartFile(
+          'properties/upload',
+          'file',
+          uploadVideo.path,
+          filename: uploadVideo.name.trim().isNotEmpty
               ? uploadVideo.name
-              : 'video.mp4';
-          final uv = await api.postMultipartBytes(
-            'properties/upload',
-            'file',
-            vb,
-            vn,
-          );
-          videoUrl = uv['public_url']?.toString();
-        }
+              : 'video.mp4',
+        );
+        videoUrl = uv['public_url']?.toString();
       }
 
       final autoTitle = '${_category.labelAr} — $address';
@@ -2515,34 +2508,14 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
   }
 
   Future<XFile> _trimVideoForUpload(XFile source) async {
-    final duration = _pickedVideoDuration;
     final range = _videoTrimRange;
-    if (duration == null || range == null) return source;
-    final total = duration.inMilliseconds / 1000;
-    final start = range.start.clamp(0, total).toDouble();
-    final end = range.end.clamp(0, total).toDouble();
-    if (start <= 0.2 && end >= total - 0.2) return source;
-    if (end - start < 0.1) {
-      throw Exception('مدة الفيديو المحددة قصيرة جداً');
-    }
-    final dir = await getTemporaryDirectory();
-    final out = File(
-      '${dir.path}/vewo_trim_${DateTime.now().microsecondsSinceEpoch}.mp4',
+    return prepareVideoForUpload(
+      source,
+      duration: _pickedVideoDuration,
+      startSeconds: range?.start ?? 0,
+      endSeconds: range?.end,
+      outputName: 'video.mp4',
     );
-    try {
-      await _mediaTools.invokeMethod<String>('trimVideo', {
-        'inputPath': source.path,
-        'outputPath': out.path,
-        'startMs': (start * 1000).round(),
-        'endMs': (end * 1000).round(),
-      });
-    } on PlatformException catch (e) {
-      throw Exception(e.message ?? 'فشل قص الفيديو');
-    }
-    if (!await out.exists() || await out.length() < 1024) {
-      throw Exception('فشل قص الفيديو، حاول اختيار فيديو آخر أو مدة أطول');
-    }
-    return XFile(out.path, name: out.uri.pathSegments.last);
   }
 
   Future<void> _openLocationPicker() async {

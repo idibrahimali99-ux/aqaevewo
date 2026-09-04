@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/api/api_providers.dart';
+import '../../../core/contact/property_contact.dart';
 import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
 import '../../../routing/app_routes.dart';
@@ -240,32 +241,75 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   Future<void> _confirmDeleteAccount() async {
+    final passwordCtrl = TextEditingController();
+    var obscure = true;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('حذف الحساب'),
-        content: const Text(
-          'سيتم حذف حسابك نهائياً مع إعلاناتك وريلزاتك ومحادثاتك. '
-          'لا يمكن التراجع عن هذا الإجراء.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) {
+          return AlertDialog(
+            title: const Text('حذف الحساب'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'سيتم حذف حسابك نهائياً مع إعلاناتك وريلزاتك ومحادثاتك. '
+                  'لا يمكن التراجع عن هذا الإجراء.',
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: passwordCtrl,
+                  obscureText: obscure,
+                  autofillHints: const [AutofillHints.password],
+                  decoration: InputDecoration(
+                    labelText: 'كلمة مرور الحساب',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      onPressed: () => setDialog(() => obscure = !obscure),
+                      icon: Icon(
+                        obscure
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('حذف نهائي'),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('إلغاء'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(ctx).colorScheme.error,
+                ),
+                onPressed: () {
+                  if (passwordCtrl.text.trim().isEmpty) return;
+                  Navigator.pop(ctx, true);
+                },
+                child: const Text('حذف نهائي'),
+              ),
+            ],
+          );
+        },
       ),
     );
+    final password = passwordCtrl.text;
+    passwordCtrl.dispose();
     if (confirmed != true || !mounted) return;
+    if (password.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('أدخل كلمة مرور الحساب لتأكيد الحذف')),
+      );
+      return;
+    }
 
-    final err = await ref.read(authControllerProvider.notifier).deleteAccount();
+    final err = await ref
+        .read(authControllerProvider.notifier)
+        .deleteAccount(password: password);
     if (!mounted) return;
     if (err != null) {
       ScaffoldMessenger.of(
@@ -277,6 +321,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('تم حذف حسابك بنجاح')),
     );
+  }
+
+  Future<void> _openPasswordResetWhatsApp() async {
+    final auth = ref.read(authControllerProvider);
+    final ok = await openWhatsAppPasswordReset(
+      accountName: auth.displayName,
+      accountPhone: auth.phone,
+    );
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر فتح واتساب الآن')),
+      );
+    }
   }
 
   @override
@@ -421,6 +478,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 subtitle: const Text('متابعة حالة طلبات اطلب عقارك'),
                 trailing: const Icon(Icons.chevron_left_rounded),
                 onTap: () => context.push(AppRoutes.myPropertyRequests),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: Icon(Icons.lock_reset_rounded, color: scheme.primary),
+                title: const Text(
+                  'إعادة تعيين كلمة المرور',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: const Text(
+                  'تواصل عبر واتساب لإعادة تعيين كلمة المرور',
+                ),
+                trailing: const Icon(Icons.chat_rounded),
+                onTap: _openPasswordResetWhatsApp,
               ),
             ),
             const SizedBox(height: 12),

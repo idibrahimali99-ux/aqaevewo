@@ -354,15 +354,20 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
-  /// حذف الحساب نهائياً (Apple Guideline 5.1.1).
-  Future<String?> deleteAccount() async {
+  /// حذف الحساب نهائياً (Apple Guideline 5.1.1). يتطلب كلمة مرور الحساب.
+  Future<String?> deleteAccount({required String password}) async {
     if (!state.isAuthenticated) return 'سجّل الدخول أولاً';
     if (state.role == UserRole.admin) {
       return 'حساب المسؤول لا يُحذف من التطبيق';
     }
+    final pw = password.trim();
+    if (pw.isEmpty) return 'أدخل كلمة مرور الحساب';
     final api = ref.read(vewoApiClientProvider);
     try {
-      await api.postJson('users/delete-account', {'confirm': 'DELETE'});
+      await api.postJson('users/delete-account', {
+        'confirm': 'DELETE',
+        'password': pw,
+      });
       await signOut();
       return null;
     } on VewoApiException catch (e) {

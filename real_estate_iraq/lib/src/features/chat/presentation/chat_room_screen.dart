@@ -68,6 +68,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   bool _opening = false;
   String? _error;
   Timer? _poll;
+  String _messagesSnapshot = '';
   bool _showEmoji = false;
   bool _recording = false;
   bool _recordLocked = false;
@@ -159,8 +160,8 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     final tpn = tpnRaw is num
         ? tpnRaw.toInt()
         : int.tryParse(tpnRaw?.toString() ?? '');
-    if (tpn != null && tpn > 0) {
-      setState(() => _threadPublicNo = tpn);
+    if (tpn != null && tpn > 0 && tpn != _threadPublicNo) {
+      _threadPublicNo = tpn;
     }
   }
 
@@ -236,7 +237,31 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     });
   }
 
-  Future<void> _loadMessages({bool silent = false}) async {
+  String _chatSnapshot({
+    required List<Map<String, dynamic>> messages,
+    required bool awaiting,
+    String? customerRead,
+    String? adminRead,
+    String? peerTitle,
+  }) {
+    final last = messages.isEmpty ? const <String, dynamic>{} : messages.last;
+    return [
+      messages.length,
+      last['id'],
+      last['created_at'],
+      last['body'],
+      last['media_public_url'],
+      awaiting,
+      customerRead,
+      adminRead,
+      peerTitle,
+    ].join('|');
+  }
+
+  Future<void> _loadMessages({
+    bool silent = false,
+    bool stickToLatest = false,
+  }) async {
     final tid = _threadId;
     if (tid == null) return;
     if (!silent) {
@@ -269,16 +294,32 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         reelCtx = Map<String, dynamic>.from(reelRaw);
       }
       if (!mounted) return;
+      final nextPeer = _peerTitleFromResponse(data) ?? _peerTitle;
+      final nextSnapshot = _chatSnapshot(
+        messages: list,
+        awaiting: awaiting,
+        customerRead: data['customer_last_read_at']?.toString(),
+        adminRead: data['admin_last_read_at']?.toString(),
+        peerTitle: nextPeer,
+      );
+      final unchanged = silent && nextSnapshot == _messagesSnapshot;
+      if (unchanged) {
+        await _markRead();
+        return;
+      }
       setState(() {
+        _messagesSnapshot = nextSnapshot;
         _awaitingAdminReply = awaiting;
         _customerLastReadAt = data['customer_last_read_at']?.toString();
         _adminLastReadAt = data['admin_last_read_at']?.toString();
-        _peerTitle = _peerTitleFromResponse(data) ?? _peerTitle;
+        _peerTitle = nextPeer ?? _peerTitle;
         _messages = list;
         if (reelCtx != null) _reelContext = reelCtx;
         if (!silent) _loading = false;
       });
-      _scrollToEnd();
+      if (!silent || stickToLatest) {
+        _scrollToEnd();
+      }
       // mark read when loaded successfully
       await _markRead();
     } on VewoApiException catch (e) {
@@ -329,11 +370,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
   void _scrollToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
-      _scroll.animateTo(
-        _scroll.position.maxScrollExtent + 80,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-      );
+      _scroll.jumpTo(_scroll.position.maxScrollExtent);
     });
   }
 
@@ -342,7 +379,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     if (tid == null) return;
     final api = ref.read(vewoApiClientProvider);
     await api.postJson('chat/messages', {'thread_id': tid, 'body': text});
-    await _loadMessages(silent: true);
+    await _loadMessages(silent: true, stickToLatest: true);
   }
 
   DateTime? _parseReadTs(String? raw) {
@@ -485,7 +522,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         'media_public_url': url,
         if (durationMs != null && durationMs > 0) 'duration_ms': durationMs,
       });
-      await _loadMessages(silent: true);
+      await _loadMessages(silent: true, stickToLatest: true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -539,7 +576,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
         'media_type': 'image',
         'media_public_url': url,
       });
-      await _loadMessages(silent: true);
+      await _loadMessages(silent: true, stickToLatest: true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -741,6 +778,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                           bottomEnd: Radius.circular(isMe ? 6 : 18),
                         );
                         return Padding(
+                          key: ValueKey(m['id']?.toString() ?? 'msg-$i'),
                           padding: EdgeInsets.only(
                             top: i == 0 ? 0 : (sameAsPrev ? 8 : 14),
                           ),

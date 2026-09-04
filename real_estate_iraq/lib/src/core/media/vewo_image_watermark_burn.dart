@@ -73,15 +73,6 @@ Future<Uint8List> burnVewoWatermarkOnImageBytes(
         yOffset: baseSize * 0.15,
         opacity: 0.36,
       );
-      if (propertyCode != null && propertyCode > 0) {
-        _paintWmLine(
-          canvas,
-          '#$propertyCode',
-          fontSize: baseSize * 0.58,
-          yOffset: baseSize * 0.55,
-          opacity: 0.34,
-        );
-      }
     }
     canvas.restore();
 

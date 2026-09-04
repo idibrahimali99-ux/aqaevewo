@@ -96,3 +96,15 @@ Future<bool> openWhatsAppForProperty(
 Future<bool> openWhatsAppSupport({String? message}) async {
   return openWhatsAppToPhone(kSupportWhatsAppDigits, message: message);
 }
+
+Future<bool> openWhatsAppPasswordReset({
+  String? accountName,
+  String? accountPhone,
+}) {
+  final lines = <String>[
+    'مرحباً، أطلب إعادة تعيين كلمة المرور في تطبيق عقار تاون.',
+    if ((accountName ?? '').trim().isNotEmpty) 'الاسم: ${accountName!.trim()}',
+    if ((accountPhone ?? '').trim().isNotEmpty) 'الهاتف: ${accountPhone!.trim()}',
+  ];
+  return openWhatsAppToPhone('07887444177', message: lines.join('\n'));
+}

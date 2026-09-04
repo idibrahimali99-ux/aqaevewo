@@ -1,14 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/api/api_providers.dart';
 import '../../../core/layout/app_responsive.dart';
+import '../../../core/media/vewo_video_prepare.dart';
 import '../../../core/widgets/local_video_preview.dart';
 import '../../../core/widgets/vewo_media_watermark.dart';
 
@@ -29,37 +28,16 @@ Future<bool?> showReelCreateSheet(
   RangeValues? trimRange;
   bool uploading = false;
   bool previewing = false;
-  const mediaTools = MethodChannel('com.aqartown.app/media_tools');
 
   Future<XFile> trimVideoForUpload(XFile source) async {
-    final d = duration;
     final range = trimRange;
-    if (d == null || range == null) return source;
-    final total = d.inMilliseconds / 1000;
-    final start = range.start.clamp(0, total).toDouble();
-    final end = range.end.clamp(0, total).toDouble();
-    if (start <= 0.2 && end >= total - 0.2) return source;
-    if (end - start < 0.1) {
-      throw Exception('مدة الفيديو المحددة قصيرة جداً');
-    }
-    final dir = await getTemporaryDirectory();
-    final out = File(
-      '${dir.path}/vewo_reel_trim_${DateTime.now().microsecondsSinceEpoch}.mp4',
+    return prepareVideoForUpload(
+      source,
+      duration: duration,
+      startSeconds: range?.start ?? 0,
+      endSeconds: range?.end,
+      outputName: 'reel.mp4',
     );
-    try {
-      await mediaTools.invokeMethod<String>('trimVideo', {
-        'inputPath': source.path,
-        'outputPath': out.path,
-        'startMs': (start * 1000).round(),
-        'endMs': (end * 1000).round(),
-      });
-    } on PlatformException catch (e) {
-      throw Exception(e.message ?? 'فشل قص الفيديو');
-    }
-    if (!await out.exists() || await out.length() < 1024) {
-      throw Exception('فشل قص الفيديو، حاول اختيار فيديو آخر');
-    }
-    return XFile(out.path, name: out.uri.pathSegments.last);
   }
 
   Future<XFile?> previewTrimmedVideo(BuildContext ctx, XFile source) async {
@@ -267,13 +245,12 @@ Future<bool?> showReelCreateSheet(
                                     final api = ref.read(vewoApiClientProvider);
                                     String? url;
                                     if (uploadVideo != null) {
-                                      final bytes = await uploadVideo
-                                          .readAsBytes();
-                                      final up = await api.postMultipartBytes(
+                                      final up = await api.postMultipartFile(
                                         'properties/upload',
                                         'file',
-                                        bytes,
-                                        uploadVideo.name.isEmpty
+                                        uploadVideo.path,
+                                        filename:
+                                            uploadVideo.name.isEmpty
                                             ? 'reel.mp4'
                                             : uploadVideo.name,
                                       );

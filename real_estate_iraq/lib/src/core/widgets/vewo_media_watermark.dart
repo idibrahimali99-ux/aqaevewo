@@ -85,9 +85,6 @@ class _FallbackCenterWatermark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final codeLine = propertyCode != null && propertyCode! > 0
-        ? '#$propertyCode'
-        : null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -98,10 +95,6 @@ class _FallbackCenterWatermark extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         _WmText(phone, fontSize: width * 0.055, opacity: opacity * 0.95),
-        if (codeLine != null) ...[
-          const SizedBox(height: 4),
-          _WmText(codeLine, fontSize: width * 0.065, opacity: opacity * 0.9),
-        ],
       ],
     );
   }

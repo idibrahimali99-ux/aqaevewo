@@ -75,5 +75,6 @@ import FirebaseMessaging
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    MediaToolsPlugin.register(messenger: engineBridge.applicationRegistrar.messenger())
   }
 }
