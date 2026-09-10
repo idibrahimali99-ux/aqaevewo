@@ -14,6 +14,12 @@ class AppNotificationService {
   NotificationTapHandler? _onTap;
   Map<String, dynamic>? _pendingLaunchPayload;
 
+  static const headsUpChannelId = 'vewo_heads_up';
+  static const uploadChannelId = 'vewo_upload_progress';
+  static const legacyChannelId = 'vewo_high_alerts';
+
+  FlutterLocalNotificationsPlugin get plugin => _plugin;
+
   void setTapHandler(NotificationTapHandler? handler) {
     _onTap = handler;
   }
@@ -51,7 +57,9 @@ class AppNotificationService {
       );
       final launch = await _plugin.getNotificationAppLaunchDetails();
       if (launch?.didNotificationLaunchApp == true) {
-        _pendingLaunchPayload = _decodePayload(launch?.notificationResponse?.payload);
+        _pendingLaunchPayload = _decodePayload(
+          launch?.notificationResponse?.payload,
+        );
       }
       await _plugin.initialize(
         settings: settings,
@@ -65,11 +73,43 @@ class AppNotificationService {
           }
         },
       );
-      await _plugin
+      final androidPlugin = _plugin
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.requestNotificationsPermission();
+          >();
+      await androidPlugin?.requestNotificationsPermission();
+      await androidPlugin?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          headsUpChannelId,
+          'تنبيهات فورية',
+          description: 'محادثات وموافقات تظهر أعلى الشاشة مثل واتساب',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+          showBadge: true,
+        ),
+      );
+      await androidPlugin?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          uploadChannelId,
+          'رفع المنشورات',
+          description: 'شريط تقدم الرفع في لوحة الإشعارات',
+          importance: Importance.low,
+          playSound: false,
+          enableVibration: false,
+          showBadge: false,
+        ),
+      );
+      await androidPlugin?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          legacyChannelId,
+          'تنبيهات عقار تاون',
+          description: 'تنبيهات المحادثات والتعليقات والردود',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+        ),
+      );
       await _plugin
           .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin
@@ -77,7 +117,6 @@ class AppNotificationService {
           ?.requestPermissions(alert: true, badge: true, sound: true);
       _ready = true;
     } catch (_) {
-      // لا نُسقط التطبيق إذا فشل تهيئة الإشعارات على iOS.
       _ready = false;
     }
   }
@@ -87,20 +126,31 @@ class AppNotificationService {
     required String title,
     required String body,
     Map<String, dynamic>? payload,
+  }) {
+    return showHeadsUp(id: id, title: title, body: body, payload: payload);
+  }
+
+  Future<void> showHeadsUp({
+    required int id,
+    required String title,
+    required String body,
+    Map<String, dynamic>? payload,
   }) async {
     try {
       await init();
       if (!_ready) return;
       const androidDetails = AndroidNotificationDetails(
-        'vewo_high_alerts',
-        'تنبيهات عقار تاون',
-        channelDescription: 'تنبيهات المحادثات والتعليقات والردود',
-        importance: Importance.high,
-        priority: Priority.high,
+        headsUpChannelId,
+        'تنبيهات فورية',
+        channelDescription: 'محادثات وموافقات تظهر أعلى الشاشة مثل واتساب',
+        importance: Importance.max,
+        priority: Priority.max,
         category: AndroidNotificationCategory.message,
         visibility: NotificationVisibility.public,
         playSound: true,
         enableVibration: true,
+        ticker: 'عقار تاون',
+        fullScreenIntent: false,
       );
       const details = NotificationDetails(
         android: androidDetails,
@@ -108,6 +158,7 @@ class AppNotificationService {
           presentAlert: true,
           presentBadge: true,
           presentSound: true,
+          interruptionLevel: InterruptionLevel.timeSensitive,
         ),
       );
       await _plugin.show(
@@ -116,6 +167,34 @@ class AppNotificationService {
         body: body,
         notificationDetails: details,
         payload: payload == null ? null : jsonEncode(payload),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> showRaw({
+    required int id,
+    required String title,
+    required String body,
+    required AndroidNotificationDetails android,
+    String? payload,
+  }) async {
+    try {
+      await init();
+      if (!_ready) return;
+      await _plugin.show(
+        id: id,
+        title: title,
+        body: body,
+        notificationDetails: NotificationDetails(
+          android: android,
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBanner: true,
+            presentList: true,
+            presentSound: false,
+          ),
+        ),
+        payload: payload,
       );
     } catch (_) {}
   }

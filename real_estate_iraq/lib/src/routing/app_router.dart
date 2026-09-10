@@ -219,12 +219,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               );
             },
           ),
+          GoRoute(
+            path: '${AppRoutes.propertyDetails}/:id',
+            builder: (context, state) => PropertyDetailsScreen(
+              propertyId: state.pathParameters['id']!,
+            ),
+          ),
         ],
-      ),
-      GoRoute(
-        path: '${AppRoutes.propertyDetails}/:id',
-        builder: (context, state) =>
-            PropertyDetailsScreen(propertyId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '${AppRoutes.newsDetail}/:id',

@@ -57,6 +57,7 @@ class FcmClient {
         badge: true,
         sound: true,
       );
+      await messaging.setAutoInitEnabled(true);
 
       await _registerCurrentToken();
       // iOS قد يسلّم توكن APNs بعد ثوانٍ من منح الإذن.

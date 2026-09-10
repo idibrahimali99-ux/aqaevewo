@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/data/auth_controller.dart';
 import '../api/api_providers.dart';
+import '../push/fcm_client.dart';
 import 'app_notification_service.dart';
 
 class AppNotificationWatcher extends ConsumerStatefulWidget {
@@ -18,7 +19,8 @@ class AppNotificationWatcher extends ConsumerStatefulWidget {
 }
 
 class _AppNotificationWatcherState
-    extends ConsumerState<AppNotificationWatcher> {
+    extends ConsumerState<AppNotificationWatcher>
+    with WidgetsBindingObserver {
   Timer? _timer;
   int? _lastUnreadChats;
   int? _lastReelNewCommentsOnMyReels;
@@ -31,6 +33,7 @@ class _AppNotificationWatcherState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppNotificationService.instance.init();
       _timer = Timer.periodic(const Duration(seconds: 3), (_) => _poll());
@@ -39,7 +42,16 @@ class _AppNotificationWatcherState
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_poll());
+      unawaited(ref.read(fcmBootstrapProvider).start());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
   }

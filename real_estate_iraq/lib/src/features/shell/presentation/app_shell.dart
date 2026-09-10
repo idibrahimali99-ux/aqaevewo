@@ -9,6 +9,7 @@ import '../../auth/domain/user_role.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../properties/presentation/posting_quota_dialog.dart';
 import '../../reels/presentation/reel_create_sheet.dart';
+import '../../publish/publish_progress_banner.dart';
 import 'publish_options_sheet.dart';
 
 /// شريط سفلي عائم بأسلوب كبسولة حديثة + زر نشر داخل نفس الشريط.
@@ -26,6 +27,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   int _slotFromLocation(String location) {
     if (location.startsWith(AppRoutes.home)) return 0;
+    if (location.startsWith(AppRoutes.propertyDetails)) return 0;
     if (location.startsWith(AppRoutes.chats)) return 1;
     if (location.startsWith(AppRoutes.reels)) return 3;
     if (location.startsWith(AppRoutes.profile)) return 4;
@@ -216,6 +218,12 @@ class _AppShellState extends ConsumerState<AppShell> {
           NotificationListener<ScrollNotification>(
             onNotification: _handleScroll,
             child: widget.child,
+          ),
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: PublishProgressBanner(),
           ),
           PositionedDirectional(
             end: 16,

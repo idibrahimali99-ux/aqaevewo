@@ -243,6 +243,31 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                             approvalStatus: status,
                             rejectNote: rejectNote,
                             canEdit: isMine && canEdit,
+                            isSold: row['is_sold'] == true ||
+                                row['is_sold'] == 1 ||
+                                '${row['is_sold'] ?? ''}' == '1',
+                            isMine: isMine,
+                            onToggleSold: isMine
+                                ? (sold) async {
+                                    try {
+                                      await ref
+                                          .read(vewoApiClientProvider)
+                                          .postJson('reels/mark-sold', {
+                                        'reel_id': reelId,
+                                        'is_sold': sold ? 1 : 0,
+                                      });
+                                      if (!context.mounted) return;
+                                      setState(() {
+                                        _items[index]['is_sold'] = sold ? 1 : 0;
+                                      });
+                                    } on VewoApiException catch (e) {
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text(e.message)),
+                                      );
+                                    }
+                                  }
+                                : null,
                             onEdit: () async {
                               final ok = await showReelCreateSheet(
                                 context,
@@ -304,6 +329,9 @@ class _ReelPage extends ConsumerStatefulWidget {
     this.rejectNote = '',
     this.canEdit = false,
     this.onEdit,
+    this.isSold = false,
+    this.isMine = false,
+    this.onToggleSold,
   });
 
   final String reelId;
@@ -319,6 +347,9 @@ class _ReelPage extends ConsumerStatefulWidget {
   final String rejectNote;
   final bool canEdit;
   final VoidCallback? onEdit;
+  final bool isSold;
+  final bool isMine;
+  final Future<void> Function(bool sold)? onToggleSold;
 
   @override
   ConsumerState<_ReelPage> createState() => _ReelPageState();
@@ -526,7 +557,8 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
       extra: 4,
     );
     final progressBottom = bottomSafe;
-    final captionBottom = bottomSafe + 52;
+    final soldBarH = widget.isSold ? 42.0 : 0.0;
+    final captionBottom = bottomSafe + 52 + soldBarH;
     final actionBottom = bottomSafe + 68;
     final controller = _controller;
     final ready = _ready && controller != null && controller.value.isInitialized;
@@ -568,6 +600,26 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
           ),
         ),
         const VewoReelWatermark(),
+        if (widget.isSold)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: progressBottom + 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              color: const Color(0xFFF5B400),
+              child: const Text(
+                'تم البيع',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+          ),
         if (widget.approvalStatus == 'pending' ||
             widget.approvalStatus == 'rejected')
           Positioned(
@@ -658,6 +710,18 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
                   fontSize: 13,
                 ),
               ),
+              if (widget.isMine &&
+                  widget.onToggleSold != null &&
+                  widget.approvalStatus == 'approved') ...[
+                const SizedBox(height: 8),
+                FilledButton.tonal(
+                  onPressed: () =>
+                      widget.onToggleSold!(!widget.isSold),
+                  child: Text(
+                    widget.isSold ? 'إلغاء تم البيع' : 'تم البيع',
+                  ),
+                ),
+              ],
             ],
           ),
         ),

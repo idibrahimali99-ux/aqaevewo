@@ -7,6 +7,8 @@ import FirebaseMessaging
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+  private var uploadBgTask: UIBackgroundTaskIdentifier = .invalid
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -76,5 +78,35 @@ import FirebaseMessaging
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     MediaToolsPlugin.register(messenger: engineBridge.applicationRegistrar.messenger())
+    let keepAlive = FlutterMethodChannel(
+      name: "com.aqartown.app/upload_keep_alive",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    keepAlive.setMethodCallHandler { [weak self] call, result in
+      guard let self else {
+        result(nil)
+        return
+      }
+      if call.method == "begin" {
+        if self.uploadBgTask != .invalid {
+          UIApplication.shared.endBackgroundTask(self.uploadBgTask)
+        }
+        self.uploadBgTask = UIApplication.shared.beginBackgroundTask(withName: "vewo_upload") {
+          if self.uploadBgTask != .invalid {
+            UIApplication.shared.endBackgroundTask(self.uploadBgTask)
+            self.uploadBgTask = .invalid
+          }
+        }
+        result(true)
+      } else if call.method == "end" {
+        if self.uploadBgTask != .invalid {
+          UIApplication.shared.endBackgroundTask(self.uploadBgTask)
+          self.uploadBgTask = .invalid
+        }
+        result(true)
+      } else {
+        result(FlutterMethodNotImplemented)
+      }
+    }
   }
 }

@@ -1,9 +1,11 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
+import '../../../routing/app_routes.dart';
 import '../data/property_news_detail_provider.dart';
 import '../domain/property_news_models.dart';
 
@@ -18,10 +20,26 @@ class PropertyNewsDetailScreen extends ConsumerWidget {
     final async = ref.watch(propertyNewsDetailProvider(newsId));
     final scheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => Center(
+    Widget backButton() => IconButton(
+      icon: const Icon(Icons.arrow_back),
+      tooltip: 'رجوع',
+      onPressed: () {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(AppRoutes.home);
+        }
+      },
+    );
+
+    return async.when(
+      loading: () => Scaffold(
+        appBar: AppBar(leading: backButton()),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, _) => Scaffold(
+        appBar: AppBar(leading: backButton()),
+        body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
@@ -30,21 +48,27 @@ class PropertyNewsDetailScreen extends ConsumerWidget {
             ),
           ),
         ),
-        data: (detail) {
-          if (detail == null) {
-            return Center(
+      ),
+      data: (detail) {
+        if (detail == null) {
+          return Scaffold(
+            appBar: AppBar(leading: backButton()),
+            body: Center(
               child: Text(
                 'الخبر غير موجود',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-            );
-          }
-          final dateStr = formatPropertyNewsDate(detail.publishedAt);
+            ),
+          );
+        }
+        final dateStr = formatPropertyNewsDate(detail.publishedAt);
 
-          return CustomScrollView(
+        return Scaffold(
+          body: CustomScrollView(
             slivers: [
               SliverAppBar.large(
                 pinned: true,
+                leading: backButton(),
                 title: const SliverAppBarBrandHeading(screenTitle: 'خبر عقاري'),
               ),
               SliverToBoxAdapter(
@@ -144,9 +168,9 @@ class PropertyNewsDetailScreen extends ConsumerWidget {
                 ),
               ),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }

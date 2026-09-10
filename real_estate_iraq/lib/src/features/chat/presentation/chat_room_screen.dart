@@ -621,6 +621,18 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'رجوع',
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.chats);
+            }
+          },
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,

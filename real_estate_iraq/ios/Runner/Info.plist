@@ -97,6 +97,8 @@
 	<array>
 		<string>https</string>
 		<string>http</string>
+		<string>itms-apps</string>
+		<string>itms</string>
 		<string>tel</string>
 		<string>whatsapp</string>
 		<string>fb</string>

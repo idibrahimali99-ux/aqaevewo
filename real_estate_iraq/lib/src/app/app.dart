@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../core/theme/theme.dart';
 import '../core/notifications/app_notification_watcher.dart';
 import '../core/push/fcm_client.dart';
+import '../core/update/force_update_gate.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../routing/app_router.dart';
 import '../features/auth/data/auth_controller.dart';
@@ -52,14 +53,16 @@ class _AppState extends ConsumerState<App> {
             builder: (context, ref, _) {
               // يبدأ تسجيل FCM token بعد تسجيل الدخول.
               ref.watch(fcmBootstrapProvider).start();
-              return OnboardingGate(
-                child: MediaQuery(
-                  data: MediaQuery.of(
-                    context,
-                  ).copyWith(textScaler: TextScaler.noScaling),
-                  child: Directionality(
-                    textDirection: TextDirection.rtl,
-                    child: child ?? const SizedBox.shrink(),
+              return ForceUpdateGate(
+                child: OnboardingGate(
+                  child: MediaQuery(
+                    data: MediaQuery.of(
+                      context,
+                    ).copyWith(textScaler: TextScaler.noScaling),
+                    child: Directionality(
+                      textDirection: TextDirection.rtl,
+                      child: child ?? const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               );

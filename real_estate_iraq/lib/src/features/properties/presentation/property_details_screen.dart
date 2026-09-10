@@ -34,21 +34,41 @@ class PropertyDetailsScreen extends ConsumerWidget {
 
   final String propertyId;
 
+  void _leave(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.home);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncProp = ref.watch(propertyDetailProvider(propertyId));
 
-    return asyncProp.when(
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (_, _) =>
-          const Scaffold(body: Center(child: Text('تعذر تحميل العقار'))),
-      data: (property) {
-        if (property == null) {
-          return const Scaffold(body: Center(child: Text('العقار غير موجود')));
-        }
-        return _PropertyDetailsBody(property: property);
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _leave(context);
       },
+      child: asyncProp.when(
+        loading: () =>
+            const Scaffold(body: Center(child: CircularProgressIndicator())),
+        error: (_, _) =>
+            const Scaffold(body: Center(child: Text('تعذر تحميل العقار'))),
+        data: (property) {
+          if (property == null) {
+            return const Scaffold(
+              body: Center(child: Text('العقار غير موجود')),
+            );
+          }
+          return _PropertyDetailsBody(
+            property: property,
+            onBack: () => _leave(context),
+          );
+        },
+      ),
     );
   }
 }
@@ -61,9 +81,10 @@ const _kWhatsAppMiniSvg = '''
 ''';
 
 class _PropertyDetailsBody extends ConsumerStatefulWidget {
-  const _PropertyDetailsBody({required this.property});
+  const _PropertyDetailsBody({required this.property, required this.onBack});
 
   final Property property;
+  final VoidCallback onBack;
 
   @override
   ConsumerState<_PropertyDetailsBody> createState() =>
@@ -118,6 +139,29 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
     }
   }
 
+  Future<void> _unmarkSold() async {
+    setState(() => _busySold = true);
+    try {
+      await ref.read(vewoApiClientProvider).postJson('properties/mark-sold', {
+        'property_id': widget.property.id,
+        'is_sold': 0,
+      });
+      await ref.read(propertyListingsProvider.notifier).reload();
+      ref.invalidate(propertyDetailProvider(widget.property.id));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم إلغاء تم البيع وإرجاع المنشور')),
+      );
+    } on VewoApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _busySold = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final property = widget.property;
@@ -143,7 +187,13 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-      appBar: AppBar(title: const AppBarBrandTitle('تفاصيل العقار')),
+      appBar: AppBar(
+        title: const AppBarBrandTitle('تفاصيل العقار'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: widget.onBack,
+        ),
+      ),
       body: ListView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: EdgeInsets.fromLTRB(
@@ -440,6 +490,14 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),
+            if (property.isSold) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _busySold ? null : _unmarkSold,
+                icon: const Icon(Icons.undo_rounded),
+                label: const Text('إلغاء تم البيع وإرجاع المنشور'),
+              ),
+            ],
           ],
         ],
       ),

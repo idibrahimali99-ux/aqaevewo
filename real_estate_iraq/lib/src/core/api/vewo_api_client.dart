@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -110,6 +111,7 @@ class VewoApiClient {
     String filePath, {
     String? filename,
     Map<String, String>? headers,
+    void Function(int sent, int total)? onProgress,
   }) async {
     final uri = _uri(route);
     final request = http.MultipartRequest('POST', uri);
@@ -118,14 +120,24 @@ class VewoApiClient {
       ..._authHeaders(),
       ...?headers,
     });
+    final file = File(filePath);
+    final total = await file.length();
+    var sent = 0;
+    final stream = file.openRead().map((chunk) {
+      sent += chunk.length;
+      onProgress?.call(sent, total);
+      return chunk;
+    });
     request.files.add(
-      await http.MultipartFile.fromPath(
+      http.MultipartFile(
         fieldName,
-        filePath,
+        stream,
+        total,
         filename: filename,
       ),
     );
-    final streamed = await request.send();
+    request.persistentConnection = true;
+    final streamed = await _http.send(request);
     final res = await http.Response.fromStream(streamed);
     final decoded = _decodeMap(res);
     if (decoded['ok'] == true) return decoded;
@@ -140,6 +152,7 @@ class VewoApiClient {
     Uint8List bytes,
     String filename, {
     Map<String, String>? headers,
+    void Function(int sent, int total)? onProgress,
   }) async {
     final uri = _uri(route);
     final request = http.MultipartRequest('POST', uri);
@@ -148,10 +161,31 @@ class VewoApiClient {
       ..._authHeaders(),
       ...?headers,
     });
+    var sent = 0;
+    const chunk = 256 * 1024;
+    final stream = Stream<List<int>>.fromIterable(() {
+      final parts = <List<int>>[];
+      for (var i = 0; i < bytes.length; i += chunk) {
+        final end = i + chunk > bytes.length ? bytes.length : i + chunk;
+        parts.add(bytes.sublist(i, end));
+      }
+      if (parts.isEmpty) parts.add(const <int>[]);
+      return parts;
+    }()).map((piece) {
+      sent += piece.length;
+      onProgress?.call(sent, bytes.length);
+      return piece;
+    });
     request.files.add(
-      http.MultipartFile.fromBytes(fieldName, bytes, filename: filename),
+      http.MultipartFile(
+        fieldName,
+        stream,
+        bytes.length,
+        filename: filename,
+      ),
     );
-    final streamed = await request.send();
+    request.persistentConnection = true;
+    final streamed = await _http.send(request);
     final res = await http.Response.fromStream(streamed);
     final decoded = _decodeMap(res);
     if (decoded['ok'] == true) return decoded;

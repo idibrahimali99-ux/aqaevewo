@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -19,6 +20,7 @@ import '../../../core/governorates/governorates_provider.dart';
 import '../../../core/layout/app_responsive.dart';
 import '../../../core/api/api_providers.dart';
 import '../../../core/widgets/local_video_preview.dart';
+import '../../publish/publish_queue.dart';
 import '../../../core/widgets/map_location_picker_sheet.dart';
 import '../../auth/data/auth_controller.dart';
 import '../../auth/domain/user_role.dart';
@@ -848,6 +850,117 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
     }
     if (!_validateStep()) return;
 
+    ParcelSummary? parcel;
+    if (_parcelSimpleFlow) {
+      final parcelsAsync = ref.read(parcelsListProvider);
+      final parcels = parcelsAsync.asData?.value ?? const <ParcelSummary>[];
+      for (final p in parcels) {
+        if (p.id == _selectedParcelId) {
+          parcel = p;
+          break;
+        }
+      }
+      if (parcel == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'المقاطعة غير متوفرة — تأكد من الاتصال أو حدّث الصفحة.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    final price = int.parse(_price.text.replaceAll(',', '').trim());
+    final area = int.parse(_area.text.trim());
+    late final PropertyPublishDraft draft;
+    if (_parcelSimpleFlow && parcel != null) {
+      draft = PropertyPublishDraft(
+        isEditing: _isEditing,
+        editId: widget.editPropertyId?.trim(),
+        parcelSimpleFlow: true,
+        pickedImages: List<XFile>.from(_pickedImages),
+        existingImageUrls: List<String>.from(_existingImageUrls),
+        title: 'مقاطعة — ${parcel.name}',
+        governorate: _gov.trim().isNotEmpty
+            ? _gov
+            : (parcel.governorate.trim().isNotEmpty
+                  ? parcel.governorate
+                  : Iraq.governorates.first),
+        addressLine: parcel.displayName.trim(),
+        category: _category,
+        segment: _segment,
+        purpose: _purpose,
+        priceIqd: price,
+        areaSqm: area,
+        description: _description.text.trim(),
+        detailsJson: {
+          'parcel_listing': true,
+          'parcel_id': parcel.id,
+          'parcel_name': parcel.displayName,
+          'negotiable': _negotiable,
+          if (_facadeM.text.trim().isNotEmpty)
+            'facade_m': _facadeM.text.trim(),
+          if (_depthM.text.trim().isNotEmpty) 'depth_m': _depthM.text.trim(),
+          if (_districtUuid != null && _districtUuid!.trim().isNotEmpty) ...{
+            'district_id': _districtUuid!.trim(),
+            'district_name': (_districtNameApi ?? '').trim(),
+          },
+          if (_pickedLocation != null)
+            'location': {
+              'lat': _pickedLocation!.latitude,
+              'lng': _pickedLocation!.longitude,
+            },
+        },
+        parcelId: parcel.id,
+      );
+    } else {
+      final districtLine =
+          (_districtNameApi != null && _districtNameApi!.trim().isNotEmpty)
+          ? _districtNameApi!.trim()
+          : _gov.trim();
+      final address = districtLine.isNotEmpty ? districtLine : _gov.trim();
+      draft = PropertyPublishDraft(
+        isEditing: _isEditing,
+        editId: widget.editPropertyId?.trim(),
+        parcelSimpleFlow: false,
+        pickedImages: List<XFile>.from(_pickedImages),
+        existingImageUrls: List<String>.from(_existingImageUrls),
+        pickedVideo: _pickedVideo,
+        videoTrimStart: _videoTrimRange?.start ?? 0,
+        videoTrimEnd: _videoTrimRange?.end,
+        videoDuration: _pickedVideoDuration,
+        existingVideoUrl: _existingVideoUrl,
+        removeExistingVideo: _removeExistingVideo,
+        title: '${_category.labelAr} — $address',
+        governorate: _gov,
+        addressLine: address,
+        category: _category,
+        segment: _segment,
+        purpose: _purpose,
+        priceIqd: price,
+        areaSqm: area,
+        description: _description.text.trim(),
+        detailsJson: {
+          ..._detailsJson(),
+          if (_selectedCompoundId != null) 'compound_id': _selectedCompoundId,
+          if ((_selectedCompoundName() ?? '').isNotEmpty)
+            'compound_name': _selectedCompoundName(),
+          'negotiable': _negotiable,
+        },
+        compoundId: _selectedCompoundId,
+      );
+    }
+
+    if (mounted) context.pop();
+    unawaited(ref.read(publishQueueProvider.notifier).enqueueProperty(draft));
+  }
+
+  // ignore: unused_element
+  Future<void> _legacyBlockingPublishRemoved() async {
     setState(() => _loading = true);
 
     try {

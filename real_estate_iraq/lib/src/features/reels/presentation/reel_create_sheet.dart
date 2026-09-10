@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -5,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
-import '../../../core/api/api_providers.dart';
+import '../../publish/publish_queue.dart';
 import '../../../core/layout/app_responsive.dart';
 import '../../../core/media/vewo_video_prepare.dart';
 import '../../../core/widgets/local_video_preview.dart';
@@ -26,7 +27,6 @@ Future<bool?> showReelCreateSheet(
   XFile? previewedUploadVideo;
   Duration? duration;
   RangeValues? trimRange;
-  bool uploading = false;
   bool previewing = false;
 
   Future<XFile> trimVideoForUpload(XFile source) async {
@@ -98,9 +98,7 @@ Future<bool?> showReelCreateSheet(
                         ),
                         const SizedBox(height: 12),
                         OutlinedButton.icon(
-                          onPressed: uploading
-                              ? null
-                              : () async {
+                          onPressed: () async {
                                   final x = await ImagePicker().pickVideo(
                                     source: ImageSource.gallery,
                                   );
@@ -166,7 +164,7 @@ Future<bool?> showReelCreateSheet(
                                     0,
                                     duration!.inMilliseconds / 1000,
                                   ),
-                              enabled: !uploading,
+                              enabled: true,
                               onChanged: (v) => setLocal(() {
                                 trimRange = v;
                                 previewedUploadVideo = null;
@@ -215,15 +213,16 @@ Future<bool?> showReelCreateSheet(
                         ),
                       ),
                     ),
-                    child: SafeArea(
-                      top: false,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                        child: FilledButton.icon(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        12,
+                        16,
+                        AppResponsive.shellContentBottomPadding(ctx, extra: 8),
+                      ),
+                      child: FilledButton.icon(
                           onPressed:
-                              (picked == null && !isEdit) ||
-                                  uploading ||
-                                  previewing
+                              (picked == null && !isEdit) || previewing
                               ? null
                               : () async {
                                   XFile? uploadVideo = previewedUploadVideo;
@@ -240,58 +239,24 @@ Future<bool?> showReelCreateSheet(
                                     });
                                     if (uploadVideo == null) return;
                                   }
-                                  setLocal(() => uploading = true);
-                                  try {
-                                    final api = ref.read(vewoApiClientProvider);
-                                    String? url;
-                                    if (uploadVideo != null) {
-                                      final up = await api.postMultipartFile(
-                                        'properties/upload',
-                                        'file',
-                                        uploadVideo.path,
-                                        filename:
-                                            uploadVideo.name.isEmpty
-                                            ? 'reel.mp4'
-                                            : uploadVideo.name,
-                                      );
-                                      url = up['public_url']?.toString() ?? '';
-                                    }
-                                    final caption = captionCtrl.text
-                                        .trim()
-                                        .characters
-                                        .take(200)
-                                        .toString();
-                                    if (isEdit) {
-                                      await api.postJson('reels/update', {
-                                        'id': editingId,
-                                        'caption': caption,
-                                        if (url != null && url.isNotEmpty)
-                                          'video_public_url': url,
-                                      });
-                                    } else {
-                                      await api.postJson('reels/create', {
-                                        'video_public_url': url,
-                                        'caption': caption,
-                                        'comments_enabled': 0,
-                                      });
-                                    }
-                                    if (ctx.mounted) Navigator.pop(ctx, true);
-                                  } catch (e) {
-                                    setLocal(() => uploading = false);
-                                    if (ctx.mounted) {
-                                      ScaffoldMessenger.of(ctx).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            isEdit
-                                                ? 'تعذر تعديل الريل: $e'
-                                                : 'تعذر نشر الريل: $e',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  }
+                                  final caption = captionCtrl.text
+                                      .trim()
+                                      .characters
+                                      .take(200)
+                                      .toString();
+                                  if (ctx.mounted) Navigator.pop(ctx, true);
+                                  unawaited(
+                                    ref.read(publishQueueProvider.notifier).enqueueReel(
+                                      ReelPublishDraft(
+                                        isEdit: isEdit,
+                                        editingId: isEdit ? editingId : null,
+                                        video: uploadVideo,
+                                        caption: caption,
+                                      ),
+                                    ),
+                                  );
                                 },
-                          icon: uploading || previewing
+                          icon: previewing
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
@@ -301,9 +266,7 @@ Future<bool?> showReelCreateSheet(
                                 )
                               : const Icon(Icons.publish_rounded),
                           label: Text(
-                            uploading
-                                ? (isEdit ? 'جاري الحفظ…' : 'جاري النشر…')
-                                : previewing
+                            previewing
                                 ? 'جاري المعاينة…'
                                 : isEdit
                                 ? 'حفظ وإعادة الإرسال'
@@ -312,7 +275,6 @@ Future<bool?> showReelCreateSheet(
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -557,8 +519,10 @@ class _FinalReelPreviewDialogState extends State<_FinalReelPreviewDialog> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                SafeArea(
-                  top: false,
+                Padding(
+                  padding: EdgeInsets.only(
+                    bottom: AppResponsive.bottomNavHeight(context) + 16,
+                  ),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final stacked = constraints.maxWidth < 340;

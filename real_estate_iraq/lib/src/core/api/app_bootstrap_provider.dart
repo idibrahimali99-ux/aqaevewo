@@ -89,18 +89,75 @@ class HomeSectionConfig {
   }
 }
 
+class AppUpdatePolicy {
+  const AppUpdatePolicy({
+    required this.minVersion,
+    required this.minBuild,
+    required this.latestVersion,
+    required this.latestBuild,
+    required this.androidStoreUrl,
+    required this.iosStoreUrl,
+    required this.title,
+    required this.message,
+  });
+
+  final String minVersion;
+  final int minBuild;
+  final String latestVersion;
+  final int latestBuild;
+  final String androidStoreUrl;
+  final String iosStoreUrl;
+  final String title;
+  final String message;
+
+  static const empty = AppUpdatePolicy(
+    minVersion: '',
+    minBuild: 0,
+    latestVersion: '',
+    latestBuild: 0,
+    androidStoreUrl: '',
+    iosStoreUrl: '',
+    title: 'يتوفر إصدار جديد',
+    message: 'حدّث تطبيق عقار تاون للاستمرار في استخدام التطبيق.',
+  );
+
+  factory AppUpdatePolicy.fromJson(Map<String, dynamic>? json) {
+    if (json == null || json.isEmpty) return empty;
+    var minVersion = json['min_version']?.toString().trim() ?? '';
+    var latestVersion = json['latest_version']?.toString().trim() ?? '';
+    if (minVersion.isEmpty) minVersion = latestVersion;
+    if (latestVersion.isEmpty) latestVersion = minVersion;
+    return AppUpdatePolicy(
+      minVersion: minVersion,
+      minBuild: int.tryParse('${json['min_build'] ?? 0}') ?? 0,
+      latestVersion: latestVersion,
+      latestBuild: int.tryParse('${json['latest_build'] ?? 0}') ?? 0,
+      androidStoreUrl: json['android_store_url']?.toString().trim() ?? '',
+      iosStoreUrl: json['ios_store_url']?.toString().trim() ?? '',
+      title: (json['title']?.toString().trim().isNotEmpty ?? false)
+          ? json['title'].toString().trim()
+          : empty.title,
+      message: (json['message']?.toString().trim().isNotEmpty ?? false)
+          ? json['message'].toString().trim()
+          : empty.message,
+    );
+  }
+}
+
 class AppBootstrapData {
   const AppBootstrapData({
     required this.supportPhone,
     required this.promotions,
     required this.propertyNews,
     required this.homeSections,
+    this.appUpdate = AppUpdatePolicy.empty,
   });
 
   final String supportPhone;
   final List<HomePromotion> promotions;
   final List<PropertyNewsSummary> propertyNews;
   final List<HomeSectionConfig> homeSections;
+  final AppUpdatePolicy appUpdate;
 
   static AppBootstrapData empty() => const AppBootstrapData(
     supportPhone: '',
@@ -152,6 +209,11 @@ class AppBootstrapData {
       promotions: list,
       propertyNews: newsList,
       homeSections: sectionList.where((s) => s.isActive).toList(),
+      appUpdate: AppUpdatePolicy.fromJson(
+        json['app_update'] is Map
+            ? Map<String, dynamic>.from(json['app_update'] as Map)
+            : null,
+      ),
     );
   }
 }
