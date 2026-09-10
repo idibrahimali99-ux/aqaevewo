@@ -36,9 +36,21 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // يقلل أعطال AOT على ويندوز (تجنب armv7) ويكفي لمعظم الأجهزة الحديثة
         ndk {
+            abiFilters.clear()
             abiFilters += listOf("arm64-v8a")
+        }
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+            excludes += setOf(
+                "**/armeabi/**",
+                "**/armeabi-v7a/**",
+                "**/x86/**",
+                "**/x86_64/**",
+            )
         }
     }
 
@@ -55,6 +67,8 @@ android {
 
     buildTypes {
         release {
+            isMinifyEnabled = false
+            isShrinkResources = false
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
             } else {
@@ -70,6 +84,9 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    implementation("androidx.core:core-ktx:1.15.0")
+    implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
+    implementation("com.google.firebase:firebase-messaging")
 }
 
 // فعّل Google Services فقط عند وجود google-services.json (من Firebase Console).

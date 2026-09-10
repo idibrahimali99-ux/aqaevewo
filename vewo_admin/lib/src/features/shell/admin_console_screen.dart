@@ -97,6 +97,7 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
       'properties' => 7,
       'offices' => 3,
       'property_requests' => 9,
+      'reels' => 8,
       _ => 0,
     };
     _select(targetIndex);
@@ -295,10 +296,9 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
             IconButton(
               tooltip: 'الإشعارات',
               onPressed: _openNotifications,
-              icon: ref.watch(adminNotifCountsProvider).when(
-                loading: () => const Icon(Icons.notifications_none_rounded),
-                error: (_, _) => const Icon(Icons.notifications_none_rounded),
-                data: (c) {
+              icon: Builder(
+                builder: (context) {
+                  final c = ref.watch(adminNotifCountsProvider);
                   final ack = ref.watch(adminNotifAcknowledgedProvider);
                   final total = adminNotifVisibleTotal(c, ack);
                   if (total <= 0) {

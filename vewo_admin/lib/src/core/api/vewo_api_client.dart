@@ -96,8 +96,9 @@ class VewoApiClient {
     String route,
     Map<String, dynamic> body, {
     Map<String, String>? headers,
+    Duration? timeout,
   }) async {
-    final res = await _http.post(
+    var future = _http.post(
       _uri(route),
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
@@ -106,6 +107,10 @@ class VewoApiClient {
       },
       body: jsonEncode(body),
     );
+    if (timeout != null) {
+      future = future.timeout(timeout);
+    }
+    final res = await future;
     final decoded = _decodeMap(res);
     if (decoded['ok'] == true) {
       _rejectWrongHealthInsteadOfRoute(route, decoded);

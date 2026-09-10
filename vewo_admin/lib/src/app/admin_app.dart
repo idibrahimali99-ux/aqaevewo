@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,17 +34,37 @@ class AdminApp extends ConsumerWidget {
         data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
         child: Directionality(
           textDirection: TextDirection.rtl,
-          child: Consumer(
-            builder: (context, ref, _) {
-              ref.watch(adminFcmBootstrapProvider).start();
-              return AdminNotificationWatcher(
-                child: child ?? const SizedBox.shrink(),
-              );
-            },
+          child: _AdminBootstrap(
+            child: AdminNotificationWatcher(
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         ),
       ),
       routerConfig: router,
     );
   }
+}
+
+class _AdminBootstrap extends ConsumerStatefulWidget {
+  const _AdminBootstrap({required this.child});
+
+  final Widget child;
+
+  @override
+  ConsumerState<_AdminBootstrap> createState() => _AdminBootstrapState();
+}
+
+class _AdminBootstrapState extends ConsumerState<_AdminBootstrap> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(ref.read(adminFcmBootstrapProvider).start());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

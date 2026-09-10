@@ -10,6 +10,7 @@ import 'package:video_player/video_player.dart';
 import '../../../core/api/api_providers.dart';
 import '../../../core/api/vewo_api_client.dart';
 import '../../../core/widgets/admin_map_viewer.dart';
+import '../../../core/widgets/admin_activity_block.dart';
 import '../../engagement/admin_engagement_schedule_dialog.dart';
 import '../../auth/auth_providers.dart';
 import '../../users/presentation/admin_user_profile_screen.dart';
@@ -240,6 +241,26 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تم تعليم المنشور كـ تم البيع')),
+      );
+      await _load();
+    } on VewoApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _unmarkSoldAdmin(String id) async {
+    try {
+      final api = ref.read(vewoApiClientProvider);
+      await api.postJson('admin/properties', {
+        'id': id,
+        'action': 'unmark_sold',
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم إلغاء تم البيع وإرجاع المنشور')),
       );
       await _load();
     } on VewoApiException catch (e) {
@@ -1173,66 +1194,53 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               if (pubNo != null && pubNo > 0)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: Material(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primaryContainer
-                                        .withValues(alpha: 0.45),
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(12),
-                                      onTap: () => _copyPublicNo(pubNo),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 10,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.tag_rounded,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.primary,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    'رقم المنشور',
-                                                    style: Theme.of(context)
-                                                        .textTheme
-                                                        .labelSmall
-                                                        ?.copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                        ),
-                                                  ),
-                                                  Text(
-                                                    '#$pubNo',
-                                                    style: Theme.of(context)
-                                                        .textTheme
-                                                        .titleMedium
-                                                        ?.copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w900,
-                                                        ),
-                                                  ),
-                                                ],
+                                Align(
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 10),
+                                    child: Material(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primaryContainer,
+                                      borderRadius: BorderRadius.circular(999),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(999),
+                                        onTap: () => _copyPublicNo(pubNo),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.tag_rounded,
+                                                size: 16,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary,
                                               ),
-                                            ),
-                                            Icon(
-                                              Icons.copy_rounded,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.primary,
-                                            ),
-                                          ],
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '#$pubNo',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .labelLarge
+                                                    ?.copyWith(
+                                                      fontWeight: FontWeight.w900,
+                                                    ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Icon(
+                                                Icons.copy_rounded,
+                                                size: 14,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary,
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1501,6 +1509,7 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
                                       ?.copyWith(height: 1.45),
                                 ),
                               ],
+                              AdminActivityBlock(raw: p['activity']),
                               const SizedBox(height: 12),
                               OutlinedButton.icon(
                                 onPressed: () => _openFullReview(p),
@@ -1624,19 +1633,36 @@ class _AdminPropertiesScreenState extends ConsumerState<AdminPropertiesScreen>
                               else
                                 Row(
                                   children: [
-                                    Expanded(
-                                      child: Text(
-                                        'يُعرض للمتابعة فقط — تم التعليم من التطبيق أو اللوحة.',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onSurfaceVariant,
-                                            ),
+                                    if (ref
+                                        .watch(adminSessionProvider)
+                                        .canAccess('unsold'))
+                                      Expanded(
+                                        child: FilledButton.icon(
+                                          onPressed: id.isEmpty
+                                              ? null
+                                              : () => _unmarkSoldAdmin(id),
+                                          icon: const Icon(
+                                            Icons.undo_rounded,
+                                          ),
+                                          label: const Text(
+                                            'إلغاء تم البيع',
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      Expanded(
+                                        child: Text(
+                                          'يُعرض للمتابعة فقط — تم التعليم من التطبيق أو اللوحة.',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                        ),
                                       ),
-                                    ),
                                     IconButton(
                                       tooltip: 'حذف',
                                       onPressed: id.isEmpty

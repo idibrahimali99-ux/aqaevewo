@@ -14,6 +14,9 @@ class AdminNotificationService {
   AdminNotificationTapHandler? _onTap;
   Map<String, dynamic>? _pendingLaunchPayload;
 
+  static const headsUpChannelId = 'aqar_admin_alert';
+  static const legacyChannelId = 'vewo_heads_up';
+
   void setTapHandler(AdminNotificationTapHandler? handler) {
     _onTap = handler;
   }
@@ -38,7 +41,7 @@ class AdminNotificationService {
   Future<void> init() async {
     if (_ready) return;
     try {
-      const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const android = AndroidInitializationSettings('@drawable/ic_stat_notify');
       const ios = DarwinInitializationSettings(
         requestAlertPermission: true,
         requestBadgePermission: true,
@@ -50,7 +53,9 @@ class AdminNotificationService {
       );
       final launch = await _plugin.getNotificationAppLaunchDetails();
       if (launch?.didNotificationLaunchApp == true) {
-        _pendingLaunchPayload = _decodePayload(launch?.notificationResponse?.payload);
+        _pendingLaunchPayload = _decodePayload(
+          launch?.notificationResponse?.payload,
+        );
       }
       await _plugin.initialize(
         settings: settings,
@@ -64,11 +69,32 @@ class AdminNotificationService {
           }
         },
       );
-      await _plugin
+      final androidPlugin = _plugin
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.requestNotificationsPermission();
+          >();
+      await androidPlugin?.requestNotificationsPermission();
+      await androidPlugin?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          headsUpChannelId,
+          'تنبيهات فورية',
+          description: 'محادثات وموافقات تظهر أعلى الشاشة مثل واتساب',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+          showBadge: true,
+        ),
+      );
+      await androidPlugin?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          legacyChannelId,
+          'تنبيهات لوحة الأدمن',
+          description: 'تنبيهات المحادثات والمنشورات والطلبات',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+        ),
+      );
       await _plugin
           .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin
@@ -86,34 +112,39 @@ class AdminNotificationService {
     required String body,
     Map<String, dynamic>? payload,
   }) async {
-    if (!_ready) await init();
-    if (!_ready) return;
     try {
-    const details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        'vewo_high_alerts',
-        'تنبيهات لوحة الأدمن',
-        channelDescription: 'مكاتب ومحادثات جديدة تحتاج متابعة',
-        importance: Importance.high,
-        priority: Priority.high,
+      await init();
+      if (!_ready) return;
+      const androidDetails = AndroidNotificationDetails(
+        headsUpChannelId,
+        'تنبيهات فورية',
+        channelDescription: 'محادثات وموافقات تظهر أعلى الشاشة مثل واتساب',
+        icon: '@drawable/ic_stat_notify',
+        importance: Importance.max,
+        priority: Priority.max,
         category: AndroidNotificationCategory.message,
         visibility: NotificationVisibility.public,
         playSound: true,
         enableVibration: true,
-      ),
-      iOS: DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-      ),
-    );
-    await _plugin.show(
-      id: id,
-      title: title,
-      body: body,
-      notificationDetails: details,
-      payload: payload == null ? null : jsonEncode(payload),
-    );
+        ticker: 'عقار تاون إدارة',
+        fullScreenIntent: false,
+      );
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+          interruptionLevel: InterruptionLevel.timeSensitive,
+        ),
+      );
+      await _plugin.show(
+        id: id,
+        title: title,
+        body: body,
+        notificationDetails: details,
+        payload: payload == null ? null : jsonEncode(payload),
+      );
     } catch (_) {}
   }
 }

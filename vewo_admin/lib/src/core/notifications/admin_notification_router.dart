@@ -12,7 +12,8 @@ void navigateFromAdminNotificationPayload(
     'admin_property_pending' ||
     'property_pending' ||
     'property_created' ||
-    'property_updated' => 'properties',
+    'property_updated' ||
+    'admin_property_approved' => 'properties',
     'admin_reel_pending' || 'reel_pending' => 'reels',
     'property_request' || 'admin_property_request' => 'property_requests',
     'office_pending' || 'admin_office_pending' => 'offices',

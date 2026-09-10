@@ -20,8 +20,12 @@ Future<void> main() async {
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   } catch (_) {}
+
   final session = AdminSession();
-  await session.restoreFromPrefs();
+  try {
+    await session.restoreFromPrefs();
+  } catch (_) {}
+
   runApp(
     ProviderScope(
       overrides: [

@@ -378,7 +378,9 @@ class _AddPromotionDialogState extends ConsumerState<_AddPromotionDialog> {
         'title': _title.text.trim(),
         'subtitle': _subtitle.text.trim(),
         'image_url': _imageUrl.text.trim(),
-        'link_type': _linkUrl.text.trim().isEmpty ? 'none' : _linkType,
+        'link_type': _linkUrl.text.trim().isEmpty && _linkType != 'none'
+            ? 'none'
+            : _linkType,
         'link_target': _linkUrl.text.trim(),
         'display_mode': _displayMode,
         'popup_duration_sec': int.tryParse(_popupSec.text.trim()) ?? 20,

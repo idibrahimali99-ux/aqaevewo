@@ -38,6 +38,8 @@ class _AdminChatRoomScreenState extends ConsumerState<AdminChatRoomScreen> {
   bool _loading = true;
   String? _error;
   Timer? _poll;
+  String _messagesSnapshot = '';
+  bool _stickNextLoad = false;
   String _sendMode = 'customer_only';
   int _mediatedLaneTab = 0;
   int? _threadPublicNo;
@@ -53,6 +55,7 @@ class _AdminChatRoomScreenState extends ConsumerState<AdminChatRoomScreen> {
   bool _customerCaughtUp = false;
   String? _threadLastMessageAt;
   final Set<String> _heartMessageIds = {};
+  bool _partiesRevealed = false;
   bool _recording = false;
   String? _recordingPath;
 
@@ -141,7 +144,18 @@ class _AdminChatRoomScreenState extends ConsumerState<AdminChatRoomScreen> {
         }
       }
       if (!mounted) return;
+      final lastId = list.isEmpty ? '' : list.last['id']?.toString();
+      final nextFp =
+          '${list.length}|$lastId|${data['thread_last_message_at']}|${data['admin_unread_count']}';
+      final unchanged = silent && nextFp == _messagesSnapshot;
+      if (unchanged) {
+        await _markRead();
+        return;
+      }
+      final shouldStick = !silent || _stickNextLoad;
+      _stickNextLoad = false;
       setState(() {
+        _messagesSnapshot = nextFp;
         _messages = list;
         if (tpn != null && tpn > 0) _threadPublicNo = tpn;
         _threadType = data['thread_type']?.toString() ?? _threadType;
@@ -177,11 +191,13 @@ class _AdminChatRoomScreenState extends ConsumerState<AdminChatRoomScreen> {
         if (!silent) _loading = false;
       });
       await _markRead();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollDirect.hasClients) {
-          _scrollDirect.jumpTo(_scrollDirect.position.maxScrollExtent);
-        }
-      });
+      if (shouldStick) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollDirect.hasClients) {
+            _scrollDirect.jumpTo(_scrollDirect.position.maxScrollExtent);
+          }
+        });
+      }
     } on VewoApiException catch (e) {
       if (!mounted) return;
       if (!silent) {
@@ -210,6 +226,7 @@ class _AdminChatRoomScreenState extends ConsumerState<AdminChatRoomScreen> {
         'body': t,
         'visibility': _sendMode,
       });
+      _stickNextLoad = true;
       await _load(silent: true);
     } on VewoApiException catch (e) {
       if (!mounted) return;
@@ -372,6 +389,7 @@ class _AdminChatRoomScreenState extends ConsumerState<AdminChatRoomScreen> {
       try {
         await File(filePath).delete();
       } catch (_) {}
+      _stickNextLoad = true;
       await _load(silent: true);
     } catch (e) {
       if (!mounted) return;
@@ -485,7 +503,21 @@ class _AdminChatRoomScreenState extends ConsumerState<AdminChatRoomScreen> {
           ],
         ),
         actions: [
-          if (_threadType != 'direct' &&
+          if (_useMediatedTabs)
+            TextButton.icon(
+              onPressed: () =>
+                  setState(() => _partiesRevealed = !_partiesRevealed),
+              icon: Icon(
+                _partiesRevealed
+                    ? Icons.visibility_off_outlined
+                    : Icons.badge_outlined,
+              ),
+              label: Text(
+                _partiesRevealed ? 'إخفاء البيانات' : 'إظهار البيانات',
+              ),
+            ),
+          if (_partiesRevealed &&
+              _threadType != 'direct' &&
               ((_customerPhone != null && _customerPhone!.isNotEmpty) ||
                   (_officePhone != null && _officePhone!.isNotEmpty)))
             PopupMenuButton<String>(
@@ -559,6 +591,26 @@ class _AdminChatRoomScreenState extends ConsumerState<AdminChatRoomScreen> {
                   _PropertySummaryCard(property: _property!),
                 if (_reel != null) _ReelSummaryCard(reel: _reel!),
                 if (_useMediatedTabs)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ActionChip(
+                          avatar: const Icon(Icons.person_outline_rounded, size: 18),
+                          label: const Text('المستفسر'),
+                          onPressed: () => setState(() => _partiesRevealed = true),
+                        ),
+                        ActionChip(
+                          avatar: const Icon(Icons.storefront_outlined, size: 18),
+                          label: const Text('المعلن'),
+                          onPressed: () => setState(() => _partiesRevealed = true),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_useMediatedTabs && _partiesRevealed)
                   _MediatedPartiesCard(
                     customerName: _customerDisplayName,
                     customerPhone: _customerPhone,

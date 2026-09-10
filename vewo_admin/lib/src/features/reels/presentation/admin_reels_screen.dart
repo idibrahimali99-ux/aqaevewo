@@ -4,6 +4,8 @@ import 'package:video_player/video_player.dart';
 
 import '../../../core/api/api_providers.dart';
 import '../../../core/api/vewo_api_client.dart';
+import '../../../core/widgets/admin_activity_block.dart';
+import '../../auth/auth_providers.dart';
 import '../../engagement/admin_engagement_schedule_dialog.dart';
 
 class AdminReelsScreen extends ConsumerStatefulWidget {
@@ -200,6 +202,59 @@ class _AdminReelsScreenState extends ConsumerState<AdminReelsScreen>
     }
   }
 
+  Future<void> _editReel(Map<String, dynamic> r) async {
+    final id = r['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    final captionCtrl = TextEditingController(
+      text: r['caption']?.toString() ?? '',
+    );
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تعديل الريل'),
+        content: TextField(
+          controller: captionCtrl,
+          minLines: 2,
+          maxLines: 5,
+          decoration: const InputDecoration(
+            labelText: 'الوصف',
+            alignLabelWithHint: true,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+    final caption = captionCtrl.text.trim();
+    captionCtrl.dispose();
+    if (ok != true || !mounted) return;
+    try {
+      await ref.read(vewoApiClientProvider).postJson('admin/reels', {
+        'id': id,
+        'action': 'update',
+        'caption': caption,
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم تعديل الريل')));
+      await _load();
+    } on VewoApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   Future<void> _delete(String id) async {
     if (id.isEmpty) return;
     final ok = await showDialog<bool>(
@@ -330,70 +385,124 @@ class _AdminReelsScreenState extends ConsumerState<AdminReelsScreen>
                       final pub = reelPub is num
                           ? reelPub.toInt()
                           : int.tryParse('$reelPub') ?? 0;
+                      final isSold = r['is_sold'] == true ||
+                          r['is_sold'] == 1 ||
+                          '${r['is_sold'] ?? ''}' == '1';
+                      final canUnsold = ref
+                          .watch(adminSessionProvider)
+                          .canAccess('unsold');
                       return Card(
                         clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          onTap: () => _previewVideo(r),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              child: Icon(
-                                role == 'office'
-                                    ? Icons.storefront_outlined
-                                    : Icons.person_outline_rounded,
-                              ),
-                            ),
-                            title: Text(
-                              reelPubStr.isNotEmpty
-                                  ? '$name · $reelPubStr'
-                                  : name,
-                            ),
-                            subtitle: Text(
-                              [
-                                if (caption.isNotEmpty) caption,
-                                if (vc != null || rl != null || syn != null)
-                                  'مشاهدات: ${vc ?? 0} • لايكات: ${rl ?? 0} + تركيبي ${syn ?? 0}',
-                              ].join('\n'),
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: Wrap(
-                              spacing: 6,
-                              children: [
-                                if (pub > 0)
-                                  IconButton(
-                                    tooltip: 'جدولة مشاهدات/لايكات',
-                                    onPressed: () => _scheduleEngagement(pub),
-                                    icon: const Icon(Icons.trending_up_rounded),
-                                  ),
-                                if (_tabs.index == 0) ...[
-                                  IconButton.filledTonal(
-                                    tooltip: 'نشر',
-                                    onPressed: id.isEmpty
-                                        ? null
-                                        : () => _previewThenApprove(r),
-                                    icon: const Icon(Icons.check_rounded),
-                                  ),
-                                  IconButton.outlined(
-                                    tooltip: 'رفض',
-                                    onPressed: id.isEmpty
-                                        ? null
-                                        : () => _reject(id),
-                                    icon: const Icon(Icons.close_rounded),
-                                  ),
-                                ],
-                                IconButton(
-                                  tooltip: 'حذف',
-                                  onPressed: id.isEmpty
-                                      ? null
-                                      : () => _delete(id),
-                                  icon: Icon(
-                                    Icons.delete_outline,
-                                    color: Theme.of(context).colorScheme.error,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            InkWell(
+                              onTap: () => _previewVideo(r),
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  child: Icon(
+                                    role == 'office'
+                                        ? Icons.storefront_outlined
+                                        : Icons.person_outline_rounded,
                                   ),
                                 ),
-                              ],
+                                title: Text(
+                                  reelPubStr.isNotEmpty
+                                      ? '$name · $reelPubStr'
+                                      : name,
+                                ),
+                                subtitle: Text(
+                                  [
+                                    if (caption.isNotEmpty) caption,
+                                    if (vc != null ||
+                                        rl != null ||
+                                        syn != null)
+                                      'مشاهدات: ${vc ?? 0} • لايكات: ${rl ?? 0} + تركيبي ${syn ?? 0}',
+                                    if (isSold) 'تم البيع',
+                                  ].join('\n'),
+                                  maxLines: 4,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: Wrap(
+                                  spacing: 6,
+                                  children: [
+                                    if (pub > 0)
+                                      IconButton(
+                                        tooltip: 'جدولة مشاهدات/لايكات',
+                                        onPressed: () =>
+                                            _scheduleEngagement(pub),
+                                        icon: const Icon(
+                                          Icons.trending_up_rounded,
+                                        ),
+                                      ),
+                                    if (_tabs.index == 0) ...[
+                                      IconButton.filledTonal(
+                                        tooltip: 'نشر',
+                                        onPressed: id.isEmpty
+                                            ? null
+                                            : () => _previewThenApprove(r),
+                                        icon: const Icon(Icons.check_rounded),
+                                      ),
+                                      IconButton.outlined(
+                                        tooltip: 'رفض',
+                                        onPressed: id.isEmpty
+                                            ? null
+                                            : () => _reject(id),
+                                        icon: const Icon(Icons.close_rounded),
+                                      ),
+                                    ],
+                                    IconButton(
+                                      tooltip: 'تعديل',
+                                      onPressed: id.isEmpty
+                                          ? null
+                                          : () => _editReel(r),
+                                      icon: const Icon(Icons.edit_outlined),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'حذف',
+                                      onPressed: id.isEmpty
+                                          ? null
+                                          : () => _delete(id),
+                                      icon: Icon(
+                                        Icons.delete_outline,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.error,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
+                            if (_tabs.index == 1)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    if (!isSold)
+                                      FilledButton.tonal(
+                                        onPressed: id.isEmpty
+                                            ? null
+                                            : () => _action(id, 'mark_sold'),
+                                        child: const Text('تم البيع'),
+                                      )
+                                    else if (canUnsold)
+                                      OutlinedButton(
+                                        onPressed: id.isEmpty
+                                            ? null
+                                            : () => _action(id, 'unmark_sold'),
+                                        child: const Text('إلغاء تم البيع'),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                              child: AdminActivityBlock(raw: r['activity']),
+                            ),
+                          ],
                         ),
                       );
                     },

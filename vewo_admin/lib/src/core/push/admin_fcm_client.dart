@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -18,11 +20,14 @@ final adminFcmBootstrapProvider = Provider<AdminFcmClient>(
 );
 
 class AdminFcmClient {
+  static const _deviceChannel = MethodChannel('com.adminaqartown.app/device');
+
   AdminFcmClient(this._ref) {
     final session = _ref.read(adminSessionProvider);
     session.addListener(() {
       if (session.isAuthenticated) {
         _flushPending();
+        unawaited(_registerCurrentToken());
       }
     });
   }
@@ -53,16 +58,21 @@ class AdminFcmClient {
         announcement: true,
         provisional: false,
       );
+
       await messaging.setForegroundNotificationPresentationOptions(
         alert: true,
         badge: true,
         sound: true,
       );
+      await messaging.setAutoInitEnabled(true);
+      await _requestBatteryUnrestricted();
+
       await _registerCurrentToken();
       if (Platform.isIOS) {
         Future<void>.delayed(const Duration(seconds: 3), _registerCurrentToken);
         Future<void>.delayed(const Duration(seconds: 10), _registerCurrentToken);
       }
+
       messaging.onTokenRefresh.listen((t) async {
         try {
           await _registerToken(t);
@@ -75,6 +85,10 @@ class AdminFcmClient {
             n?.title ?? msg.data['title']?.toString() ?? 'تنبيه الإدارة';
         final body = n?.body ?? msg.data['body']?.toString() ?? '';
         if (title.isEmpty && body.isEmpty) return;
+        if (msg.data['kind']?.toString() == 'fcm_test') return;
+        // أندرويد: الخدمة الأصلية تعرض الإشعار حتى والتطبيق مقتول.
+        if (Platform.isAndroid) return;
+        // على iOS النظام يعرض إشعار FCM عبر willPresent — تجنّب التكرار.
         if (Platform.isIOS && n != null) return;
         await AdminNotificationService.instance.show(
           id: DateTime.now().millisecondsSinceEpoch % 100000,
@@ -90,9 +104,12 @@ class AdminFcmClient {
 
       if (!_handledInitial) {
         _handledInitial = true;
+        final nativeLaunch = await _takeNativeLaunchExtras();
         final localLaunch =
             await AdminNotificationService.instance.takePendingLaunchPayload();
-        if (localLaunch != null && localLaunch.isNotEmpty) {
+        if (nativeLaunch != null && nativeLaunch.isNotEmpty) {
+          _openPayload(nativeLaunch, delayMs: 900);
+        } else if (localLaunch != null && localLaunch.isNotEmpty) {
           _openPayload(localLaunch, delayMs: 900);
         } else {
           final initial = await messaging.getInitialMessage();
@@ -163,8 +180,25 @@ class AdminFcmClient {
   void _flushPending() {
     final pending = PendingAdminNotificationNav.take();
     if (pending == null || pending.isEmpty) return;
-    // أعد التخزين ثم افتح — take أزالها.
     _openPayload(pending, delayMs: 250);
+  }
+
+  Future<void> _requestBatteryUnrestricted() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _deviceChannel.invokeMethod<bool>('requestBatteryUnrestricted');
+    } catch (_) {}
+  }
+
+  Future<Map<String, dynamic>?> _takeNativeLaunchExtras() async {
+    if (!Platform.isAndroid) return null;
+    try {
+      final raw = await _deviceChannel.invokeMethod('takeLaunchExtras');
+      if (raw is Map && raw.isNotEmpty) {
+        return Map<String, dynamic>.from(raw);
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<void> _registerCurrentToken() async {

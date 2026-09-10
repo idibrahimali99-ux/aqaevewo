@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_config.dart';
 import '../../../core/api/api_providers.dart';
 import '../../../core/api/vewo_api_client.dart';
+import '../../../core/push/admin_fcm_client.dart';
 import '../../auth/auth_providers.dart';
 
 const _homeSectionIconChoices = <({String value, String label, IconData icon})>[
@@ -140,10 +141,25 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
 
   Future<void> _testFcm() async {
     try {
+      await ref.read(adminFcmBootstrapProvider).start();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'أغلق التطبيق من قائمة التطبيقات الآن وانتظر نحو 40 ثانية دون فتحه. إغلاق خلال 8 ثوانٍ لا يكفي.',
+          ),
+          duration: Duration(seconds: 8),
+        ),
+      );
       final api = ref.read(vewoApiClientProvider);
-      final data = await api.postJson('admin/fcm/test', {});
+      final data = await api.postJson(
+        'admin/fcm/test',
+        {'delay_sec': 40},
+        timeout: const Duration(seconds: 20),
+      );
       if (!mounted) return;
       final mode = data['mode']?.toString() ?? '';
+      final queued = data['queued'] == true;
       final sent = data['sent'] ?? data['tokens'];
       final failed = data['failed'];
       final platforms = data['platforms'];
@@ -151,9 +167,11 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
       final errors = data['errors'];
       final ok = data['ok'] == true;
       final parts = <String>[
-        ok ? 'FCM أُرسل ($mode)' : 'FCM فشل جزئياً ($mode)',
-        'نجاح: $sent',
-        if (failed != null) 'فشل: $failed',
+        queued
+            ? 'تم جدولة الإشعار خلال 40 ثانية — أغلق التطبيق الآن'
+            : (ok ? 'FCM أُرسل ($mode)' : 'FCM فشل جزئياً ($mode)'),
+        if (!queued) 'نجاح: $sent',
+        if (!queued && failed != null) 'فشل: $failed',
         if (platforms is Map) 'منصات: $platforms',
       ];
       if (errors is List && errors.isNotEmpty) {
@@ -195,6 +213,153 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تعذر اختبار FCM')),
+      );
+    }
+  }
+
+  Future<void> _openAppUpdateEditor() async {
+    try {
+      final api = ref.read(vewoApiClientProvider);
+      final data = await api.getJson('admin/app-update');
+      final minCtrl = TextEditingController(
+        text: data['min_version']?.toString() ?? '',
+      );
+      final latestCtrl = TextEditingController(
+        text: data['latest_version']?.toString() ?? '',
+      );
+      final buildCtrl = TextEditingController(
+        text: '${data['min_build'] ?? 0}',
+      );
+      final androidCtrl = TextEditingController(
+        text: data['android_store_url']?.toString() ?? '',
+      );
+      final iosCtrl = TextEditingController(
+        text: data['ios_store_url']?.toString() ?? '',
+      );
+      final titleCtrl = TextEditingController(
+        text: data['title']?.toString() ?? '',
+      );
+      final messageCtrl = TextEditingController(
+        text: data['message']?.toString() ?? '',
+      );
+      if (!mounted) {
+        minCtrl.dispose();
+        latestCtrl.dispose();
+        buildCtrl.dispose();
+        androidCtrl.dispose();
+        iosCtrl.dispose();
+        titleCtrl.dispose();
+        messageCtrl.dispose();
+        return;
+      }
+      try {
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('تحديث تطبيق عقار تاون'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'عند نشر إصدار جديد في المتجر ضع رقمه هنا. المستخدمون على إصدار أقدم لا يمكنهم استخدام التطبيق حتى يحدّثوا. لا يوجد خيار لاحقاً.',
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: latestCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'أحدث إصدار في المتجر',
+                      hintText: 'مثال 1.1.7',
+                    ),
+                  ),
+                  TextField(
+                    controller: minCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'الحد الأدنى للمتابعة',
+                      helperText: 'اتركه فارغاً ليستخدم أحدث إصدار',
+                    ),
+                  ),
+                  TextField(
+                    controller: buildCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'الحد الأدنى لرقم البناء (اختياري)',
+                    ),
+                  ),
+                  TextField(
+                    controller: androidCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'رابط Google Play',
+                    ),
+                  ),
+                  TextField(
+                    controller: iosCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'رابط App Store',
+                      hintText: 'https://apps.apple.com/app/idXXXX',
+                    ),
+                  ),
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'عنوان التنبيه',
+                    ),
+                  ),
+                  TextField(
+                    controller: messageCtrl,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'نص التنبيه',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('إلغاء'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('حفظ'),
+              ),
+            ],
+          ),
+        );
+        if (ok != true || !mounted) return;
+        await api.postJson('admin/app-update', {
+          'latest_version': latestCtrl.text.trim(),
+          'min_version': minCtrl.text.trim(),
+          'min_build': int.tryParse(buildCtrl.text.trim()) ?? 0,
+          'android_store_url': androidCtrl.text.trim(),
+          'ios_store_url': iosCtrl.text.trim(),
+          'title': titleCtrl.text.trim(),
+          'message': messageCtrl.text.trim(),
+        });
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم حفظ سياسة التحديث')),
+        );
+      } finally {
+        minCtrl.dispose();
+        latestCtrl.dispose();
+        buildCtrl.dispose();
+        androidCtrl.dispose();
+        iosCtrl.dispose();
+        titleCtrl.dispose();
+        messageCtrl.dispose();
+      }
+    } on VewoApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر تحميل إعدادات التحديث')),
       );
     }
   }
@@ -714,6 +879,12 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                   onPressed: _testFcm,
                   icon: const Icon(Icons.notifications_active_outlined),
                   label: const Text('اختبار Firebase (FCM)'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _openAppUpdateEditor,
+                  icon: const Icon(Icons.system_update_alt_rounded),
+                  label: const Text('تحديث تطبيق عقار تاون'),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(

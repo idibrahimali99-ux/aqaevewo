@@ -116,22 +116,10 @@ class _AdminChatsScreenState extends ConsumerState<AdminChatsScreen> {
     if (ttype == 'direct') {
       parts.add('مستفسر ↔ معلن');
     } else if (ttype == 'mediated') {
-      final c =
-          row['customer_display_name']?.toString() ??
-          row['customer_name']?.toString() ??
-          '';
-      final o =
-          row['office_display_name']?.toString() ??
-          row['office_name']?.toString() ??
-          row['office_full_name']?.toString() ??
-          '';
       parts.add('عبر الإدارة');
-      if (c.isNotEmpty) parts.add('مستفسر: $c');
-      if (o.isNotEmpty) parts.add('معلن: $o');
     }
     final propertyNo = row['property_public_no']?.toString().trim() ?? '';
     final propertyTitle = row['property_title']?.toString().trim() ?? '';
-    final owner = row['office_display_name']?.toString().trim() ?? '';
     if (propertyNo.isNotEmpty || propertyTitle.isNotEmpty) {
       parts.add(
         [
@@ -145,9 +133,6 @@ class _AdminChatsScreenState extends ConsumerState<AdminChatsScreen> {
     if (reelId.isNotEmpty || reelCaption.isNotEmpty) {
       parts.add(['ريلز', if (reelCaption.isNotEmpty) reelCaption].join(' — '));
     }
-    if (owner.isNotEmpty && !parts.contains('معلن: $owner')) {
-      parts.add('صاحب المنشور: $owner');
-    }
     final prev = row['last_message_preview']?.toString().trim();
     if (prev != null && prev.isNotEmpty) {
       parts.add(prev);
@@ -157,14 +142,10 @@ class _AdminChatsScreenState extends ConsumerState<AdminChatsScreen> {
 
   String _title(Map<String, dynamic> row) {
     final tpn = row['thread_public_no'];
-    final first =
-        row['first_sender_name']?.toString().trim() ??
-        row['customer_display_name']?.toString().trim() ??
-        row['customer_name']?.toString().trim() ??
-        '';
+    final prop = row['property_title']?.toString().trim() ?? '';
     final numPart = tpn != null && '$tpn'.isNotEmpty ? '#$tpn' : 'محادثة';
-    if (first.isEmpty) return numPart;
-    return '$numPart · $first';
+    if (prop.isEmpty) return numPart;
+    return '$numPart · $prop';
   }
 
   int _unread(Map<String, dynamic> row) {

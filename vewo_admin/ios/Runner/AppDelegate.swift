@@ -21,6 +21,7 @@ import FirebaseMessaging
     }
 
     UNUserNotificationCenter.current().delegate = self
+    application.registerForRemoteNotifications()
     UNUserNotificationCenter.current().requestAuthorization(
       options: [.alert, .badge, .sound]
     ) { granted, _ in

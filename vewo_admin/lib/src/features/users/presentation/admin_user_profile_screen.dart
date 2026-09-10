@@ -22,9 +22,14 @@ Uri? whatsappUriFromIraqPhone(String phone) {
 
 /// صفحة تعريف مستخدم (زبون / مكتب / موظف) من `GET admin/user?id=`.
 class AdminUserProfileScreen extends ConsumerStatefulWidget {
-  const AdminUserProfileScreen({super.key, required this.userId});
+  const AdminUserProfileScreen({
+    super.key,
+    required this.userId,
+    this.preview,
+  });
 
   final String userId;
+  final Map<String, dynamic>? preview;
 
   @override
   ConsumerState<AdminUserProfileScreen> createState() =>
@@ -36,50 +41,67 @@ class _AdminUserProfileScreenState extends ConsumerState<AdminUserProfileScreen>
   String? _error;
   bool _loading = true;
 
+  Map<String, dynamic>? _asUserMap(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
+    _user = widget.preview;
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   Future<void> _load() async {
     setState(() {
-      _loading = true;
+      _loading = _user == null;
       _error = null;
     });
     try {
       final api = ref.read(vewoApiClientProvider);
       final data = await api.getJson(
         'admin/user',
-        query: {'id': widget.userId},
+        query: {'id': widget.userId, 'user_id': widget.userId},
       );
-      final u = data['user'];
+      final u = _asUserMap(data['user']) ??
+          (data['id'] != null ? _asUserMap(data) : null);
       if (!mounted) return;
       setState(() {
-        _user = u is Map<String, dynamic>
-            ? u
-            : u is Map
-                ? Map<String, dynamic>.from(u)
-                : null;
+        if (u != null) {
+          _user = u;
+        }
         _loading = false;
+        if (u == null) {
+          _error = 'تعذر قراءة بيانات المستخدم';
+        }
       });
     } on VewoApiException catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.message;
+        _error = _user == null ? e.message : null;
         _loading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'تعذر التحميل';
+        _error = _user == null ? 'تعذر التحميل' : null;
         _loading = false;
       });
     }
   }
 
-  bool _truthy(dynamic v) =>
-      v == true || v == 1 || v?.toString() == '1';
+  bool _truthy(dynamic v) {
+    if (v == true || v == 1 || v == 1.0) return true;
+    if (v == false || v == 0 || v == 0.0 || v == null) return false;
+    final s = v.toString().trim().toLowerCase();
+    if (s == '1' || s == 'true' || s == 'yes' || s == 'on') return true;
+    if (s == '0' || s == 'false' || s == 'off' || s == 'no' || s.isEmpty) {
+      return false;
+    }
+    return s.codeUnits.length == 1 && s.codeUnits.first == 1;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,8 +131,14 @@ class _AdminUserProfileScreenState extends ConsumerState<AdminUserProfileScreen>
       );
     }
     final u = _user ?? {};
-    final role = u['role']?.toString() ?? '';
-    final photo = u['profile_photo_url']?.toString().trim() ?? '';
+    final role = (u['role']?.toString() ?? '').trim().toLowerCase();
+    final photo = (u['avatar_url']?.toString().trim().isNotEmpty == true
+            ? u['avatar_url']?.toString().trim()
+            : null) ??
+        (u['profile_photo_url']?.toString().trim().isNotEmpty == true
+            ? u['profile_photo_url']?.toString().trim()
+            : null) ??
+        (u['office_photo_url']?.toString().trim() ?? '');
     final officePhoto = u['office_photo_url']?.toString().trim() ?? '';
     final phoneRaw = u['phone']?.toString().trim() ?? '';
 
@@ -318,13 +346,17 @@ class _AdminUserProfileScreenState extends ConsumerState<AdminUserProfileScreen>
     );
   }
 
-  String _roleLabel(String r) => switch (r) {
-        'customer' => 'زبون',
-        'office' => 'مكتب',
-        'staff' => 'موظف لوحة',
-        'admin' => 'مسؤول',
-        _ => r.isEmpty ? '—' : r,
-      };
+  String _roleLabel(String r) {
+    final key = r.trim().toLowerCase();
+    return switch (key) {
+      'customer' => 'زبون',
+      'office' => 'مكتب',
+      'staff' => 'موظف لوحة',
+      'admin' => 'مسؤول',
+      '' => '—',
+      _ => r,
+    };
+  }
 
   Widget _kv(String label, String? value) {
     final v = value?.trim();

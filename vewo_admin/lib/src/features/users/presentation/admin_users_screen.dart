@@ -30,6 +30,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
     'chats': 'المحادثات',
     'users': 'المستخدمون والمسوقون وباقات النشر',
     'settings': 'الإعدادات والمحافظات والأقضية',
+    'unsold': 'إلغاء تم البيع وإرجاع المنشور',
   };
 
   List<Map<String, dynamic>> _items = [];
@@ -427,7 +428,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
   }
 
   String _roleShort(String role) {
-    return switch (role) {
+    return switch (role.trim().toLowerCase()) {
       'customer' => 'زبون',
       'office' => 'مكتب',
       'staff' => 'موظف',
@@ -849,13 +850,24 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
                               u['office_verified'] == true;
                           final isMarketer =
                               u['is_marketer'] == 1 || u['is_marketer'] == true;
-                          final active =
-                              u['is_active'] == 1 || u['is_active'] == true;
+                          final active = u['is_active'] == 1 ||
+                              u['is_active'] == true ||
+                              u['is_active'] == '1' ||
+                              u['is_active']?.toString() == '1';
                           final canDeactivate =
                               isSuperAdmin && id.isNotEmpty && id != myId;
                           final canEdit = id.isNotEmpty && id != myId;
-                          final profileUrl =
-                              u['profile_photo_url']?.toString().trim() ?? '';
+                                          final profileUrl = () {
+                                            final p = u['profile_photo_url']
+                                                    ?.toString()
+                                                    .trim() ??
+                                                '';
+                                            if (p.isNotEmpty) return p;
+                                            return u['office_photo_url']
+                                                    ?.toString()
+                                                    .trim() ??
+                                                '';
+                                          }();
                           final staffPerms = role == 'staff'
                               ? _parsePermissions(u['staff_permissions_json'])
                               : <String>{};
@@ -909,6 +921,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
                                           builder: (_) =>
                                               AdminUserProfileScreen(
                                                 userId: id,
+                                                preview: Map<String, dynamic>.from(u),
                                               ),
                                         ),
                                       );
