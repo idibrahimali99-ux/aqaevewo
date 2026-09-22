@@ -41,7 +41,22 @@ if (!isset($apiMeta) || !is_array($apiMeta)) {
             <?= $content ?>
         </main>
     </div>
-    <?php require dirname(__DIR__) . '/partials/admin-notifications.php'; ?>
+    <div class="admin-backdrop" id="adminBackdrop"></div>
+</div>
+<div id="adminCommandPalette" class="admin-command-palette d-none">
+    <div class="admin-command-box">
+        <input id="adminCommandInput" class="form-control form-control-lg mb-2" placeholder="بحث سريع في أقسام اللوحة..." autocomplete="off">
+        <div id="adminCommandResults" class="admin-command-results">
+            <?php foreach (admin_visible_sections() as $key => $sec): ?>
+                <?php if (!is_array($sec)) continue; ?>
+                <a href="<?= e(url('/admin/' . $key)) ?>" data-label="<?= e((string) ($sec['label'] ?? $key)) ?>">
+                    <span><?= e((string) ($sec['label'] ?? $key)) ?></span>
+                    <i class="fa-solid fa-arrow-left text-secondary"></i>
+                </a>
+            <?php endforeach; ?>
+        </div>
+        <div class="small text-secondary mt-2">Ctrl+K للفتح · Esc للإغلاق</div>
+    </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.1/dist/apexcharts.min.js"></script>

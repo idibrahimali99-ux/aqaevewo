@@ -205,6 +205,92 @@ function follow_status_route(PDO $pdo): void
     ], JSON_UNESCAPED_UNICODE);
 }
 
+/**
+ * مكاتب ومسوقون مع باقة النشر والرصيد وعدد المنشورات.
+ *
+ * @return list<array<string,mixed>>
+ */
+function vewo_admin_posting_assignment_rows(PDO $pdo): array
+{
+    $hasQuota = function_exists('vewo_users_has_posting_quota_columns') && vewo_users_has_posting_quota_columns($pdo);
+    $hasPkg = $hasQuota && vewo_posting_packages_table_exists($pdo);
+    $hasSub = vewo_users_has_posting_subscription_columns($pdo);
+    $hasMkt = function_exists('vewo_users_has_is_marketer_column') && vewo_users_has_is_marketer_column($pdo);
+    $pkgJoin = $hasPkg ? 'LEFT JOIN posting_packages pkg ON pkg.id = u.posting_package_id' : '';
+    $pkgCols = $hasPkg
+        ? 'u.posting_package_id, pkg.name_ar AS posting_package_name, pkg.listing_limit AS posting_package_limit,'
+        : 'NULL AS posting_package_id, NULL AS posting_package_name, NULL AS posting_package_limit,';
+    $quotaCols = $hasQuota
+        ? 'u.posting_trial_unlimited, u.posting_listings_remaining,'
+        : '1 AS posting_trial_unlimited, NULL AS posting_listings_remaining,';
+    $subCols = $hasSub
+        ? 'u.posting_subscription_days, u.posting_subscription_expires_at,'
+        : 'NULL AS posting_subscription_days, NULL AS posting_subscription_expires_at,';
+    $mktCol = $hasMkt ? 'COALESCE(u.is_marketer, 0) AS is_marketer' : '0 AS is_marketer';
+    $orderMkt = $hasMkt ? 'COALESCE(u.is_marketer, 0) ASC,' : '';
+    $sql = "SELECT u.id, u.full_name, u.phone, u.office_name, u.office_approved, u.is_active, u.role,
+                   {$pkgCols} {$quotaCols} {$subCols} {$mktCol},
+                   (SELECT COUNT(*) FROM properties p WHERE p.owner_user_id = u.id) AS published_count,
+                   (SELECT COUNT(*) FROM properties p WHERE p.owner_user_id = u.id AND p.approval_status = 'approved') AS published_approved_count,
+                   (SELECT COUNT(*) FROM reels r WHERE r.owner_user_id = u.id) AS reels_count
+            FROM users u
+            {$pkgJoin}
+            WHERE u.role = 'office'
+            ORDER BY {$orderMkt} u.office_name ASC, u.full_name ASC
+            LIMIT 800";
+    try {
+        $stmt = $pdo->query($sql);
+    } catch (Throwable $e) {
+        return [];
+    }
+    $rows = $stmt !== false ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+    $out = [];
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $isMarketer = (int) ($row['is_marketer'] ?? 0) === 1;
+        $unlimited = (int) ($row['posting_trial_unlimited'] ?? 0) === 1
+            || ($row['posting_package_limit'] ?? null) === null && ($row['posting_package_id'] ?? '') !== '' && ($row['posting_package_limit'] ?? 'x') === null;
+        $pkgLimitRaw = $row['posting_package_limit'] ?? null;
+        $pkgLimit = ($pkgLimitRaw === null || $pkgLimitRaw === '') ? null : (int) $pkgLimitRaw;
+        if ($pkgLimit === null && ($row['posting_package_id'] ?? '') !== '' && ($pkgLimitRaw === null || $pkgLimitRaw === '')) {
+            $unlimited = true;
+        }
+        $remaining = $unlimited ? null : (int) ($row['posting_listings_remaining'] ?? 0);
+        $published = (int) ($row['published_count'] ?? 0);
+        $used = $unlimited || $pkgLimit === null ? $published : max(0, $pkgLimit - (int) ($remaining ?? 0));
+        $officeName = trim((string) ($row['office_name'] ?? ''));
+        $fullName = trim((string) ($row['full_name'] ?? ''));
+        $display = $officeName !== '' ? $officeName : ($fullName !== '' ? $fullName : 'حساب');
+        $out[] = [
+            'id' => (string) ($row['id'] ?? ''),
+            'full_name' => $fullName,
+            'office_name' => $officeName,
+            'display_name' => $display,
+            'phone' => (string) ($row['phone'] ?? ''),
+            'kind' => $isMarketer ? 'marketer' : 'office',
+            'kind_label' => $isMarketer ? 'مسوق' : 'مكتب',
+            'is_marketer' => $isMarketer ? 1 : 0,
+            'office_approved' => (int) ($row['office_approved'] ?? 0) === 1 ? 1 : 0,
+            'is_active' => (int) ($row['is_active'] ?? 0) === 1 ? 1 : 0,
+            'posting_package_id' => (string) ($row['posting_package_id'] ?? ''),
+            'posting_package_name' => (string) ($row['posting_package_name'] ?? ''),
+            'posting_package_limit' => $pkgLimit,
+            'posting_trial_unlimited' => $unlimited ? 1 : 0,
+            'posting_listings_remaining' => $remaining,
+            'posting_subscription_days' => $row['posting_subscription_days'] === null ? null : (int) $row['posting_subscription_days'],
+            'posting_subscription_expires_at' => (string) ($row['posting_subscription_expires_at'] ?? ''),
+            'published_count' => $published,
+            'published_approved_count' => (int) ($row['published_approved_count'] ?? 0),
+            'reels_count' => (int) ($row['reels_count'] ?? 0),
+            'used_count' => $used,
+        ];
+    }
+
+    return $out;
+}
+
 function admin_posting_packages_route(PDO $pdo): void
 {
     vewo_require_admin_permission($pdo, 'users');
@@ -218,7 +304,41 @@ function admin_posting_packages_route(PDO $pdo): void
              FROM posting_packages ORDER BY sort_order ASC, name_ar ASC'
         );
         $rows = $stmt !== false ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
-        echo json_encode(['ok' => true, 'items' => $rows], JSON_UNESCAPED_UNICODE);
+        $assignments = vewo_admin_posting_assignment_rows($pdo);
+        $byPkg = [];
+        foreach ($assignments as $asg) {
+            $pid = (string) ($asg['posting_package_id'] ?? '');
+            if ($pid === '') {
+                continue;
+            }
+            $byPkg[$pid][] = $asg;
+        }
+        $items = [];
+        foreach ($rows as $row) {
+            $id = (string) ($row['id'] ?? '');
+            $limitRaw = $row['listing_limit'] ?? null;
+            $unlimited = $limitRaw === null || $limitRaw === '';
+            $assignees = $byPkg[$id] ?? [];
+            $items[] = [
+                'id' => $id,
+                'name_ar' => (string) ($row['name_ar'] ?? ''),
+                'name' => (string) ($row['name_ar'] ?? ''),
+                'listing_limit' => $unlimited ? null : (int) $limitRaw,
+                'listings_limit' => $unlimited ? null : (int) $limitRaw,
+                'is_unlimited' => $unlimited ? 1 : 0,
+                'applies_to' => (string) ($row['applies_to'] ?? 'both'),
+                'sort_order' => (int) ($row['sort_order'] ?? 0),
+                'is_active' => (int) ($row['is_active'] ?? 0) === 1 ? 1 : 0,
+                'created_at' => (string) ($row['created_at'] ?? ''),
+                'assignees_count' => count($assignees),
+                'assignees' => $assignees,
+            ];
+        }
+        echo json_encode([
+            'ok' => true,
+            'items' => $items,
+            'assignments' => $assignments,
+        ], JSON_UNESCAPED_UNICODE);
 
         return;
     }
@@ -238,9 +358,9 @@ function admin_posting_packages_route(PDO $pdo): void
         return;
     }
     $id = trim((string) ($in['id'] ?? ''));
-    $name = trim((string) ($in['name_ar'] ?? ''));
-    $limitRaw = $in['listing_limit'] ?? $in['listingLimit'] ?? null;
-    $unlimited = !empty($in['unlimited']) || $limitRaw === null && array_key_exists('unlimited', $in) && $in['unlimited'] === true;
+    $name = trim((string) ($in['name_ar'] ?? $in['name'] ?? ''));
+    $limitRaw = $in['listing_limit'] ?? $in['listings_limit'] ?? $in['listingLimit'] ?? null;
+    $unlimited = !empty($in['unlimited']) || !empty($in['is_unlimited']) || ($limitRaw === null && array_key_exists('unlimited', $in) && $in['unlimited'] === true);
     $limit = $unlimited ? null : max(0, (int) $limitRaw);
     $applies = trim((string) ($in['applies_to'] ?? 'both'));
     if (!in_array($applies, ['office', 'marketer', 'both'], true)) {
@@ -416,23 +536,61 @@ function admin_marketers_list_route(PDO $pdo): void
     $pkgCol = vewo_users_has_posting_quota_columns($pdo)
         ? 'u.posting_trial_unlimited, u.posting_listings_remaining, u.posting_package_id,'
         : '';
+    $pkgNameJoin = vewo_posting_packages_table_exists($pdo)
+        ? 'LEFT JOIN posting_packages pkg ON pkg.id = u.posting_package_id'
+        : '';
+    $pkgNameCol = vewo_posting_packages_table_exists($pdo)
+        ? 'pkg.name_ar AS posting_package_name, pkg.listing_limit AS posting_package_limit,'
+        : 'NULL AS posting_package_name, NULL AS posting_package_limit,';
     $subCol = vewo_users_has_posting_subscription_columns($pdo)
         ? 'u.posting_subscription_days, u.posting_subscription_expires_at,'
         : '';
     $emailCol = function_exists('vewo_users_has_email_column') && vewo_users_has_email_column($pdo)
         ? 'u.email'
         : "'' AS email";
-    $stmt = $pdo->query(
-        "SELECT u.id, u.full_name, u.phone, {$emailCol}, u.office_name, u.office_approved, u.is_active,
-                {$pkgCol}
-                {$subCol}
-                COALESCE(u.follower_count,0) AS follower_count,
-                COALESCE(u.synthetic_follower_boost,0) AS synthetic_follower_boost
-         FROM users u
-         WHERE u.role = 'office' AND COALESCE(u.is_marketer,0) = 1
-         ORDER BY u.created_at DESC
-         LIMIT 500"
-    );
+    try {
+        $stmt = $pdo->query(
+            "SELECT u.id, u.full_name, u.phone, {$emailCol}, u.office_name, u.office_approved, u.is_active,
+                    {$pkgCol}
+                    {$pkgNameCol}
+                    {$subCol}
+                    COALESCE(u.follower_count,0) AS follower_count,
+                    COALESCE(u.synthetic_follower_boost,0) AS synthetic_follower_boost,
+                    (SELECT COUNT(*) FROM properties p WHERE p.owner_user_id = u.id) AS published_count,
+                    (SELECT COUNT(*) FROM properties p WHERE p.owner_user_id = u.id AND p.approval_status = 'approved') AS published_approved_count,
+                    (SELECT COUNT(*) FROM reels r WHERE r.owner_user_id = u.id) AS reels_count
+             FROM users u
+             {$pkgNameJoin}
+             WHERE u.role = 'office' AND COALESCE(u.is_marketer, 0) = 1
+             ORDER BY u.created_at DESC
+             LIMIT 500"
+        );
+    } catch (Throwable $e) {
+        $stmt = $pdo->query(
+            "SELECT u.id, u.full_name, u.phone, {$emailCol}, u.office_name, u.office_approved, u.is_active,
+                    COALESCE(u.follower_count,0) AS follower_count,
+                    COALESCE(u.synthetic_follower_boost,0) AS synthetic_follower_boost
+             FROM users u
+             WHERE u.role = 'office' AND COALESCE(u.is_marketer, 0) = 1
+             ORDER BY u.created_at DESC
+             LIMIT 500"
+        );
+    }
     $rows = $stmt !== false ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+    foreach ($rows as &$row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $unlimited = (int) ($row['posting_trial_unlimited'] ?? 0) === 1
+            || (($row['posting_package_limit'] ?? null) === null && trim((string) ($row['posting_package_id'] ?? '')) !== '');
+        $row['posting_is_unlimited'] = $unlimited ? 1 : 0;
+        $row['posting_trial_unlimited'] = $unlimited ? 1 : 0;
+        $limitRaw = $row['posting_package_limit'] ?? null;
+        $limit = ($limitRaw === null || $limitRaw === '') ? null : (int) $limitRaw;
+        $remaining = $unlimited ? null : (int) ($row['posting_listings_remaining'] ?? 0);
+        $published = (int) ($row['published_count'] ?? 0);
+        $row['used_count'] = $unlimited || $limit === null ? $published : max(0, $limit - (int) ($remaining ?? 0));
+    }
+    unset($row);
     echo json_encode(['ok' => true, 'items' => $rows], JSON_UNESCAPED_UNICODE);
 }

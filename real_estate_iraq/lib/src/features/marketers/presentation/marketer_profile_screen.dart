@@ -50,7 +50,14 @@ class MarketerProfileScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => const Center(child: Text('تعذر تحميل منشورات المسوق')),
         data: (items) {
-          return ListView(
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(marketerDetailProvider(marketerId));
+              ref.invalidate(officePropertiesProvider(marketerId));
+              ref.invalidate(marketerReelsProvider(marketerId));
+            },
+            child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: AppResponsive.pagePadding(
               context,
               top: 8,
@@ -302,6 +309,7 @@ class MarketerProfileScreen extends ConsumerWidget {
               else
                 PropertyCardsGrid(items: items),
             ],
+          ),
           );
         },
       ),

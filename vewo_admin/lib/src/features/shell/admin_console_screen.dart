@@ -282,6 +282,10 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
           ),
         );
 
+        final notifCount = adminNotifVisibleTotal(
+          ref.watch(adminNotifCountsProvider),
+          ref.watch(adminNotifAcknowledgedProvider),
+        );
         final appBar = AppBar(
           title: Text(_destinations[effectiveIndex].label),
           leading: wide
@@ -292,89 +296,116 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
                   onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                 ),
           automaticallyImplyLeading: false,
+          automaticallyImplyActions: false,
+          actionsPadding: EdgeInsets.zero,
           actions: [
             IconButton(
               tooltip: 'الإشعارات',
               onPressed: _openNotifications,
-              icon: Builder(
-                builder: (context) {
-                  final c = ref.watch(adminNotifCountsProvider);
-                  final ack = ref.watch(adminNotifAcknowledgedProvider);
-                  final total = adminNotifVisibleTotal(c, ack);
-                  if (total <= 0) {
-                    return const Icon(Icons.notifications_none_rounded);
-                  }
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const Icon(Icons.notifications_none_rounded),
-                      Positioned(
-                        top: -2,
-                        right: -2,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFDC2626),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            total > 99 ? '99+' : '$total',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-            IconButton(
-              tooltip: '${themeController.label} — اضغط للتبديل',
-              onPressed: themeController.toggle,
-              icon: Icon(
-                adminThemeMode == ThemeMode.dark
-                    ? Icons.light_mode_rounded
-                    : Icons.dark_mode_rounded,
-              ),
-            ),
-            IconButton(
-              tooltip: 'تلقائي حسب النهار والليل',
-              onPressed: themeController.setAuto,
-              icon: const Icon(Icons.schedule_rounded),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-              child: Chip(
-                avatar: Icon(
-                  Icons.person_rounded,
-                  size: 18,
-                  color: scheme.primary,
-                ),
+              icon: Badge(
+                isLabelVisible: notifCount > 0,
+                backgroundColor: const Color(0xFFDC2626),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 label: Text(
-                  session.fullName ?? 'admin',
+                  notifCount > 99 ? '99+' : '$notifCount',
                   style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 10,
+                    height: 1,
                   ),
                 ),
-                side: BorderSide(color: scheme.outline.withValues(alpha: 0.4)),
-                backgroundColor: scheme.surfaceContainerHighest.withValues(
-                  alpha: 0.35,
-                ),
+                child: const Icon(Icons.notifications_none_rounded),
               ),
             ),
-            IconButton(
-              tooltip: 'تسجيل الخروج',
-              onPressed: _logout,
-              icon: const Icon(Icons.logout_rounded),
-            ),
+            if (wide) ...[
+              IconButton(
+                tooltip: '${themeController.label} — اضغط للتبديل',
+                onPressed: themeController.toggle,
+                icon: Icon(
+                  adminThemeMode == ThemeMode.dark
+                      ? Icons.light_mode_rounded
+                      : Icons.dark_mode_rounded,
+                ),
+              ),
+              IconButton(
+                tooltip: 'تلقائي حسب النهار والليل',
+                onPressed: themeController.setAuto,
+                icon: const Icon(Icons.schedule_rounded),
+              ),
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 4, end: 4),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 140),
+                  child: Chip(
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    avatar: Icon(
+                      Icons.person_rounded,
+                      size: 18,
+                      color: scheme.primary,
+                    ),
+                    label: Text(
+                      session.fullName ?? 'admin',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        height: 1.1,
+                      ),
+                    ),
+                    side: BorderSide(
+                      color: scheme.outline.withValues(alpha: 0.4),
+                    ),
+                    backgroundColor: scheme.surfaceContainerHighest.withValues(
+                      alpha: 0.35,
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'تسجيل الخروج',
+                onPressed: _logout,
+                icon: const Icon(Icons.logout_rounded),
+              ),
+            ] else
+              PopupMenuButton<String>(
+                tooltip: 'الحساب',
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.account_circle_outlined),
+                onSelected: (value) {
+                  if (value == 'theme') themeController.toggle();
+                  if (value == 'auto') themeController.setAuto();
+                  if (value == 'logout') _logout();
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    enabled: false,
+                    child: Text(
+                      session.fullName ?? 'admin',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'theme',
+                    child: Text(
+                      adminThemeMode == ThemeMode.dark
+                          ? 'الوضع الفاتح'
+                          : 'الوضع الداكن',
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'auto',
+                    child: Text('تلقائي حسب النهار والليل'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'logout',
+                    child: Text('تسجيل الخروج'),
+                  ),
+                ],
+              ),
             const SizedBox(width: 4),
           ],
         );

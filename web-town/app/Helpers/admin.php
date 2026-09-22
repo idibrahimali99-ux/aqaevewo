@@ -74,7 +74,7 @@ function admin_sections(): array
             'endpoint' => 'admin/compounds', 'description' => 'إدارة المجمعات السكنية وصورها.',
             'tabs' => ['القائمة', 'إضافة/تعديل', 'حذف', 'رفع صورة'],
             'operations' => [
-                'upsert' => ['label' => 'إضافة/تعديل مجمع', 'endpoint' => 'admin/compounds', 'method' => 'POST', 'fields' => ['id' => 'اختياري للتعديل', 'governorate_id' => 'المحافظة', 'district_id' => 'القضاء', 'name' => 'الاسم', 'image_url' => 'رابط الصورة', 'sort_order' => 'الترتيب', 'is_active' => '1 أو 0'], 'fixed' => ['action' => 'upsert']],
+                'upsert' => ['label' => 'إضافة/تعديل مجمع', 'endpoint' => 'admin/compounds', 'method' => 'POST', 'fields' => ['id' => 'اختياري للتعديل', 'governorate_id' => 'المحافظة', 'district_id' => 'القضاء', 'name' => 'الاسم', 'compound_name' => 'اسم المجمع', 'governorate' => 'المحافظة', 'photo_url' => 'رابط الصورة', 'sort_order' => 'الترتيب', 'is_active' => '1 أو 0'], 'fixed' => ['action' => 'upsert']],
                 'delete' => ['label' => 'حذف مجمع', 'endpoint' => 'admin/compounds', 'method' => 'DELETE', 'fields' => ['id' => 'معرّف المجمع']],
                 'upload' => ['label' => 'رفع صورة مجمع', 'endpoint' => 'admin/upload', 'method' => 'UPLOAD', 'fields' => []],
             ],
@@ -87,6 +87,7 @@ function admin_sections(): array
                 'approve' => ['label' => 'موافقة ونشر', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور'], 'fixed' => ['action' => 'approve']],
                 'reject' => ['label' => 'رفض مع ملاحظة', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور', 'reject_note' => 'سبب الرفض', 'resubmission_allowed' => '1 أو 0'], 'fixed' => ['action' => 'reject']],
                 'mark_sold' => ['label' => 'تعليم تم البيع', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور'], 'fixed' => ['action' => 'mark_sold']],
+                'unmark_sold' => ['label' => 'إلغاء تم البيع', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور'], 'fixed' => ['action' => 'unmark_sold']],
                 'urgent_sale' => ['label' => 'تفعيل البيع العاجل', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور', 'days' => '1-365', 'notify_all' => '1 لإشعار الجميع'], 'fixed' => ['action' => 'urgent_sale']],
                 'cancel_urgent_sale' => ['label' => 'إلغاء البيع العاجل', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور'], 'fixed' => ['action' => 'cancel_urgent_sale']],
                 'update' => ['label' => 'تعديل منشور', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور', 'title' => 'العنوان', 'governorate' => 'المحافظة', 'address_line' => 'العنوان التفصيلي', 'purpose' => 'sale/rent', 'price_iqd' => 'السعر', 'area_sqm' => 'المساحة', 'description' => 'الوصف', 'requires_review' => '1 أو 0'], 'fixed' => ['action' => 'update']],
@@ -101,6 +102,9 @@ function admin_sections(): array
             'operations' => [
                 'approve' => ['label' => 'موافقة ريل', 'endpoint' => 'admin/reels', 'method' => 'POST', 'fields' => ['id' => 'معرّف الريل'], 'fixed' => ['action' => 'approve']],
                 'reject' => ['label' => 'رفض ريل', 'endpoint' => 'admin/reels', 'method' => 'POST', 'fields' => ['id' => 'معرّف الريل', 'reject_note' => 'سبب الرفض', 'resubmission_allowed' => '1 للسماح بالتعديل'], 'fixed' => ['action' => 'reject']],
+                'update' => ['label' => 'تعديل ريل', 'endpoint' => 'admin/reels', 'method' => 'POST', 'fields' => ['id' => 'معرّف الريل', 'caption' => 'الوصف'], 'fixed' => ['action' => 'update']],
+                'mark_sold' => ['label' => 'تم البيع للريل', 'endpoint' => 'admin/reels', 'method' => 'POST', 'fields' => ['id' => 'معرّف الريل'], 'fixed' => ['action' => 'mark_sold']],
+                'unmark_sold' => ['label' => 'إلغاء تم البيع للريل', 'endpoint' => 'admin/reels', 'method' => 'POST', 'fields' => ['id' => 'معرّف الريل'], 'fixed' => ['action' => 'unmark_sold']],
                 'delete' => ['label' => 'حذف ريل', 'endpoint' => 'admin/reels', 'method' => 'DELETE', 'fields' => ['id' => 'معرّف الريل']],
                 'engagement' => ['label' => 'جدولة تفاعل', 'endpoint' => 'admin/engagement', 'method' => 'POST', 'permission' => 'engagement', 'fields' => ['target_kind' => 'reel', 'target_public_no' => 'رقم الريل', 'views_per_hour' => 'مشاهدات/ساعة', 'likes_per_hour' => 'لايكات/ساعة', 'hours' => 'المدة بالساعات']],
             ],
@@ -188,11 +192,22 @@ function admin_sections(): array
         ],
         'settings' => [
             'label' => 'إعدادات', 'icon' => 'ST', 'group' => 'النظام', 'permission' => 'settings',
-            'endpoint' => 'health', 'description' => 'فحص API، broadcast، أقسام الرئيسية، وإجراءات المنطقة الخطرة.',
-            'tabs' => ['Health', 'Broadcast', 'Home Sections', 'Danger Zone'],
+            'endpoint' => 'health', 'description' => 'فحص API، إشعارات فورية، اختبار FCM، أقسام الرئيسية، وإجراءات المنطقة الخطرة.',
+            'tabs' => ['Health', 'Broadcast', 'FCM', 'Home Sections', 'Danger Zone'],
             'operations' => [
-                'broadcast' => ['label' => 'إرسال إشعار فوري', 'endpoint' => 'admin/broadcast', 'method' => 'POST', 'fields' => ['target' => 'users/admins/all', 'title' => 'العنوان', 'body' => 'المحتوى']],
-                'home_section' => ['label' => 'تعديل أيقونة قسم رئيسية', 'endpoint' => 'admin/home-sections', 'method' => 'POST', 'fields' => ['section_key' => 'المفتاح', 'label' => 'التسمية', 'route_target' => 'المسار', 'icon_url' => 'رابط الأيقونة', 'sort_order' => 'الترتيب', 'is_active' => '1 أو 0']],
+                'broadcast' => ['label' => 'إرسال إشعار فوري', 'endpoint' => 'admin/broadcast', 'method' => 'POST', 'fields' => ['target' => 'users/admins/all', 'title' => 'العنوان', 'body' => 'المحتوى', 'kind' => 'broadcast/reminder']],
+                'fcm_test' => ['label' => 'اختبار إشعار FCM', 'endpoint' => 'admin/fcm/test', 'method' => 'POST', 'fields' => []],
+                'home_section' => ['label' => 'تعديل أيقونة قسم رئيسية', 'endpoint' => 'admin/home-sections', 'method' => 'POST', 'fields' => ['section_key' => 'المفتاح', 'label' => 'التسمية', 'route_target' => 'المسار', 'icon_name' => 'الأيقونة', 'sort_order' => 'الترتيب', 'is_active' => '1 أو 0']],
+                'telegram_save' => ['label' => 'حفظ تيليغرام', 'endpoint' => 'admin/telegram', 'method' => 'POST', 'fields' => ['bot_token' => 'توكن البوت', 'chat_id' => 'معرّف المحادثة'], 'fixed' => ['action' => 'save']],
+                'app_update_save' => ['label' => 'حفظ تحديث التطبيق', 'endpoint' => 'admin/app-update', 'method' => 'POST', 'keep_empty' => true, 'fields' => ['enabled' => 'تفعيل', 'latest_version' => 'أحدث إصدار', 'min_version' => 'الحد الأدنى', 'min_build' => 'رقم البناء', 'android_store_url' => 'رابط أندرويد', 'ios_store_url' => 'رابط App Store', 'title' => 'عنوان التنبيه', 'message' => 'نص التنبيه', 'android_enabled' => 'تفعيل أندرويد', 'ios_enabled' => 'تفعيل iOS', 'android_latest_version' => 'إصدار أندرويد', 'android_min_version' => 'حد أندرويد', 'android_min_build' => 'بناء أندرويد', 'ios_latest_version' => 'إصدار iOS', 'ios_min_version' => 'حد iOS', 'ios_min_build' => 'بناء iOS', 'platform' => 'المنصة']],
+                'app_update_save_android' => ['label' => 'حفظ تحديث أندرويد', 'endpoint' => 'admin/app-update', 'method' => 'POST', 'keep_empty' => true, 'fixed' => ['platform' => 'android'], 'fields' => ['android_enabled' => 'تفعيل أندرويد', 'android_latest_version' => 'أحدث إصدار', 'android_min_version' => 'الحد الأدنى', 'android_min_build' => 'رقم البناء', 'android_store_url' => 'رابط أندرويد', 'title' => 'عنوان التنبيه', 'message' => 'نص التنبيه']],
+                'app_update_save_ios' => ['label' => 'حفظ تحديث App Store', 'endpoint' => 'admin/app-update', 'method' => 'POST', 'keep_empty' => true, 'fixed' => ['platform' => 'ios'], 'fields' => ['ios_enabled' => 'تفعيل iOS', 'ios_latest_version' => 'أحدث إصدار', 'ios_min_version' => 'الحد الأدنى', 'ios_min_build' => 'رقم البناء', 'ios_store_url' => 'رابط App Store', 'title' => 'عنوان التنبيه', 'message' => 'نص التنبيه']],
+                'app_update_clear' => ['label' => 'إيقاف تحديث المنصتين', 'endpoint' => 'admin/app-update', 'method' => 'POST', 'fields' => [], 'fixed' => ['action' => 'clear', 'platform' => 'both']],
+                'app_update_clear_android' => ['label' => 'إيقاف تحديث أندرويد', 'endpoint' => 'admin/app-update', 'method' => 'POST', 'fields' => [], 'fixed' => ['action' => 'clear_android']],
+                'app_update_clear_ios' => ['label' => 'إيقاف تحديث App Store', 'endpoint' => 'admin/app-update', 'method' => 'POST', 'fields' => [], 'fixed' => ['action' => 'clear_ios']],
+                'telegram_test' => ['label' => 'اختبار تيليغرام', 'endpoint' => 'admin/telegram', 'method' => 'POST', 'fields' => [], 'fixed' => ['action' => 'test']],
+                'repair_web' => ['label' => 'إصلاح Nginx/PHP', 'endpoint' => 'admin/telegram', 'method' => 'POST', 'fields' => [], 'fixed' => ['action' => 'repair_web']],
+                'backup_now' => ['label' => 'نسخ احتياطي الآن', 'endpoint' => 'admin/telegram', 'method' => 'POST', 'fields' => [], 'fixed' => ['action' => 'backup_now']],
                 'maintenance_on' => ['label' => 'تشغيل الصيانة', 'endpoint' => 'admin/system', 'method' => 'POST', 'fields' => ['pin' => 'PIN'], 'fixed' => ['action' => 'maintenance_on']],
                 'maintenance_off' => ['label' => 'إيقاف الصيانة', 'endpoint' => 'admin/system', 'method' => 'POST', 'fields' => ['pin' => 'PIN'], 'fixed' => ['action' => 'maintenance_off']],
                 'delete_all_properties' => ['label' => 'حذف كل المنشورات', 'endpoint' => 'admin/system', 'method' => 'POST', 'fields' => ['pin' => 'PIN'], 'fixed' => ['action' => 'delete_all_properties']],
@@ -228,7 +243,16 @@ function admin_can_access_section(array $section): bool
 
 function admin_visible_sections(): array
 {
-    return array_filter(admin_sections(), static fn(array $section): bool => admin_can_access_section($section));
+    return array_filter(
+        admin_sections(),
+        static function (array $section, string $key): bool {
+            if ($key === 'user_profile') {
+                return false;
+            }
+            return admin_can_access_section($section);
+        },
+        ARRAY_FILTER_USE_BOTH
+    );
 }
 
 function admin_default_section(): string
@@ -248,7 +272,7 @@ function admin_section_data(string $sectionKey, array $query = []): array
     }
     $baseQuery = is_array($section['query'] ?? null) ? $section['query'] : [];
     $allowedQuery = [];
-    foreach (['q', 'status', 'scope', 'from', 'to', 'sort', 'governorate_id', 'id', 'thread_id', 'tab', 'role', 'create', 'compound_id', 'property_kind'] as $key) {
+    foreach (['q', 'status', 'scope', 'from', 'to', 'sort', 'governorate_id', 'id', 'user_id', 'thread_id', 'tab', 'role', 'create', 'compound_id', 'property_kind'] as $key) {
         if (!isset($query[$key]) || trim((string) $query[$key]) === '') {
             continue;
         }
@@ -257,7 +281,94 @@ function admin_section_data(string $sectionKey, array $query = []): array
         }
         $allowedQuery[$key] = trim((string) $query[$key]);
     }
+    if ($sectionKey === 'user_profile') {
+        $profileId = trim((string) ($allowedQuery['id'] ?? $allowedQuery['user_id'] ?? $query['id'] ?? $query['user_id'] ?? ''));
+        if ($profileId !== '') {
+            $allowedQuery['id'] = $profileId;
+            $allowedQuery['user_id'] = $profileId;
+        }
+    }
     return api_client()->get((string) $section['endpoint'], array_merge($baseQuery, $allowedQuery), auth_token());
+}
+
+/** @return array<string,string> */
+function admin_staff_permission_labels(): array
+{
+    return [
+        'promotions' => 'إعلانات الرئيسية',
+        'news' => 'أخبار العقارات',
+        'offices' => 'المكاتب',
+        'parcels' => 'المقاطعات والمجمعات',
+        'properties' => 'المنشورات',
+        'reels' => 'الريلز',
+        'engagement' => 'جدولة المشاهدات',
+        'chats' => 'المحادثات',
+        'users' => 'المستخدمون والباقات',
+        'settings' => 'الإعدادات والجغرافيا',
+        'unsold' => 'إلغاء تم البيع وإرجاع المنشور',
+    ];
+}
+
+function admin_image_picker(string $urlField, string $current = '', string $fileField = 'image'): string
+{
+    $html = '<div class="admin-image-picker">';
+    $html .= '<label class="form-label small mb-1">صورة من الجهاز</label>';
+    if ($current !== '') {
+        $html .= '<div class="mb-2"><img src="' . e($current) . '" alt="" class="admin-upload-preview"></div>';
+    }
+    $html .= '<input type="file" name="' . e($fileField) . '" class="form-control form-control-sm" accept="image/jpeg,image/png,image/webp,image/gif">';
+    $html .= '<input type="hidden" name="' . e($urlField) . '" value="' . e($current) . '">';
+    $html .= '<div class="form-text">ارفع صورة مباشرة بدل لصق الرابط.</div></div>';
+
+    return $html;
+}
+
+/** @return array<string,mixed> */
+function admin_local_server_stats(): array
+{
+    if (function_exists('vewo_collect_server_stats')) {
+        return vewo_collect_server_stats();
+    }
+    $load = function_exists('sys_getloadavg') ? sys_getloadavg() : [0, 0, 0];
+    $root = DIRECTORY_SEPARATOR === '\\' ? 'C:\\' : '/';
+
+    return [
+        'ok' => true,
+        'time' => date('c'),
+        'timezone' => date_default_timezone_get(),
+        'country' => 'العراق',
+        'hostname' => php_uname('n'),
+        'os' => php_uname('s') . ' ' . php_uname('r'),
+        'php' => PHP_VERSION,
+        'cpu_model' => php_uname('m'),
+        'cpu_cores' => 1,
+        'load_1' => is_array($load) ? round((float) ($load[0] ?? 0), 2) : 0,
+        'cpu_usage_pct' => 0,
+        'memory_total' => 0,
+        'memory_used' => 0,
+        'disk_total' => @disk_total_space($root) ?: 0,
+        'disk_free' => @disk_free_space($root) ?: 0,
+        'net_rx' => 0,
+        'net_tx' => 0,
+        'uptime' => 0,
+    ];
+}
+
+function admin_format_bytes(int $bytes): string
+{
+    if ($bytes < 1024) {
+        return $bytes . ' بايت';
+    }
+    $units = ['ك.ب', 'م.ب', 'ج.ب', 'ت.ب'];
+    $v = (float) $bytes;
+    foreach ($units as $u) {
+        $v /= 1024;
+        if ($v < 1024) {
+            return round($v, 1) . ' ' . $u;
+        }
+    }
+
+    return round($v / 1024, 1) . ' ت.ب';
 }
 
 function admin_operation(string $sectionKey, string $operationKey): ?array
@@ -305,18 +416,41 @@ function run_admin_operation(string $sectionKey, string $operationKey, array $in
     }
     $payload = is_array($operation['fixed'] ?? null) ? $operation['fixed'] : [];
     $fields = is_array($operation['fields'] ?? null) ? $operation['fields'] : [];
+    $keepEmpty = !empty($operation['keep_empty']);
     foreach (array_keys($fields) as $field) {
+        if ($field === 'permissions') {
+            $raw = $input['permissions'] ?? [];
+            if (is_array($raw)) {
+                $payload['permissions'] = array_values(array_filter(array_map('strval', $raw)));
+            } elseif (is_string($raw) && $raw !== '') {
+                $payload['permissions'] = array_values(array_filter(array_map('trim', explode(',', $raw))));
+            }
+            continue;
+        }
         if (array_key_exists($field, $input)) {
             $value = normalize_admin_value((string) $field, (string) $input[$field]);
             if ($value !== null) {
                 $payload[$field] = $value;
+            } elseif ($keepEmpty) {
+                $payload[$field] = in_array($field, ['min_build', 'latest_build', 'enabled', 'android_enabled', 'ios_enabled', 'android_min_build', 'ios_min_build', 'android_latest_build', 'ios_latest_build'], true) ? 0 : '';
             }
+        }
+    }
+    if ($sectionKey === 'posting_packages' && $operationKey === 'upsert') {
+        if (isset($payload['name']) && !isset($payload['name_ar'])) {
+            $payload['name_ar'] = $payload['name'];
+        }
+        if (array_key_exists('listings_limit', $payload) && !array_key_exists('listing_limit', $payload)) {
+            $payload['listing_limit'] = $payload['listings_limit'];
+        }
+        if (!empty($payload['is_unlimited'])) {
+            $payload['unlimited'] = true;
         }
     }
     $endpoint = (string) $operation['endpoint'];
     $method = strtoupper((string) ($operation['method'] ?? 'POST'));
     if ($method === 'UPLOAD') {
-        $file = $_FILES['file'] ?? null;
+        $file = $_FILES['file'] ?? $_FILES['image'] ?? null;
         if (!is_array($file) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             return ['ok' => false, 'error' => 'اختر ملفا صالحا للرفع'];
         }
@@ -326,6 +460,48 @@ function run_admin_operation(string $sectionKey, string $operationKey, array $in
             (string) ($file['name'] ?? 'upload.bin'),
             auth_token()
         );
+    }
+    $uploadedUrl = '';
+    foreach (['image', 'photo', 'file'] as $ff) {
+        $file = $_FILES[$ff] ?? null;
+        if (!is_array($file) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            continue;
+        }
+        $up = api_client()->upload(
+            'admin/upload',
+            (string) ($file['tmp_name'] ?? ''),
+            (string) ($file['name'] ?? 'image.bin'),
+            auth_token()
+        );
+        if (empty($up['ok']) || empty($up['public_url'])) {
+            return ['ok' => false, 'error' => (string) ($up['error'] ?? 'فشل رفع الصورة')];
+        }
+        $uploadedUrl = (string) $up['public_url'];
+        break;
+    }
+    if ($uploadedUrl !== '') {
+        if (isset($fields['photo_url']) || $sectionKey === 'compounds') {
+            $payload['photo_url'] = $uploadedUrl;
+        }
+        if (isset($fields['image_url'])) {
+            $payload['image_url'] = $uploadedUrl;
+        }
+    }
+    if ($sectionKey === 'compounds' && $operationKey === 'upsert') {
+        if (empty($payload['compound_name'])) {
+            $payload['compound_name'] = trim((string) ($input['name'] ?? $input['compound_name'] ?? ''));
+        }
+        if (empty($payload['governorate']) && !empty($input['governorate_id'])) {
+            $opts = admin_governorate_options();
+            $gid = (string) $input['governorate_id'];
+            $payload['governorate'] = $opts[$gid] ?? '';
+        }
+        if (empty($payload['photo_url']) && !empty($input['photo_url'])) {
+            $payload['photo_url'] = trim((string) $input['photo_url']);
+        }
+        if (!isset($payload['district_id']) && isset($input['district_id'])) {
+            $payload['district_id'] = trim((string) $input['district_id']);
+        }
     }
     if ($method === 'DELETE') {
         return api_client()->delete($endpoint, $payload, auth_token());
@@ -503,6 +679,143 @@ function admin_users_options(string $role = ''): array
     return $options;
 }
 
+function admin_posting_quota_summary(array $row): string
+{
+    $unlimited = !empty($row['posting_trial_unlimited']) || !empty($row['posting_is_unlimited']);
+    $pkg = trim((string) ($row['posting_package_name'] ?? $row['name'] ?? $row['name_ar'] ?? ''));
+    $remaining = $row['posting_listings_remaining'] ?? null;
+    $published = (int) ($row['published_count'] ?? 0);
+    $reels = (int) ($row['reels_count'] ?? 0);
+    $limit = $row['posting_package_limit'] ?? $row['listings_limit'] ?? $row['listing_limit'] ?? null;
+    $used = $row['used_count'] ?? null;
+    $parts = [];
+    if ($pkg !== '') {
+        $parts[] = $pkg;
+    }
+    if ($unlimited) {
+        $parts[] = 'بلا حدود';
+        $parts[] = 'نُشر ' . compact_number($published);
+    } else {
+        $parts[] = 'متبقي ' . compact_number($remaining ?? 0);
+        $limitTxt = ($limit === null || $limit === '') ? '' : ' من ' . compact_number($limit);
+        $parts[] = 'نُشر ' . compact_number($published) . $limitTxt;
+        if ($used !== null && $used !== '') {
+            $parts[] = 'مستخدم ' . compact_number($used);
+        }
+    }
+    if ($reels > 0) {
+        $parts[] = 'ريلز ' . compact_number($reels);
+    }
+    $exp = trim((string) ($row['posting_subscription_expires_at'] ?? ''));
+    if ($exp !== '') {
+        $parts[] = 'ينتهي ' . explode(' ', $exp)[0];
+    }
+
+    return $parts === [] ? '—' : implode(' · ', $parts);
+}
+
+function admin_text(mixed $value, string $fallback = ''): string
+{
+    if ($value === null || is_array($value) || is_object($value)) {
+        return $fallback;
+    }
+
+    return trim((string) $value);
+}
+
+function admin_role_label(mixed $role, mixed $isMarketer = false): string
+{
+    $r = strtolower(admin_text($role));
+    $marketer = $isMarketer === true || $isMarketer === 1 || $isMarketer === '1';
+    return match (true) {
+        $r === 'admin' => 'مسؤول',
+        $r === 'staff' => 'موظف',
+        $r === 'office' && $marketer => 'مسوق',
+        $r === 'office' => 'مكتب',
+        $r === 'customer' => 'زبون',
+        $r === '' => '—',
+        default => $r,
+    };
+}
+
+function admin_media_url(mixed $url): string
+{
+    $url = admin_text($url);
+    if ($url === '' || strcasecmp($url, 'null') === 0) {
+        return asset_url('images/placeholder-property.svg');
+    }
+    if (preg_match('#^https?://#i', $url) === 1 || str_starts_with($url, 'data:')) {
+        return $url;
+    }
+    if (str_starts_with($url, '//')) {
+        return 'https:' . $url;
+    }
+    $hint = rtrim((string) app_config('api_base_hint', 'http://212.224.86.115/api/index.php'), '/');
+    $public = preg_replace('#/index\.php$#i', '', $hint) ?: $hint;
+    if (str_starts_with($url, '/uploads') || str_starts_with($url, 'uploads/')) {
+        return rtrim($public, '/') . '/' . ltrim($url, '/');
+    }
+    if (str_starts_with($url, '/')) {
+        return $url;
+    }
+
+    return rtrim($public, '/') . '/' . ltrim($url, '/');
+}
+
+function admin_user_profile_url(string $userId): string
+{
+    $userId = trim($userId);
+    if ($userId === '') {
+        return url('/admin/users');
+    }
+
+    return url('/admin/users', ['profile' => $userId]);
+}
+
+function admin_public_no_label(mixed $raw): string
+{
+    $s = trim((string) $raw);
+    if ($s === '' || strcasecmp($s, 'null') === 0) {
+        return '';
+    }
+    if (preg_match('/(\d{5,12})/', $s, $m) === 1) {
+        return $m[1];
+    }
+    if (strlen($s) > 14) {
+        return '';
+    }
+
+    return $s;
+}
+
+function admin_flag_on(mixed $value, bool $missingMeansOn = true): bool
+{
+    if ($value === null || $value === '') {
+        return $missingMeansOn;
+    }
+    if (is_bool($value)) {
+        return $value;
+    }
+    if (is_int($value) || is_float($value)) {
+        return (int) $value !== 0;
+    }
+    $s = strtolower(trim((string) $value));
+    if ($s === '0' || $s === 'false' || $s === 'off' || $s === 'no') {
+        return false;
+    }
+    if ($s === '1' || $s === 'true' || $s === 'yes' || $s === 'on') {
+        return true;
+    }
+    if ($value === "\x01") {
+        return true;
+    }
+    if ($value === "\0" || $value === "\x00") {
+        return false;
+    }
+
+    return (bool) $value;
+}
+
 function admin_items_from_response(array $response): array
 {
     foreach (['items', 'data', 'rows', 'threads', 'messages', 'users', 'promotions', 'news'] as $key) {
@@ -584,3 +897,32 @@ function admin_section_tab(string $sectionKey, string $label, array $query = [],
 
     return '<a class="' . $class . '" href="' . e(url('/admin/' . $sectionKey, $query)) . '">' . e($label) . '</a>';
 }
+
+/** @param array<string,mixed> $row */
+function admin_activity_html(array $row): string
+{
+    $items = $row['activity'] ?? [];
+    if (!is_array($items) || $items === []) {
+        return '';
+    }
+    $html = '<div class="admin-activity-log small mt-2">';
+    foreach (array_slice($items, 0, 6) as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $msg = trim((string) ($item['message'] ?? ''));
+        if ($msg === '') {
+            continue;
+        }
+        $when = trim((string) ($item['created_at'] ?? ''));
+        $html .= '<div class="text-secondary">' . e($msg);
+        if ($when !== '') {
+            $html .= ' <span dir="ltr">' . e($when) . '</span>';
+        }
+        $html .= '</div>';
+    }
+    $html .= '</div>';
+
+    return $html;
+}
+

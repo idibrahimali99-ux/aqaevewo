@@ -20,7 +20,7 @@
 
         <a class="nav-link rounded-3 <?= is_active_path('/messages') ? 'active' : '' ?>" href="<?= e(url('/messages')) ?>"><i class="fa-solid fa-comments ms-2"></i> الرسائل</a>
 
-        <a class="nav-link rounded-3 <?= is_active_path('/request-property') ? 'active' : '' ?>" href="<?= e(url('/request-property')) ?>"><i class="fa-solid fa-clipboard-list ms-2"></i> طلب عقار</a>
+            <a class="nav-link rounded-3 <?= is_active_path('/request-property') ? 'active' : '' ?>" href="<?= e(url('/request-property')) ?>"><i class="fa-solid fa-clipboard-list ms-2"></i> طلب عقار</a>
 
         <a class="nav-link rounded-3 <?= is_active_path('/notifications') ? 'active' : '' ?>" href="<?= e(url('/notifications')) ?>"><i class="fa-solid fa-bell ms-2"></i> الإشعارات</a>
 

@@ -22,34 +22,50 @@ require __DIR__ . '/../partials/section-alerts.php';
 
         ['منشورات معلقة', admin_stat_value($stats, ['pending_properties']), 'fa-house-circle-check', '/admin/properties', ['status' => 'pending']],
 
+        ['منشورات معتمدة', admin_stat_value($stats, ['approved_properties']), 'fa-circle-check', '/admin/properties', ['status' => 'unsold']],
+
+        ['إجمالي المنشورات', admin_stat_value($stats, ['total_properties']), 'fa-house', '/admin/properties', []],
+
+        ['بيع عاجل', admin_stat_value($stats, ['urgent_sale_count']), 'fa-bolt', '/admin/properties', ['status' => 'unsold']],
+
         ['مكاتب معلقة', admin_stat_value($stats, ['pending_offices']), 'fa-store', '/admin/offices', ['scope' => 'pending']],
+
+        ['مكاتب نشطة', admin_stat_value($stats, ['active_offices', 'office_count']), 'fa-building', '/admin/users', ['role' => 'office']],
+
+        ['زبائن', admin_stat_value($stats, ['active_customers', 'customers', 'customer_count']), 'fa-user', '/admin/users', ['role' => 'customer']],
 
         ['مستخدمون نشطون', admin_stat_value($stats, ['active_users']), 'fa-users', '/admin/users', []],
 
+        ['موظفون', admin_stat_value($stats, ['active_staff']), 'fa-user-tie', '/admin/users', ['role' => 'staff']],
+
+        ['مدراء', admin_stat_value($stats, ['active_admins']), 'fa-shield-halved', '/admin/users', ['role' => 'admin']],
+
         ['محادثات غير مقروءة', admin_stat_value($stats, ['chat_unread_threads', 'chat_unread']), 'fa-comments', '/admin/chats', []],
+
+        ['كل المحادثات', admin_stat_value($stats, ['chat_threads']), 'fa-comment-dots', '/admin/chats', []],
 
         ['ريلز معلقة', admin_stat_value($stats, ['pending_reels']), 'fa-clapperboard', '/admin/reels', ['status' => 'pending']],
 
+        ['ريلز منشورة', admin_stat_value($stats, ['approved_reels']), 'fa-video', '/admin/reels', ['status' => 'approved']],
+
         ['مشاهدات العقارات', admin_stat_value($stats, ['total_property_views']), 'fa-eye', '/admin/reports', []],
 
-        ['منشورات معتمدة', admin_stat_value($stats, ['approved_properties']), 'fa-circle-check', '/admin/properties', ['status' => 'unsold']],
-
-        ['بيع عاجل', admin_stat_value($stats, ['urgent_sale_count']), 'fa-bolt', '/admin/properties', ['status' => 'unsold']],
-        ['زبائن', admin_stat_value($stats, ['customers', 'customer_count']), 'fa-user', '/admin/users', ['role' => 'customer']],
-        ['مكاتب', admin_stat_value($stats, ['offices', 'office_count']), 'fa-building', '/admin/users', ['role' => 'office']],
-        ['ريلز منشورة', admin_stat_value($stats, ['approved_reels']), 'fa-video', '/admin/reels', ['status' => 'approved']],
+        ['مشاهدات الريلز', admin_stat_value($stats, ['total_reel_views']), 'fa-play', '/admin/reports', []],
 
     ];
 
     foreach ($cards as [$label, $value, $icon, $href, $query]): ?>
 
-        <div class="col-md-6 col-xl-3">
+        <div class="col-sm-6 col-lg-4 col-xxl-3">
 
             <a href="<?= e(url($href, $query)) ?>" class="stat-card">
 
                 <div class="stat-icon"><i class="fa-solid <?= e($icon) ?>"></i></div>
 
-                <div><strong><?= e(compact_number($value)) ?></strong><span><?= e($label) ?></span></div>
+                <div class="min-w-0">
+                    <strong><?= e(full_number($value)) ?></strong>
+                    <span><?= e($label) ?></span>
+                </div>
 
             </a>
 

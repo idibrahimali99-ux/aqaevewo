@@ -221,17 +221,30 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
     try {
       final api = ref.read(vewoApiClientProvider);
       final data = await api.getJson('admin/app-update');
-      final minCtrl = TextEditingController(
-        text: data['min_version']?.toString() ?? '',
+      final androidLatestCtrl = TextEditingController(
+        text: data['android_latest_version']?.toString() ??
+            data['latest_version']?.toString() ??
+            '',
       );
-      final latestCtrl = TextEditingController(
-        text: data['latest_version']?.toString() ?? '',
+      final androidMinCtrl = TextEditingController(
+        text: data['android_min_version']?.toString() ??
+            data['min_version']?.toString() ??
+            '',
       );
-      final buildCtrl = TextEditingController(
-        text: '${data['min_build'] ?? 0}',
+      final androidBuildCtrl = TextEditingController(
+        text: '${data['android_min_build'] ?? data['min_build'] ?? 0}',
       );
       final androidCtrl = TextEditingController(
         text: data['android_store_url']?.toString() ?? '',
+      );
+      final iosLatestCtrl = TextEditingController(
+        text: data['ios_latest_version']?.toString() ?? '',
+      );
+      final iosMinCtrl = TextEditingController(
+        text: data['ios_min_version']?.toString() ?? '',
+      );
+      final iosBuildCtrl = TextEditingController(
+        text: '${data['ios_min_build'] ?? 0}',
       );
       final iosCtrl = TextEditingController(
         text: data['ios_store_url']?.toString() ?? '',
@@ -242,11 +255,18 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
       final messageCtrl = TextEditingController(
         text: data['message']?.toString() ?? '',
       );
+      var androidOn = data['android_enabled']?.toString() == '1' ||
+          data['android_enabled'] == true;
+      var iosOn =
+          data['ios_enabled']?.toString() == '1' || data['ios_enabled'] == true;
       if (!mounted) {
-        minCtrl.dispose();
-        latestCtrl.dispose();
-        buildCtrl.dispose();
+        androidLatestCtrl.dispose();
+        androidMinCtrl.dispose();
+        androidBuildCtrl.dispose();
         androidCtrl.dispose();
+        iosLatestCtrl.dispose();
+        iosMinCtrl.dispose();
+        iosBuildCtrl.dispose();
         iosCtrl.dispose();
         titleCtrl.dispose();
         messageCtrl.dispose();
@@ -255,98 +275,144 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
       try {
         final ok = await showDialog<bool>(
           context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('تحديث تطبيق عقار تاون'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'عند نشر إصدار جديد في المتجر ضع رقمه هنا. المستخدمون على إصدار أقدم لا يمكنهم استخدام التطبيق حتى يحدّثوا. لا يوجد خيار لاحقاً.',
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: latestCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'أحدث إصدار في المتجر',
-                      hintText: 'مثال 1.1.7',
+          builder: (ctx) => StatefulBuilder(
+            builder: (ctx, setLocal) => AlertDialog(
+              title: const Text('تحديث أندرويد و App Store'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'كل منصة مستقلة: فعّل أندرويد أو App Store على حدة والصق رابط البرنامج.',
                     ),
-                  ),
-                  TextField(
-                    controller: minCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'الحد الأدنى للمتابعة',
-                      helperText: 'اتركه فارغاً ليستخدم أحدث إصدار',
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'عنوان التنبيه',
+                      ),
                     ),
-                  ),
-                  TextField(
-                    controller: buildCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'الحد الأدنى لرقم البناء (اختياري)',
+                    TextField(
+                      controller: messageCtrl,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'نص التنبيه',
+                      ),
                     ),
-                  ),
-                  TextField(
-                    controller: androidCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'رابط Google Play',
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('تفعيل تحديث أندرويد'),
+                      value: androidOn,
+                      onChanged: (v) => setLocal(() => androidOn = v),
                     ),
-                  ),
-                  TextField(
-                    controller: iosCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'رابط App Store',
-                      hintText: 'https://apps.apple.com/app/idXXXX',
+                    TextField(
+                      controller: androidLatestCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'إصدار أندرويد',
+                        hintText: '1.1.22',
+                      ),
                     ),
-                  ),
-                  TextField(
-                    controller: titleCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'عنوان التنبيه',
+                    TextField(
+                      controller: androidMinCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'الحد الأدنى لأندرويد',
+                      ),
                     ),
-                  ),
-                  TextField(
-                    controller: messageCtrl,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'نص التنبيه',
+                    TextField(
+                      controller: androidBuildCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'رقم بناء أندرويد',
+                      ),
                     ),
-                  ),
-                ],
+                    TextField(
+                      controller: androidCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'رابط أندرويد (APK أو Google Play)',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('تفعيل تحديث App Store'),
+                      value: iosOn,
+                      onChanged: (v) => setLocal(() => iosOn = v),
+                    ),
+                    TextField(
+                      controller: iosLatestCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'إصدار App Store',
+                        hintText: '1.1.22',
+                      ),
+                    ),
+                    TextField(
+                      controller: iosMinCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'الحد الأدنى لـ App Store',
+                      ),
+                    ),
+                    TextField(
+                      controller: iosBuildCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'رقم بناء App Store',
+                      ),
+                    ),
+                    TextField(
+                      controller: iosCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'رابط App Store',
+                        hintText: 'https://apps.apple.com/app/idXXXX',
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('إلغاء'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('حفظ المنصتين'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('إلغاء'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('حفظ'),
-              ),
-            ],
           ),
         );
         if (ok != true || !mounted) return;
         await api.postJson('admin/app-update', {
-          'latest_version': latestCtrl.text.trim(),
-          'min_version': minCtrl.text.trim(),
-          'min_build': int.tryParse(buildCtrl.text.trim()) ?? 0,
-          'android_store_url': androidCtrl.text.trim(),
-          'ios_store_url': iosCtrl.text.trim(),
+          'platform': 'both',
           'title': titleCtrl.text.trim(),
           'message': messageCtrl.text.trim(),
+          'android_enabled': androidOn ? 1 : 0,
+          'android_latest_version': androidLatestCtrl.text.trim(),
+          'android_min_version': androidMinCtrl.text.trim(),
+          'android_min_build':
+              int.tryParse(androidBuildCtrl.text.trim()) ?? 0,
+          'android_store_url': androidCtrl.text.trim(),
+          'ios_enabled': iosOn ? 1 : 0,
+          'ios_latest_version': iosLatestCtrl.text.trim(),
+          'ios_min_version': iosMinCtrl.text.trim(),
+          'ios_min_build': int.tryParse(iosBuildCtrl.text.trim()) ?? 0,
+          'ios_store_url': iosCtrl.text.trim(),
         });
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم حفظ سياسة التحديث')),
+          const SnackBar(content: Text('تم حفظ تحديث أندرويد و App Store')),
         );
       } finally {
-        minCtrl.dispose();
-        latestCtrl.dispose();
-        buildCtrl.dispose();
+        androidLatestCtrl.dispose();
+        androidMinCtrl.dispose();
+        androidBuildCtrl.dispose();
         androidCtrl.dispose();
+        iosLatestCtrl.dispose();
+        iosMinCtrl.dispose();
+        iosBuildCtrl.dispose();
         iosCtrl.dispose();
         titleCtrl.dispose();
         messageCtrl.dispose();

@@ -48,7 +48,14 @@ class OfficeProfileScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => const Center(child: Text('تعذر تحميل الإعلانات')),
         data: (items) {
-          return ListView(
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(officeDetailProvider(officeId));
+              ref.invalidate(officePropertiesProvider(officeId));
+              ref.invalidate(officeReelsProvider(officeId));
+            },
+            child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: AppResponsive.pagePadding(
               context,
               top: 8,
@@ -292,6 +299,7 @@ class OfficeProfileScreen extends ConsumerWidget {
               else
                 PropertyCardsGrid(items: items),
             ],
+          ),
           );
         },
       ),

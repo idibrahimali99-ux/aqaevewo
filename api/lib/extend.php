@@ -6,6 +6,8 @@ declare(strict_types=1);
  * يُحمّل من index.php بعد تهيئة $pdo (دوال json_error و uuid_v4 و require_* متوفرة في index).
  */
 
+require_once __DIR__ . '/moderation.php';
+
 /** @return array{id:string,full_name:string,phone:string,role:string}|null */
 function vewo_try_session_user(PDO $pdo): ?array
 {
@@ -32,8 +34,11 @@ function vewo_try_admin_staff_user(PDO $pdo): ?array
     if ($token === null || strlen($token) !== 64) {
         return null;
     }
+    $permCol = function_exists('vewo_users_has_staff_permissions_column') && vewo_users_has_staff_permissions_column($pdo)
+        ? 'u.staff_permissions_json'
+        : 'NULL AS staff_permissions_json';
     $stmt = $pdo->prepare(
-        'SELECT u.id, u.full_name, u.role FROM admin_api_tokens k
+        'SELECT u.id, u.full_name, u.role, ' . $permCol . ' FROM admin_api_tokens k
          INNER JOIN users u ON u.id = k.user_id
          WHERE k.token = :t AND k.expires_at > NOW(3) AND u.is_active = 1 AND u.role IN (\'admin\',\'staff\')
          LIMIT 1'
@@ -864,7 +869,12 @@ function vewo_reel_public_item(array $row, bool $includeModeration = false): arr
         'publisher_avatar_url' => $avatar !== '' ? $avatar : null,
         'publisher_is_office' => $isOfficeRole && !$isMarketer,
         'publisher_is_marketer' => $isOfficeRole && $isMarketer,
+        'is_sold' => (int) ($row['is_sold'] ?? 0) === 1,
+        'sold_at' => $row['sold_at'] ?? null,
     ];
+    if (isset($row['reel_public_no']) && $row['reel_public_no'] !== null && $row['reel_public_no'] !== '') {
+        $item['reel_public_no'] = (int) $row['reel_public_no'];
+    }
     if ($includeModeration) {
         $item['reject_note'] = (string) ($row['reject_note'] ?? '');
         $item['resubmission_allowed'] = (int) ($row['resubmission_allowed'] ?? 0) === 1;
@@ -875,7 +885,9 @@ function vewo_reel_public_item(array $row, bool $includeModeration = false): arr
 
 function vewo_normalize_staff_permissions(mixed $raw): string
 {
-    $allowed = ['promotions', 'news', 'offices', 'parcels', 'properties', 'reels', 'engagement', 'chats', 'users', 'settings'];
+    $allowed = function_exists('vewo_staff_permission_allowed_keys')
+        ? vewo_staff_permission_allowed_keys()
+        : ['promotions', 'news', 'offices', 'parcels', 'properties', 'reels', 'engagement', 'chats', 'users', 'settings', 'unsold'];
     $items = [];
     if (is_array($raw)) {
         $items = $raw;
@@ -1013,6 +1025,16 @@ function users_delete_account_route(PDO $pdo): void
     if ($confirm !== 'DELETE') {
         json_error(400, 'تأكيد الحذف مطلوب');
     }
+    $password = (string) ($in['password'] ?? '');
+    if (trim($password) === '') {
+        json_error(400, 'أدخل كلمة مرور الحساب لتأكيد الحذف');
+    }
+    $pwStmt = $pdo->prepare('SELECT password_hash FROM users WHERE id = :id LIMIT 1');
+    $pwStmt->execute([':id' => $uid]);
+    $storedHash = (string) ($pwStmt->fetchColumn() ?: '');
+    if ($storedHash === '' || !password_verify_stored($password, $storedHash)) {
+        json_error(403, 'كلمة المرور غير صحيحة');
+    }
     try {
         vewo_admin_delete_user_cascade($pdo, $uid);
     } catch (Throwable $e) {
@@ -1037,6 +1059,7 @@ function admin_stats_route(PDO $pdo): void
     $pendingOffices = (int) $pdo->query(
         "SELECT COUNT(*) FROM users WHERE role = 'office' AND office_approved = 0 AND is_active = 1"
     )->fetchColumn();
+    $pendingFarms = 0;
     $activeUsers = (int) $pdo->query(
         'SELECT COUNT(*) FROM users WHERE is_active = 1'
     )->fetchColumn();
@@ -1068,6 +1091,8 @@ function admin_stats_route(PDO $pdo): void
     $pendingReels = 0;
     $approvedReels = 0;
     $totalReels = 0;
+    $pendingPropertyRequests = 0;
+    $recentApprovedProperties = 0;
     $totalPropertyViews = 0;
     $totalReelViews = 0;
     $totalReelLikesReal = 0;
@@ -1082,6 +1107,23 @@ function admin_stats_route(PDO $pdo): void
             "SELECT COUNT(*) FROM reels WHERE approval_status = 'approved'"
         )->fetchColumn();
         $totalReels = (int) $pdo->query('SELECT COUNT(*) FROM reels')->fetchColumn();
+    } catch (Throwable $e) {
+    }
+    try {
+        if (function_exists('vewo_property_requests_ensure')) {
+            vewo_property_requests_ensure($pdo);
+        }
+        $pendingPropertyRequests = (int) $pdo->query(
+            "SELECT COUNT(*) FROM property_requests WHERE status = 'pending'"
+        )->fetchColumn();
+    } catch (Throwable $e) {
+    }
+    try {
+        $recentApprovedProperties = (int) $pdo->query(
+            "SELECT COUNT(*) FROM properties
+             WHERE approval_status = 'approved'
+               AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)"
+        )->fetchColumn();
     } catch (Throwable $e) {
     }
     try {
@@ -1174,6 +1216,7 @@ function admin_stats_route(PDO $pdo): void
         'approved_properties' => $approvedProps,
         'total_properties' => $totalProps,
         'pending_offices' => $pendingOffices,
+        'pending_farms' => $pendingFarms,
         'active_users' => $activeUsers,
         'active_customers' => $activeCustomers,
         'active_offices' => $activeOffices,
@@ -1184,6 +1227,8 @@ function admin_stats_route(PDO $pdo): void
         'chat_unread_threads' => $unreadThreads,
         'chat_unread' => $adminUnread,
         'pending_reels' => $pendingReels,
+        'pending_property_requests' => $pendingPropertyRequests,
+        'recent_approved_properties' => $recentApprovedProperties,
         'approved_reels' => $approvedReels,
         'total_reels' => $totalReels,
         'total_property_views' => $totalPropertyViews,
@@ -1193,6 +1238,70 @@ function admin_stats_route(PDO $pdo): void
         'top_reel' => $top_reel,
         'urgent_sale_count' => count($urgentSaleItems),
         'urgent_sale_items' => $urgentSaleItems,
+    ], JSON_UNESCAPED_UNICODE);
+}
+
+/** عدّادات خفيفة لإشعارات الأدمن الفورية — بدون معالجة التفاعل أو الاستعلامات الثقيلة. */
+function admin_notify_pulse_route(PDO $pdo): void
+{
+    require_admin_from_bearer($pdo);
+    $pendingProps = 0;
+    $pendingOffices = 0;
+    $adminUnread = 0;
+    $pendingReels = 0;
+    $pendingPropertyRequests = 0;
+    $recentApprovedProperties = 0;
+    try {
+        $pendingProps = (int) $pdo->query(
+            "SELECT COUNT(*) FROM properties WHERE approval_status = 'pending'"
+        )->fetchColumn();
+    } catch (Throwable $e) {
+    }
+    $pendingFarms = 0;
+    try {
+        $pendingOffices = (int) $pdo->query(
+            "SELECT COUNT(*) FROM users WHERE role = 'office' AND office_approved = 0 AND is_active = 1"
+        )->fetchColumn();
+    } catch (Throwable $e) {
+    }
+    try {
+        $adminUnread = (int) $pdo->query(
+            'SELECT COALESCE(SUM(admin_unread_count), 0) FROM chat_threads'
+        )->fetchColumn();
+    } catch (Throwable $e) {
+    }
+    try {
+        $pendingReels = (int) $pdo->query(
+            "SELECT COUNT(*) FROM reels WHERE approval_status = 'pending'"
+        )->fetchColumn();
+    } catch (Throwable $e) {
+    }
+    try {
+        if (function_exists('vewo_property_requests_ensure')) {
+            vewo_property_requests_ensure($pdo);
+        }
+        $pendingPropertyRequests = (int) $pdo->query(
+            "SELECT COUNT(*) FROM property_requests WHERE status = 'pending'"
+        )->fetchColumn();
+    } catch (Throwable $e) {
+    }
+    try {
+        $recentApprovedProperties = (int) $pdo->query(
+            "SELECT COUNT(*) FROM properties
+             WHERE approval_status = 'approved'
+               AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)"
+        )->fetchColumn();
+    } catch (Throwable $e) {
+    }
+    echo json_encode([
+        'ok' => true,
+        'chat_unread' => $adminUnread,
+        'pending_offices' => $pendingOffices,
+        'pending_properties' => $pendingProps,
+        'pending_reels' => $pendingReels,
+        'pending_property_requests' => $pendingPropertyRequests,
+        'recent_approved_properties' => $recentApprovedProperties,
+        'pending_farms' => $pendingFarms,
     ], JSON_UNESCAPED_UNICODE);
 }
 
@@ -1626,10 +1735,9 @@ function property_requests_create_route(PDO $pdo): void
         ':descr' => $description,
     ]);
     try {
-        $adminId = first_admin_user_id($pdo);
-        if ($adminId !== '') {
-            vewo_fcm_send(
-                vewo_device_tokens_for_user($pdo, $adminId, true),
+        if (function_exists('vewo_fcm_notify_admins')) {
+            vewo_fcm_notify_admins(
+                $pdo,
                 'طلب عقار جديد',
                 'وصل طلب عقار رقم #' . $no,
                 ['type' => 'property_request', 'section' => 'property_requests', 'request_no' => $no]
@@ -2376,9 +2484,10 @@ function admin_offices_route(PDO $pdo): void
         $pp = vewo_users_has_profile_photo_column($pdo) ? 'u.profile_photo_url' : "'' AS profile_photo_url";
         $em = vewo_users_has_email_column($pdo) ? 'u.email' : "'' AS email";
         $ov = 'u.office_verified';
-        $officeOnlyFilter = vewo_users_has_is_marketer_column($pdo)
-            ? ' AND COALESCE(u.is_marketer, 0) = 0'
-            : '';
+        $officeOnlyFilter = '';
+        if (vewo_users_has_is_marketer_column($pdo)) {
+            $officeOnlyFilter .= ' AND COALESCE(u.is_marketer, 0) = 0';
+        }
         try {
             $pdo->query('SELECT office_verified FROM users LIMIT 1');
         } catch (Throwable $e) {
@@ -2387,10 +2496,22 @@ function admin_offices_route(PDO $pdo): void
         $orderApproved = str_contains((string) $ov, ' AS ')
             ? 'u.created_at DESC'
             : 'u.office_verified DESC, u.created_at DESC';
+        $quotaSel = '';
+        if (function_exists('vewo_users_has_posting_quota_columns') && vewo_users_has_posting_quota_columns($pdo)) {
+            $quotaSel = ', u.posting_trial_unlimited, u.posting_listings_remaining, u.posting_package_id';
+        }
+        $pubSel = ', (SELECT COUNT(*) FROM properties p WHERE p.owner_user_id = u.id) AS published_count'
+            . ', (SELECT COUNT(*) FROM reels r WHERE r.owner_user_id = u.id) AS reels_count';
+        $pkgJoin = '';
+        $pkgNameSel = '';
+        if (function_exists('vewo_posting_packages_table_exists') && vewo_posting_packages_table_exists($pdo)) {
+            $pkgJoin = ' LEFT JOIN posting_packages pkg ON pkg.id = u.posting_package_id';
+            $pkgNameSel = ', pkg.name_ar AS posting_package_name, pkg.listing_limit AS posting_package_limit';
+        }
         if ($scope === 'approved') {
             $sql = "SELECT u.id, u.full_name, u.phone, {$em}, u.office_name, u.office_address, u.office_license_no,
-                           u.office_photo_url, {$pp}, {$ov}, {$mkt}, u.created_at
-                    FROM users u
+                           u.office_photo_url, {$pp}, {$ov}, {$mkt}, u.created_at{$quotaSel}{$pkgNameSel}{$pubSel}
+                    FROM users u{$pkgJoin}
                     WHERE u.role = 'office' AND u.office_approved = 1 AND u.is_active = 1{$officeOnlyFilter}
                     ORDER BY {$orderApproved}
                     LIMIT 200";
@@ -2407,8 +2528,8 @@ function admin_offices_route(PDO $pdo): void
             }
         } else {
             $sql = "SELECT u.id, u.full_name, u.phone, {$em}, u.office_name, u.office_address, u.office_license_no,
-                           u.office_photo_url, {$pp}, {$mkt}, u.created_at
-                    FROM users u
+                           u.office_photo_url, {$pp}, {$mkt}, u.created_at{$quotaSel}{$pkgNameSel}{$pubSel}
+                    FROM users u{$pkgJoin}
                     WHERE u.role = 'office' AND u.office_approved = 0 AND u.is_active = 1{$officeOnlyFilter}
                     ORDER BY u.created_at DESC LIMIT 100";
             try {
@@ -2888,6 +3009,10 @@ function public_properties_list_route(PDO $pdo): void
     $cat = trim((string) ($_GET['category'] ?? ''));
     $segment = trim((string) ($_GET['segment'] ?? ''));
     $qRaw = trim((string) ($_GET['q'] ?? $_GET['search'] ?? ''));
+    $pubParam = ltrim(trim((string) ($_GET['public_no'] ?? '')), '#');
+    if ($pubParam !== '' && ctype_digit($pubParam)) {
+        $qRaw = $pubParam;
+    }
     $qNo = ltrim($qRaw, '#');
     $publicNoFilter = ($qNo !== '' && ctype_digit($qNo)) ? (int) $qNo : null;
     $limit = (int) ($_GET['limit'] ?? 120);
@@ -3804,20 +3929,32 @@ function properties_mark_sold_route(PDO $pdo): void
 
     $sessionUser = vewo_try_session_user($pdo);
     $adminUser = vewo_try_admin_staff_user($pdo);
-    $allowed = false;
-    if ($sessionUser !== null && (string) ($sessionUser['id'] ?? '') === $ownerId) {
-        $allowed = true;
-    }
+    $isOwner = $sessionUser !== null && (string) ($sessionUser['id'] ?? '') === $ownerId;
+    $allowed = $isOwner;
     if ($adminUser !== null) {
-        $allowed = true;
+        if ($isSold) {
+            $allowed = ($adminUser['role'] ?? '') === 'admin'
+                || vewo_admin_has_permission($adminUser, 'properties');
+        } else {
+            $allowed = ($adminUser['role'] ?? '') === 'admin'
+                || vewo_admin_has_permission($adminUser, 'unsold');
+        }
     }
     if (!$allowed) {
-        json_error(403, 'ليست لديك صلاحية تعديل هذا المنشور');
+        json_error(403, 'ليست لديك صلاحية تعديل حالة البيع');
     }
 
     if ($isSold) {
         $u = $pdo->prepare('UPDATE properties SET is_sold = 1, sold_at = NOW(3) WHERE id = :id LIMIT 1');
         $u->execute([':id' => $id]);
+        vewo_moderation_log(
+            $pdo,
+            $adminUser ?? $sessionUser,
+            'property',
+            $id,
+            'mark_sold',
+            vewo_property_public_no_of($pdo, $id)
+        );
         vewo_app_notification_add(
             $pdo,
             $ownerId,
@@ -3836,6 +3973,14 @@ function properties_mark_sold_route(PDO $pdo): void
     } else {
         $u = $pdo->prepare('UPDATE properties SET is_sold = 0, sold_at = NULL WHERE id = :id LIMIT 1');
         $u->execute([':id' => $id]);
+        vewo_moderation_log(
+            $pdo,
+            $adminUser ?? $sessionUser,
+            'property',
+            $id,
+            'unmark_sold',
+            vewo_property_public_no_of($pdo, $id)
+        );
     }
     echo json_encode(['ok' => true, 'is_sold' => $isSold ? 1 : 0], JSON_UNESCAPED_UNICODE);
 }
@@ -3996,27 +4141,130 @@ function public_marketer_detail_route(PDO $pdo): void
 }
 
 /**
- * رفع صورة شعار المكتب أثناء التسجيل (بدون Bearer) — صور فقط، حد 8 ميجا.
+ * أول ملف مرفوع (file / image / photo) أو من جسم multipart الخام إن لم يملأ PHP $_FILES.
+ *
+ * @return array<string,mixed>|null
+ */
+function vewo_first_uploaded_file(): ?array
+{
+    foreach (['file', 'image', 'photo', 'upload'] as $k) {
+        if (isset($_FILES[$k]) && is_array($_FILES[$k])) {
+            $err = (int) ($_FILES[$k]['error'] ?? UPLOAD_ERR_NO_FILE);
+            if ($err === UPLOAD_ERR_OK && (string) ($_FILES[$k]['tmp_name'] ?? '') !== '') {
+                return $_FILES[$k];
+            }
+        }
+    }
+    foreach ($_FILES as $f) {
+        if (!is_array($f)) {
+            continue;
+        }
+        $err = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
+        if ($err === UPLOAD_ERR_OK && (string) ($f['tmp_name'] ?? '') !== '') {
+            return $f;
+        }
+    }
+    vewo_ingest_raw_multipart_into_files();
+    if (isset($_FILES['file']) && is_array($_FILES['file'])) {
+        return $_FILES['file'];
+    }
+    foreach ($_FILES as $f) {
+        if (is_array($f) && (string) ($f['tmp_name'] ?? '') !== '') {
+            return $f;
+        }
+    }
+
+    return null;
+}
+
+/** يملأ $_FILES من php://input عندما ينقص Content-Type/boundary فيطلب PHP تجاهل multipart. */
+function vewo_ingest_raw_multipart_into_files(): void
+{
+    if (!empty($_FILES)) {
+        return;
+    }
+    $ct = (string) ($_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '');
+    $raw = file_get_contents('php://input');
+    if (!is_string($raw) || strlen($raw) < 24) {
+        return;
+    }
+    $boundary = '';
+    if (preg_match('/boundary=("?)([^";\\s]+)\\1/i', $ct, $m)) {
+        $boundary = (string) $m[2];
+    } elseif (preg_match('/\\A--+([^\\r\\n]+)/', $raw, $m)) {
+        $boundary = (string) $m[1];
+    }
+    $boundary = trim($boundary);
+    if ($boundary === '') {
+        return;
+    }
+    $chunks = explode('--' . $boundary, $raw);
+    foreach ($chunks as $chunk) {
+        $chunk = ltrim($chunk, "\r\n");
+        if ($chunk === '' || str_starts_with($chunk, '--')) {
+            continue;
+        }
+        $split = preg_split("/\\r\\n\\r\\n/", $chunk, 2);
+        if (!is_array($split) || count($split) < 2) {
+            $split = preg_split("/\\n\\n/", $chunk, 2);
+        }
+        if (!is_array($split) || count($split) < 2) {
+            continue;
+        }
+        $headers = $split[0];
+        $body = $split[1];
+        if (str_ends_with($body, "\r\n")) {
+            $body = substr($body, 0, -2);
+        } elseif (str_ends_with($body, "\n")) {
+            $body = substr($body, 0, -1);
+        }
+        if (!preg_match('/name="([^"]+)"/i', $headers, $nm)) {
+            continue;
+        }
+        $field = (string) $nm[1];
+        $filename = '';
+        if (preg_match('/filename\\*?=(?:UTF-8\'\')?"?([^";\\r\\n]+)"?/i', $headers, $fm)) {
+            $filename = basename(urldecode(trim((string) $fm[1], '"')));
+        }
+        if ($filename === '') {
+            $_POST[$field] = $body;
+            continue;
+        }
+        $tmp = tempnam(sys_get_temp_dir(), 'vewo_upl');
+        if ($tmp === false) {
+            continue;
+        }
+        file_put_contents($tmp, $body);
+        $_FILES[$field] = [
+            'name' => $filename,
+            'type' => 'application/octet-stream',
+            'tmp_name' => $tmp,
+            'error' => UPLOAD_ERR_OK,
+            'size' => strlen($body),
+            '_vewo_ingested' => true,
+        ];
+    }
+}
+
+/**
+ * رفع صورة شعار المكتب أثناء التسجيل (بدون Bearer) — صور فقط.
  *
  * @param array<string,mixed> $config
  */
 function register_office_photo_upload_route(PDO $pdo, array $config): void
 {
     unset($pdo);
-    if (!isset($_FILES['file']) || !is_array($_FILES['file'])) {
+    $f = vewo_first_uploaded_file();
+    if (!is_array($f)) {
         json_error(400, 'لم يُرفع ملف (استخدم الحقل file)');
     }
-    $f = $_FILES['file'];
-    if ((int) ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        json_error(400, 'فشل الرفع');
-    }
     $tmp = (string) ($f['tmp_name'] ?? '');
-    if ($tmp === '' || !is_uploaded_file($tmp)) {
-        json_error(400, 'ملف غير صالح');
-    }
-    $size = (int) ($f['size'] ?? 0);
-    if ($size > 8 * 1024 * 1024) {
-        json_error(400, 'الصورة كبيرة جداً (الحد 8 ميجابايت)');
+    if (!empty($f['_vewo_ingested'])) {
+        if ($tmp === '' || !is_file($tmp)) {
+            json_error(400, 'ملف غير صالح');
+        }
+    } else {
+        $tmp = vewo_require_uploaded_file($f);
     }
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mime = $finfo->file($tmp);
@@ -4120,17 +4368,7 @@ function user_properties_upload_route(PDO $pdo, array $config): void
         json_error(400, 'لم يُرفع ملف (استخدم الحقل file)');
     }
     $f = $_FILES['file'];
-    if ((int) ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        json_error(400, 'فشل الرفع');
-    }
-    $tmp = (string) ($f['tmp_name'] ?? '');
-    if ($tmp === '' || !is_uploaded_file($tmp)) {
-        json_error(400, 'ملف غير صالح');
-    }
-    $size = (int) ($f['size'] ?? 0);
-    if ($size > 40 * 1024 * 1024) {
-        json_error(400, 'الملف كبير جداً (الحد 40 ميجابايت)');
-    }
+    $tmp = vewo_require_uploaded_file($f);
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mime = $finfo->file($tmp);
     if (!is_string($mime)) {
@@ -4225,6 +4463,18 @@ function properties_create_route(PDO $pdo): void
     } elseif (is_string($detailsRaw) && $detailsRaw !== '') {
         $decoded = json_decode($detailsRaw, true);
         $detailsJson = is_array($decoded) ? json_encode($decoded, JSON_UNESCAPED_UNICODE) : null;
+    }
+    if ($purpose === 'rent') {
+        $decodedDetails = [];
+        if (is_string($detailsJson) && $detailsJson !== '') {
+            $tmp = json_decode($detailsJson, true);
+            if (is_array($tmp)) {
+                $decodedDetails = $tmp;
+            }
+        }
+        $rp = strtolower(trim((string) ($in['rent_period'] ?? $decodedDetails['rent_period'] ?? 'monthly')));
+        $decodedDetails['rent_period'] = in_array($rp, ['yearly', 'year', 'annual'], true) ? 'yearly' : 'monthly';
+        $detailsJson = json_encode($decodedDetails, JSON_UNESCAPED_UNICODE);
     }
 
     if ($title === '' || mb_strlen($title) < 3) {
@@ -4660,12 +4910,10 @@ function properties_create_route(PDO $pdo): void
     vewo_office_consume_posting_quota($pdo, $owner, $role);
 
     try {
-        $adminId = first_admin_user_id($pdo);
-        if ($adminId !== '') {
-            $tokens = vewo_device_tokens_for_user($pdo, $adminId, true);
-            $noLabel = $pubNo !== null ? '#' . $pubNo : $title;
-            vewo_fcm_send(
-                $tokens,
+        $noLabel = $pubNo !== null ? '#' . $pubNo : $title;
+        if (function_exists('vewo_fcm_notify_admins')) {
+            vewo_fcm_notify_admins(
+                $pdo,
                 'منشور جديد',
                 'يوجد منشور جديد للمراجعة: ' . $noLabel,
                 [
@@ -4713,12 +4961,6 @@ function user_property_update_route(PDO $pdo): void
     if ((string) ($row['owner_user_id'] ?? '') !== $uid) {
         json_error(403, 'ليست لديك صلاحية تعديل هذا المنشور');
     }
-    if ((string) ($row['approval_status'] ?? '') !== 'rejected') {
-        json_error(400, 'يمكن إعادة إرسال المنشورات المرفوضة فقط');
-    }
-    if ((int) ($row['resubmission_allowed'] ?? 0) !== 1) {
-        json_error(403, 'الإدارة لم تمنح صلاحية تعديل هذا المنشور');
-    }
 
     $title = trim((string) ($in['title'] ?? ''));
     $gov = trim((string) ($in['governorate'] ?? ''));
@@ -4762,6 +5004,18 @@ function user_property_update_route(PDO $pdo): void
     } elseif (is_string($detailsRaw) && $detailsRaw !== '') {
         $decoded = json_decode($detailsRaw, true);
         $detailsJson = is_array($decoded) ? json_encode($decoded, JSON_UNESCAPED_UNICODE) : null;
+    }
+    if ($purpose === 'rent') {
+        $decodedDetails = [];
+        if (is_string($detailsJson) && $detailsJson !== '') {
+            $tmp = json_decode($detailsJson, true);
+            if (is_array($tmp)) {
+                $decodedDetails = $tmp;
+            }
+        }
+        $rp = strtolower(trim((string) ($in['rent_period'] ?? $decodedDetails['rent_period'] ?? 'monthly')));
+        $decodedDetails['rent_period'] = in_array($rp, ['yearly', 'year', 'annual'], true) ? 'yearly' : 'monthly';
+        $detailsJson = json_encode($decodedDetails, JSON_UNESCAPED_UNICODE);
     }
     $parcelId = trim((string) ($in['parcel_id'] ?? ''));
     $compoundId = trim((string) ($in['compound_id'] ?? ''));
@@ -4847,10 +5101,9 @@ function user_property_update_route(PDO $pdo): void
     }
 
     try {
-        $adminId = first_admin_user_id($pdo);
-        if ($adminId !== '') {
-            vewo_fcm_send(
-                vewo_device_tokens_for_user($pdo, $adminId, true),
+        if (function_exists('vewo_fcm_notify_admins')) {
+            vewo_fcm_notify_admins(
+                $pdo,
                 'إعادة إرسال منشور',
                 'قام صاحب المنشور بتعديل منشور مرفوض وإرساله للمراجعة.',
                 ['type' => 'admin_property_pending', 'section' => 'properties', 'property_id' => $id]
@@ -4913,8 +5166,9 @@ function public_reels_list_route(PDO $pdo): void
         $profileCol = function_exists('vewo_users_has_profile_photo_column') && vewo_users_has_profile_photo_column($pdo)
             ? 'u.profile_photo_url'
             : 'NULL AS profile_photo_url';
+        $soldSelect = function_exists('vewo_reels_sold_select') ? vewo_reels_sold_select($pdo) : '0 AS is_sold, NULL AS sold_at';
         $sql = "SELECT r.id, r.property_id, r.video_public_url, r.caption, r.created_at, r.approval_status,
-                    {$engCols} {$reviewSelect},
+                    {$engCols} {$reviewSelect}, {$soldSelect},
                     u.id AS owner_user_id, u.full_name, u.role, u.office_name, u.office_photo_url,
                     {$marketerCol}, {$profileCol},
                     {$likesExpr} AS likes_count,
@@ -4983,8 +5237,9 @@ function public_reel_detail_route(PDO $pdo): void
     $profileCol = vewo_users_has_profile_photo_column($pdo)
         ? 'u.profile_photo_url'
         : 'NULL AS profile_photo_url';
+    $soldSelect = function_exists('vewo_reels_sold_select') ? vewo_reels_sold_select($pdo) : '0 AS is_sold, NULL AS sold_at';
     $sql = "SELECT r.id, r.property_id, r.video_public_url, r.caption, r.created_at, r.approval_status,
-            {$engCols} {$reviewSelect},
+            {$engCols} {$reviewSelect}, {$soldSelect},
             u.id AS owner_user_id, u.full_name, u.role, u.office_name, u.office_photo_url,
             {$marketerCol}, {$profileCol},
             {$likesExpr} AS likes_count,
@@ -5118,6 +5373,10 @@ function reels_create_route(PDO $pdo): void
         json_error(400, 'رابط الفيديو غير صالح');
     }
     $caption = mb_substr(trim((string) ($in['caption'] ?? '')), 0, 200);
+    $durationSeconds = (float) ($in['duration_seconds'] ?? $in['duration'] ?? 0);
+    if ($durationSeconds > 0 && ($durationSeconds + 0.05 < 30 || $durationSeconds > 180.5)) {
+        json_error(400, 'مدة الريل يجب أن تكون بين 30 ثانية و3 دقائق');
+    }
     $commentsEnabled = 0;
     $propertyId = trim((string) ($in['property_id'] ?? $in['propertyId'] ?? ''));
     if ($propertyId !== '' && !preg_match('/^[0-9a-fA-F-]{36}$/', $propertyId)) {
@@ -5174,10 +5433,9 @@ function reels_create_route(PDO $pdo): void
     // إشعار الأدمن بريل بانتظار الموافقة.
     if ($approvalStatus === 'pending' && function_exists('vewo_fcm_send') && function_exists('vewo_device_tokens_for_user')) {
         try {
-            $adminId = first_admin_user_id($pdo);
-            if ($adminId !== '') {
-                vewo_fcm_send(
-                    vewo_device_tokens_for_user($pdo, $adminId, true),
+            if (function_exists('vewo_fcm_notify_admins')) {
+                vewo_fcm_notify_admins(
+                    $pdo,
                     'ريل جديد',
                     'يوجد ريل جديد بانتظار الموافقة',
                     [
@@ -5227,12 +5485,6 @@ function reels_update_route(PDO $pdo): void
     if ((string) ($row['owner_user_id'] ?? '') !== $uid) {
         json_error(403, 'ليست لديك صلاحية تعديل هذا الريل');
     }
-    if ((string) ($row['approval_status'] ?? '') !== 'rejected') {
-        json_error(400, 'يمكن إعادة إرسال الريلز المرفوضة فقط');
-    }
-    if ((int) ($row['resubmission_allowed'] ?? 0) !== 1) {
-        json_error(403, 'الإدارة لم تمنح صلاحية تعديل هذا الريل');
-    }
 
     $caption = mb_substr(trim((string) ($in['caption'] ?? '')), 0, 200);
     $videoUrl = trim((string) ($in['video_public_url'] ?? $in['videoPublicUrl'] ?? ''));
@@ -5273,10 +5525,9 @@ function reels_update_route(PDO $pdo): void
 
     if (function_exists('vewo_fcm_send') && function_exists('vewo_device_tokens_for_user')) {
         try {
-            $adminId = first_admin_user_id($pdo);
-            if ($adminId !== '') {
-                vewo_fcm_send(
-                    vewo_device_tokens_for_user($pdo, $adminId, true),
+            if (function_exists('vewo_fcm_notify_admins')) {
+                vewo_fcm_notify_admins(
+                    $pdo,
                     'ريل بعد التعديل',
                     'يوجد ريل معدّل بانتظار الموافقة',
                     [
@@ -5291,6 +5542,94 @@ function reels_update_route(PDO $pdo): void
     }
 
     echo json_encode(['ok' => true, 'id' => $id, 'approval_status' => 'pending'], JSON_UNESCAPED_UNICODE);
+}
+
+function user_properties_delete_route(PDO $pdo): void
+{
+    $me = require_auth_user($pdo);
+    $uid = (string) ($me['id'] ?? '');
+    $in = read_json_body();
+    $id = trim((string) ($in['id'] ?? $in['property_id'] ?? $_GET['id'] ?? ''));
+    if ($id === '' || !preg_match('/^[0-9a-fA-F-]{36}$/', $id)) {
+        json_error(400, 'معرّف المنشور غير صالح');
+    }
+    $stmt = $pdo->prepare('SELECT id, owner_user_id FROM properties WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($row)) {
+        json_error(404, 'المنشور غير موجود');
+    }
+    if ((string) ($row['owner_user_id'] ?? '') !== $uid) {
+        json_error(403, 'ليست لديك صلاحية حذف هذا المنشور');
+    }
+    try {
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare('DELETE FROM property_media WHERE property_id = :id')->execute([':id' => $id]);
+        } catch (Throwable $e) {
+        }
+        try {
+            $pdo->prepare('DELETE FROM favorites WHERE property_id = :id')->execute([':id' => $id]);
+        } catch (Throwable $e) {
+        }
+        try {
+            $pdo->prepare('UPDATE reels SET property_id = NULL WHERE property_id = :id')->execute([':id' => $id]);
+        } catch (Throwable $e) {
+        }
+        $del = $pdo->prepare('DELETE FROM properties WHERE id = :id AND owner_user_id = :u LIMIT 1');
+        $del->execute([':id' => $id, ':u' => $uid]);
+        $pdo->commit();
+        echo json_encode(['ok' => true, 'deleted' => $del->rowCount()], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        json_error(500, 'تعذر حذف المنشور');
+    }
+}
+
+function user_reels_delete_route(PDO $pdo): void
+{
+    $me = require_auth_user($pdo);
+    $uid = (string) ($me['id'] ?? '');
+    $in = read_json_body();
+    $id = trim((string) ($in['id'] ?? $in['reel_id'] ?? $_GET['id'] ?? ''));
+    if (!preg_match('/^[0-9a-fA-F-]{36}$/', $id)) {
+        json_error(400, 'معرّف الريل غير صالح');
+    }
+    $stmt = $pdo->prepare('SELECT id, owner_user_id FROM reels WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($row)) {
+        json_error(404, 'الريل غير موجود');
+    }
+    if ((string) ($row['owner_user_id'] ?? '') !== $uid) {
+        json_error(403, 'ليست لديك صلاحية حذف هذا الريل');
+    }
+    try {
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare(
+                'DELETE l FROM reel_comment_likes l
+                 INNER JOIN reel_comments c ON c.id = l.comment_id
+                 WHERE c.reel_id = :id'
+            )->execute([':id' => $id]);
+        } catch (Throwable $e) {
+        }
+        try {
+            $pdo->prepare('DELETE FROM reel_comments WHERE reel_id = :id')->execute([':id' => $id]);
+        } catch (Throwable $e) {
+        }
+        $del = $pdo->prepare('DELETE FROM reels WHERE id = :id AND owner_user_id = :u LIMIT 1');
+        $del->execute([':id' => $id, ':u' => $uid]);
+        $pdo->commit();
+        echo json_encode(['ok' => true, 'deleted' => $del->rowCount()], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        json_error(500, 'تعذر حذف الريل');
+    }
 }
 
 function reels_comments_list_route(PDO $pdo): void
@@ -5508,9 +5847,10 @@ function admin_reels_route(PDO $pdo): void
         $reviewSelect = vewo_reels_has_review_meta_columns($pdo)
             ? 'r.reject_note, ' . (vewo_reels_has_resubmission_column($pdo) ? 'r.resubmission_allowed' : '0 AS resubmission_allowed')
             : 'NULL AS reject_note, 0 AS resubmission_allowed';
+        $soldSelect = function_exists('vewo_reels_sold_select') ? (', ' . vewo_reels_sold_select($pdo)) : ', 0 AS is_sold, NULL AS sold_at';
         $sql = "SELECT r.id, {$pubCol}, r.video_public_url, r.caption, {$commentsSelect}, r.approval_status, {$reviewSelect}, r.created_at,
                     u.full_name, u.role, u.office_name, u.phone
-                    {$engExtra}
+                    {$engExtra}{$soldSelect}
              FROM reels r
              INNER JOIN users u ON u.id = r.owner_user_id
              WHERE r.approval_status = :st";
@@ -5524,7 +5864,11 @@ function admin_reels_route(PDO $pdo): void
             $stmt->bindValue(':pubq', $filterPub, PDO::PARAM_INT);
         }
         $stmt->execute();
-        echo json_encode(['ok' => true, 'items' => $stmt->fetchAll(PDO::FETCH_ASSOC)], JSON_UNESCAPED_UNICODE);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (is_array($rows) && function_exists('vewo_moderation_attach')) {
+            vewo_moderation_attach($pdo, $rows, 'reel');
+        }
+        echo json_encode(['ok' => true, 'items' => $rows], JSON_UNESCAPED_UNICODE);
 
         return;
     }
@@ -5533,6 +5877,7 @@ function admin_reels_route(PDO $pdo): void
         if (!preg_match('/^[0-9a-fA-F-]{36}$/', $id)) {
             json_error(400, 'معرّف الريل غير صالح');
         }
+        $deletedReelNo = function_exists('vewo_reel_public_no_of') ? vewo_reel_public_no_of($pdo, $id) : null;
         try {
             $pdo->beginTransaction();
             try {
@@ -5550,6 +5895,9 @@ function admin_reels_route(PDO $pdo): void
             $stmt = $pdo->prepare('DELETE FROM reels WHERE id = :id LIMIT 1');
             $stmt->execute([':id' => $id]);
             $pdo->commit();
+            if (function_exists('vewo_moderation_log_current')) {
+                vewo_moderation_log_current($pdo, 'reel', $id, 'reel_delete', $deletedReelNo);
+            }
             echo json_encode(['ok' => true, 'deleted' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
@@ -5606,6 +5954,9 @@ function admin_reels_route(PDO $pdo): void
             } catch (Throwable $e) {
             }
         }
+        if (function_exists('vewo_moderation_log_current')) {
+            vewo_moderation_log_current($pdo, 'reel', $id, 'reel_approve', vewo_reel_public_no_of($pdo, $id));
+        }
         echo json_encode(['ok' => true, 'updated' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
 
         return;
@@ -5646,7 +5997,87 @@ function admin_reels_route(PDO $pdo): void
             } catch (Throwable $e) {
             }
         }
+        if (function_exists('vewo_moderation_log_current')) {
+            vewo_moderation_log_current($pdo, 'reel', $id, 'reel_reject', vewo_reel_public_no_of($pdo, $id), $note);
+        }
         echo json_encode(['ok' => true, 'updated' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
+
+        return;
+    }
+    if ($action === 'update') {
+        $rowStmt = $pdo->prepare('SELECT caption, video_public_url, video_storage_key, owner_user_id FROM reels WHERE id = :id LIMIT 1');
+        $rowStmt->execute([':id' => $id]);
+        $row = $rowStmt->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($row)) {
+            json_error(404, 'الريل غير موجود');
+        }
+        $caption = array_key_exists('caption', $in)
+            ? mb_substr(trim((string) $in['caption']), 0, 200)
+            : (string) ($row['caption'] ?? '');
+        $videoUrl = trim((string) ($in['video_public_url'] ?? $in['videoPublicUrl'] ?? ''));
+        $storageKey = (string) ($row['video_storage_key'] ?? '');
+        if ($videoUrl !== '') {
+            if (strlen($videoUrl) > 1000 || !preg_match('#^https?://#i', $videoUrl)) {
+                json_error(400, 'رابط الفيديو غير صالح');
+            }
+            $path = parse_url($videoUrl, PHP_URL_PATH);
+            $storageKey = is_string($path) && $path !== '' ? basename($path) : $storageKey;
+        } else {
+            $videoUrl = (string) ($row['video_public_url'] ?? '');
+        }
+        $upd = $pdo->prepare(
+            'UPDATE reels SET caption = :cap, video_public_url = :url, video_storage_key = :sk WHERE id = :id LIMIT 1'
+        );
+        $upd->execute([
+            ':cap' => $caption,
+            ':url' => $videoUrl,
+            ':sk' => $storageKey,
+            ':id' => $id,
+        ]);
+        $ownerId = (string) ($row['owner_user_id'] ?? '');
+        if ($ownerId !== '' && function_exists('vewo_fcm_send')) {
+            try {
+                vewo_fcm_send(
+                    vewo_device_tokens_for_user($pdo, $ownerId, false),
+                    'تم تعديل الريل',
+                    'عدّلت الإدارة الريل الخاص بك.',
+                    ['type' => 'reel_updated', 'reel_id' => $id]
+                );
+            } catch (Throwable $e) {
+            }
+        }
+        if (function_exists('vewo_moderation_log_current')) {
+            vewo_moderation_log_current($pdo, 'reel', $id, 'reel_update', vewo_reel_public_no_of($pdo, $id));
+        }
+        echo json_encode(['ok' => true, 'updated' => $upd->rowCount()], JSON_UNESCAPED_UNICODE);
+
+        return;
+    }
+    if ($action === 'mark_sold' || $action === 'unmark_sold') {
+        vewo_reels_ensure_sold_columns($pdo);
+        if (!vewo_reels_has_sold_columns($pdo)) {
+            json_error(500, 'تعذر تفعيل تم البيع للريلز');
+        }
+        $admin = require_admin_from_bearer($pdo);
+        $wantSold = $action === 'mark_sold';
+        if (!$wantSold && ($admin['role'] ?? '') !== 'admin' && !vewo_admin_has_permission($admin, 'unsold')) {
+            json_error(403, 'لا تملك صلاحية إلغاء تم البيع');
+        }
+        if ($wantSold) {
+            $pdo->prepare('UPDATE reels SET is_sold = 1, sold_at = NOW(3) WHERE id = :id LIMIT 1')->execute([':id' => $id]);
+        } else {
+            $pdo->prepare('UPDATE reels SET is_sold = 0, sold_at = NULL WHERE id = :id LIMIT 1')->execute([':id' => $id]);
+        }
+        if (function_exists('vewo_moderation_log_current')) {
+            vewo_moderation_log_current(
+                $pdo,
+                'reel',
+                $id,
+                $wantSold ? 'reel_mark_sold' : 'reel_unmark_sold',
+                vewo_reel_public_no_of($pdo, $id)
+            );
+        }
+        echo json_encode(['ok' => true, 'is_sold' => $wantSold ? 1 : 0], JSON_UNESCAPED_UNICODE);
 
         return;
     }

@@ -33,6 +33,8 @@ session_set_cookie_params([
 ]);
 session_start();
 
+enforce_live_session();
+
 function request_method(): string
 {
     return strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));

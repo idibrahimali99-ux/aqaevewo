@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+// ignore_for_file: unused_element, unused_field
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,7 +21,6 @@ import '../../../core/widgets/app_brand_mark.dart';
 import '../../../core/governorates/governorates_provider.dart';
 import '../../../core/layout/app_responsive.dart';
 import '../../../core/api/api_providers.dart';
-import '../../../core/widgets/local_video_preview.dart';
 import '../../publish/publish_queue.dart';
 import '../../../core/widgets/map_location_picker_sheet.dart';
 import '../../auth/data/auth_controller.dart';
@@ -193,6 +194,7 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
   PropertySegment _segment = PropertySegment.standard;
   String _gov = Iraq.governorates.first;
   String _purpose = 'sale';
+  String _rentPeriod = 'monthly';
   String _bathType = 'غربي';
   String _streetType = 'رئيسي';
   String _aptPosition = 'أمام';
@@ -277,6 +279,10 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
         _category = p.category;
         _segment = p.segment;
         _purpose = p.purpose;
+        final rp = (p.detailsJson?['rent_period'] ?? '').toString().toLowerCase();
+        _rentPeriod = (rp == 'yearly' || rp == 'year' || rp == 'annual')
+            ? 'yearly'
+            : 'monthly';
         _gov = p.governorate.trim().isNotEmpty ? p.governorate : _gov;
         _price.text = p.priceIqd > 0 ? '${p.priceIqd}' : '';
         _area.text = p.areaSqm > 0 ? '${p.areaSqm}' : '';
@@ -681,11 +687,46 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
       'building': building,
       'amenities': amenities,
       'features': features,
-      if (_videoTrimRange != null) ...{
-        'video_trim_start_seconds': _videoTrimRange!.start.round(),
-        'video_trim_end_seconds': _videoTrimRange!.end.round(),
-      },
+      if (_purpose == 'rent')
+        'rent_period': _rentPeriod == 'yearly' ? 'yearly' : 'monthly',
     };
+  }
+
+  String get _priceFieldLabel {
+    if (_purpose != 'rent') {
+      return _category == PropertyCategory.land
+          ? 'السعر (د.ع) — يظهر في الإعلان مباشرة'
+          : 'السعر (د.ع)';
+    }
+    return _rentPeriod == 'yearly' ? 'الإيجار السنوي (د.ع)' : 'الإيجار الشهري (د.ع)';
+  }
+
+  Widget _rentPeriodBlock() {
+    if (_purpose != 'rent') return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('نوع الإيجار', style: TextStyle(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(
+              value: 'monthly',
+              icon: Icon(Icons.calendar_view_month_outlined),
+              label: Text('شهري'),
+            ),
+            ButtonSegment(
+              value: 'yearly',
+              icon: Icon(Icons.event_outlined),
+              label: Text('سنوي'),
+            ),
+          ],
+          selected: {_rentPeriod == 'yearly' ? 'yearly' : 'monthly'},
+          onSelectionChanged: (s) => setState(() => _rentPeriod = s.first),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
   }
 
   Future<void> _handlePublishError(String message) async {
@@ -806,10 +847,14 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
                 _DraftPropertyPreviewCard(
                   title: _draftTitle(),
                   category: _category.labelAr,
-                  purpose: _purpose == 'rent' ? 'إيجار' : 'بيع',
+                  purpose: _purpose == 'rent'
+                      ? (_rentPeriod == 'yearly' ? 'إيجار سنوي' : 'إيجار شهري')
+                      : 'بيع',
                   governorate: _gov,
                   address: address,
-                  price: _formatIqd(price),
+                  price: _purpose == 'rent' && price > 0
+                      ? '${_formatIqd(price)}${_rentPeriod == 'yearly' ? ' / السنة' : ' / الشهر'}'
+                      : _formatIqd(price),
                   area: _parcelSimpleFlow || area <= 0 ? null : '$area م²',
                   description: _description.text.trim(),
                   imagePaths: images,
@@ -929,12 +974,12 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
         parcelSimpleFlow: false,
         pickedImages: List<XFile>.from(_pickedImages),
         existingImageUrls: List<String>.from(_existingImageUrls),
-        pickedVideo: _pickedVideo,
-        videoTrimStart: _videoTrimRange?.start ?? 0,
-        videoTrimEnd: _videoTrimRange?.end,
-        videoDuration: _pickedVideoDuration,
-        existingVideoUrl: _existingVideoUrl,
-        removeExistingVideo: _removeExistingVideo,
+        pickedVideo: null,
+        videoTrimStart: 0,
+        videoTrimEnd: null,
+        videoDuration: null,
+        existingVideoUrl: _isEditing ? _existingVideoUrl : null,
+        removeExistingVideo: false,
         title: '${_category.labelAr} — $address',
         governorate: _gov,
         addressLine: address,
@@ -955,11 +1000,10 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
       );
     }
 
-    if (mounted) context.pop();
     unawaited(ref.read(publishQueueProvider.notifier).enqueueProperty(draft));
+    if (mounted) context.pop();
   }
 
-  // ignore: unused_element
   Future<void> _legacyBlockingPublishRemoved() async {
     setState(() => _loading = true);
 
@@ -1124,19 +1168,9 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
       final address = districtLine.isNotEmpty ? districtLine : _gov.trim();
       final purpose = _purpose;
 
-      String? videoUrl = _removeExistingVideo ? null : _existingVideoUrl;
-      if (_pickedVideo != null && _pickedVideo!.path.isNotEmpty) {
-        final uploadVideo = await _trimVideoForUpload(_pickedVideo!);
-        final uv = await api.postMultipartFile(
-          'properties/upload',
-          'file',
-          uploadVideo.path,
-          filename: uploadVideo.name.trim().isNotEmpty
-              ? uploadVideo.name
-              : 'video.mp4',
-        );
-        videoUrl = uv['public_url']?.toString();
-      }
+      final String? videoUrl = _isEditing && !_removeExistingVideo
+          ? _existingVideoUrl
+          : null;
 
       final autoTitle = '${_category.labelAr} — $address';
       final notifier = ref.read(propertyListingsProvider.notifier);
@@ -1218,11 +1252,12 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
     if (!_validateStep()) return;
     if (_step == 0) {
       final scheme = Theme.of(context).colorScheme;
-      final picked = await showModalBottomSheet<String>(
+      final picked = await showModalBottomSheet<Map<String, String>>(
         context: context,
         showDragHandle: true,
         builder: (ctx) {
           var local = _purpose;
+          var localPeriod = _rentPeriod == 'yearly' ? 'yearly' : 'monthly';
           return SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
@@ -1264,9 +1299,38 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
                       onSelectionChanged: (s) =>
                           setModal(() => local = s.first),
                     ),
+                    if (local == 'rent') ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'هل الإيجار شهري أم سنوي؟',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(
+                            value: 'monthly',
+                            label: Text('شهري'),
+                          ),
+                          ButtonSegment(
+                            value: 'yearly',
+                            label: Text('سنوي'),
+                          ),
+                        ],
+                        selected: {localPeriod},
+                        onSelectionChanged: (s) =>
+                            setModal(() => localPeriod = s.first),
+                      ),
+                    ],
                     const SizedBox(height: 18),
                     FilledButton(
-                      onPressed: () => Navigator.pop(ctx, local),
+                      onPressed: () => Navigator.pop(ctx, {
+                        'purpose': local,
+                        'rent_period': localPeriod,
+                      }),
                       child: const Text('متابعة'),
                     ),
                   ],
@@ -1277,7 +1341,12 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
         },
       );
       if (!mounted || picked == null) return;
-      setState(() => _purpose = picked);
+      setState(() {
+        _purpose = picked['purpose'] ?? 'sale';
+        _rentPeriod = _purpose == 'rent' && picked['rent_period'] == 'yearly'
+            ? 'yearly'
+            : 'monthly';
+      });
     }
     if (_step < _lastStepIndex) {
       setState(() => _step++);
@@ -1845,12 +1914,13 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
               onChanged: (v) => setState(() => _selectedParcelId = v),
             ),
             const SizedBox(height: 16),
+            _rentPeriodBlock(),
             TextFormField(
               controller: _price,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'السعر (د.ع)',
-                prefixIcon: Icon(Icons.payments_outlined),
+              decoration: InputDecoration(
+                labelText: _priceFieldLabel,
+                prefixIcon: const Icon(Icons.payments_outlined),
               ),
             ),
             const SizedBox(height: 6),
@@ -2170,13 +2240,12 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
             ),
       ],
       const SizedBox(height: 12),
+      _rentPeriodBlock(),
       TextFormField(
         controller: _price,
         keyboardType: TextInputType.number,
         decoration: InputDecoration(
-          labelText: _category == PropertyCategory.land
-              ? 'السعر (د.ع) — يظهر في الإعلان مباشرة'
-              : 'السعر (د.ع)',
+          labelText: _priceFieldLabel,
           prefixIcon: const Icon(Icons.payments_outlined),
         ),
       ),
@@ -2232,12 +2301,12 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
       ),
       const SizedBox(height: 16),
       const Text(
-        'الصور والفيديو',
+        'الصور',
         style: TextStyle(fontWeight: FontWeight.w800),
       ),
       const SizedBox(height: 6),
       Text(
-        'صور: من 1 إلى 15 — فيديو: اختياري (ملف واحد فقط)',
+        'صور: من 1 إلى 15',
         style: Theme.of(context).textTheme.bodySmall,
       ),
       const SizedBox(height: 8),
@@ -2250,91 +2319,8 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
             icon: const Icon(Icons.photo_library_outlined),
             label: const Text('إضافة صور'),
           ),
-          FilledButton.tonalIcon(
-            onPressed: _loading ? null : _pickVideo,
-            icon: const Icon(Icons.videocam_outlined),
-            label: Text(
-              _pickedVideo == null ? 'فيديو (اختياري)' : 'تغيير الفيديو',
-            ),
-          ),
         ],
       ),
-      if ((_existingVideoUrl ?? '').trim().isNotEmpty &&
-          !_removeExistingVideo &&
-          _pickedVideo == null) ...[
-        const SizedBox(height: 12),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.movie_outlined),
-            title: const Text('الفيديو الحالي محفوظ'),
-            subtitle: const Text('يمكنك حذفه أو تغييره بفيديو جديد'),
-            trailing: IconButton(
-              tooltip: 'حذف الفيديو الحالي',
-              onPressed: _loading
-                  ? null
-                  : () => setState(() => _removeExistingVideo = true),
-              icon: const Icon(Icons.delete_outline_rounded),
-            ),
-          ),
-        ),
-      ],
-      if (_pickedVideo != null) ...[
-        const SizedBox(height: 12),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: LocalVideoPreview(
-              path: _pickedVideo!.path,
-              trimStartSeconds: _videoTrimRange?.start.round(),
-              trimEndSeconds: _videoTrimRange?.end.round(),
-              showProgress: false,
-            ),
-          ),
-        ),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: Wrap(
-            spacing: 8,
-            children: [
-              TextButton.icon(
-                onPressed: _loading
-                    ? null
-                    : () => setState(() {
-                        _pickedVideo = null;
-                        _pickedVideoDuration = null;
-                        _videoTrimRange = null;
-                      }),
-                icon: const Icon(Icons.delete_outline_rounded),
-                label: const Text('حذف الفيديو'),
-              ),
-              if (_pickedVideoDuration != null)
-                Chip(
-                  avatar: const Icon(Icons.timer_outlined, size: 18),
-                  label: Text('${_pickedVideoDuration!.inSeconds} ثانية'),
-                ),
-            ],
-          ),
-        ),
-        if (_pickedVideoDuration != null &&
-            _pickedVideoDuration!.inMilliseconds > 100) ...[
-          const SizedBox(height: 4),
-          Text(
-            'قص حر للفيديو قبل النشر',
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          _VideoTimelineTrimmer(
-            duration: _pickedVideoDuration!,
-            values:
-                _videoTrimRange ??
-                RangeValues(0, _pickedVideoDuration!.inMilliseconds / 1000),
-            enabled: !_loading,
-            onChanged: (v) => setState(() => _videoTrimRange = v),
-          ),
-        ],
-      ],
       if (_existingImageUrls.isNotEmpty) ...[
         const SizedBox(height: 10),
         Text(

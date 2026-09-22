@@ -12,10 +12,45 @@ final class DashboardController extends Controller
         redirect_to('/admin/overview');
     }
 
+    public function userProfile(string $id = ''): void
+    {
+        $id = trim($id);
+        redirect_to('/admin/users', $id !== '' ? ['profile' => $id] : []);
+    }
+
     public function section(string $section = 'overview'): void
     {
         $sectionDef = admin_section($section);
         if ($sectionDef === null || !admin_can_access_section($sectionDef)) {
+            if ($section !== '' && $section !== 'overview') {
+                http_response_code($sectionDef === null ? 404 : 403);
+                $this->view('admin/sections/user_profile', [
+                    'title' => 'تعذر فتح الصفحة',
+                    'user' => auth_user(),
+                    'sectionKey' => $section,
+                    'section' => $sectionDef ?? ['label' => 'غير متاح', 'tabs' => [], 'operations' => []],
+                    'data' => [
+                        'ok' => false,
+                        'error' => $sectionDef === null
+                            ? 'هذا القسم غير موجود.'
+                            : 'لا تملك صلاحية فتح هذا القسم.',
+                    ],
+                    'stats' => [],
+                    'apiMeta' => [
+                        'entry' => (string) app_config('api_entry'),
+                        'token_type' => auth_token_type(),
+                        'stats_ok' => false,
+                        'stats_error' => '',
+                    ],
+                    'operationResult' => null,
+                    'currentSection' => $section,
+                    'homeSections' => [],
+                    'serverStats' => [],
+                    'telegramMeta' => [],
+                    'forcedError' => true,
+                ], 'admin');
+                return;
+            }
             $section = admin_default_section();
             $sectionDef = admin_section($section);
         }
@@ -50,6 +85,28 @@ final class DashboardController extends Controller
             return;
         }
 
+        $homeSections = [];
+        $serverStats = [];
+        $telegramMeta = [];
+        $appUpdate = [];
+        if ($section === 'settings') {
+            if (empty($data['ok'])) {
+                $retry = api_get_resilient('health');
+                if (!empty($retry['ok'])) {
+                    $data = $retry;
+                }
+            }
+            $hs = api_client()->get('admin/home-sections', [], auth_token());
+            $homeSections = is_array($hs['items'] ?? null) ? $hs['items'] : [];
+            $serverStats = admin_local_server_stats();
+            $remoteStats = api_client()->get('admin/server-stats', [], auth_token());
+            if (!empty($remoteStats['ok'])) {
+                $serverStats = $remoteStats;
+            }
+            $telegramMeta = api_client()->get('admin/telegram', [], auth_token());
+            $appUpdate = api_client()->get('admin/app-update', [], auth_token());
+        }
+
         $viewData = [
             'title' => (string) ($sectionDef['label'] ?? 'لوحة الإدارة'),
             'user' => auth_user(),
@@ -60,7 +117,33 @@ final class DashboardController extends Controller
             'apiMeta' => $apiMeta,
             'operationResult' => $operationResult,
             'currentSection' => $section,
+            'homeSections' => $homeSections,
+            'serverStats' => $serverStats,
+            'telegramMeta' => $telegramMeta,
+            'appUpdate' => $appUpdate,
+            'openedProfile' => null,
+            'openedProfileId' => '',
+            'openedProfileProperties' => [],
         ];
+        if ($section === 'users') {
+            $openedId = trim((string) ($_GET['profile'] ?? ''));
+            if ($openedId !== '') {
+                $viewData['openedProfileId'] = $openedId;
+                $detail = api_client()->get(
+                    'admin/user',
+                    ['id' => $openedId, 'user_id' => $openedId],
+                    auth_token()
+                );
+                $fromApi = is_array($detail['user'] ?? null) ? $detail['user'] : null;
+                $fromApiId = is_array($fromApi) ? trim((string) ($fromApi['id'] ?? '')) : '';
+                if (is_array($fromApi) && ($fromApiId === '' || strcasecmp($fromApiId, $openedId) === 0)) {
+                    $viewData['openedProfile'] = $fromApi;
+                }
+                if (is_array($detail['properties'] ?? null)) {
+                    $viewData['openedProfileProperties'] = $detail['properties'];
+                }
+            }
+        }
         $richView = admin_section_template($section);
         $this->view($richView ?? 'admin/section', $viewData, 'admin');
     }

@@ -199,6 +199,21 @@ class PropertyListingsNotifier extends Notifier<List<Property>> {
     }
   }
 
+  Future<String?> deleteRemote(String id) async {
+    try {
+      await ref.read(vewoApiClientProvider).postJson('properties/delete', {
+        'id': id,
+      });
+      await reload();
+      ref.invalidate(myPropertiesProvider);
+      return null;
+    } on VewoApiException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'تعذر حذف المنشور';
+    }
+  }
+
   void addLocal(Property property) {
     state = [...state, property];
   }

@@ -4,6 +4,7 @@
 </div>
 <div class="row g-3">
     <div class="col-md-4"><a class="shortcut-card" href="<?= e(url('/property/add')) ?>"><strong>إضافة إعلان</strong><span>نشر عقار ضمن حصتك</span></a></div>
-    <div class="col-md-4"><a class="shortcut-card" href="<?= e(url('/profile')) ?>"><strong>الملف</strong><span>بيانات المسوق</span></a></div>
+    <div class="col-md-4"><a class="shortcut-card" href="<?= e(url('/reels/add')) ?>"><strong>نشر ريل</strong><span>فيديو من 30 ثانية إلى 3 دقائق</span></a></div>
     <div class="col-md-4"><a class="shortcut-card" href="<?= e(url('/messages')) ?>"><strong>الرسائل</strong><span>متابعة العملاء</span></a></div>
 </div>
+<?php require __DIR__ . '/_owner-content.php'; ?>

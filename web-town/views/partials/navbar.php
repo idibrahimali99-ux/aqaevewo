@@ -27,7 +27,7 @@
                     <?php require __DIR__ . '/notification-bell.php'; ?>
                     <div class="dropdown">
                         <button class="btn btn-outline-dark rounded-pill px-3 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <?= e((string) ($user['full_name'] ?? 'حسابي')) ?>
+                            <?= e(account_kind($user) === 'farm' ? (string) ($user['office_name'] ?? $user['full_name'] ?? 'حسابي') : (string) ($user['full_name'] ?? 'حسابي')) ?>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><span class="dropdown-item-text small text-secondary"><?= e(account_kind_label($user)) ?></span></li>
@@ -37,7 +37,9 @@
                             <?php if (in_array(account_kind($user), ['office', 'marketer'], true)): ?>
                                 <li><a class="dropdown-item" href="<?= e(url('/property/add')) ?>"><i class="fa-solid fa-plus ms-2"></i> إضافة عقار</a></li>
                             <?php endif; ?>
+                            <?php if (account_kind($user) !== 'farm'): ?>
                             <li><a class="dropdown-item" href="<?= e(url('/request-property')) ?>"><i class="fa-solid fa-clipboard-list ms-2"></i> طلب عقار</a></li>
+                            <?php endif; ?>
                             <?php if (is_admin_area_user($user)): ?>
                                 <li><a class="dropdown-item" href="<?= e(url('/admin')) ?>"><i class="fa-solid fa-shield-halved ms-2"></i> لوحة الإدارة</a></li>
                             <?php endif; ?>

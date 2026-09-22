@@ -21,7 +21,7 @@ $user = auth_user();
         @media (max-width: 992px) { .user-shell { grid-template-columns:1fr; } }
     </style>
 </head>
-<body class="site-body">
+<body class="site-body" data-logged-in="1">
 <?php require dirname(__DIR__) . '/partials/navbar.php'; ?>
 <main class="site-main container-xl py-4">
     <div class="user-shell">

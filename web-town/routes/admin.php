@@ -28,6 +28,10 @@ return static function (Router $router): void {
 
     $router->get('/admin', [DashboardController::class, 'index'], [AdminMiddleware::class]);
 
+    $router->get('/admin/user_profile/{id}', [DashboardController::class, 'userProfile'], [AdminMiddleware::class]);
+
+    $router->get('/admin/users/{id}', [DashboardController::class, 'userProfile'], [AdminMiddleware::class]);
+
     $router->get('/admin/{section}', [DashboardController::class, 'section'], [AdminMiddleware::class]);
 
     $router->post('/admin/{section}', [DashboardController::class, 'section'], [AdminMiddleware::class]);

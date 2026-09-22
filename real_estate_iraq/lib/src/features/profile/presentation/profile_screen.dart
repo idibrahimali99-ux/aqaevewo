@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/api/api_providers.dart';
+import '../../../core/api/vewo_api_client.dart';
 import '../../../core/contact/property_contact.dart';
 import '../../../core/layout/app_responsive.dart';
 import '../../../core/widgets/app_brand_mark.dart';
@@ -67,6 +69,75 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void dispose() {
     _tabs.dispose();
     super.dispose();
+  }
+
+  Future<void> _confirmDeleteProperty(Property p) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('حذف المنشور'),
+        content: const Text('سيتم حذف هذا المنشور نهائياً. هل أنت متأكد؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final err = await ref
+        .read(propertyListingsProvider.notifier)
+        .deleteRemote(p.id);
+    if (!mounted) return;
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      return;
+    }
+    ref.invalidate(myPropertiesProvider);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('تم حذف المنشور')));
+  }
+
+  Future<void> _confirmDeleteReel(String id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('حذف الريل'),
+        content: const Text('سيتم حذف هذا الريل نهائياً. هل أنت متأكد؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await ref.read(vewoApiClientProvider).postJson('reels/delete', {
+        'id': id,
+      });
+      if (!mounted) return;
+      ref.invalidate(myReelsProvider);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم حذف الريل')));
+    } on VewoApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 
   List<Property> _filterMine(List<Property> mine, int tab) {
@@ -468,19 +539,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               ),
             ),
             const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: Icon(Icons.assignment_outlined, color: scheme.primary),
-                title: const Text(
-                  'طلباتي العقارية',
-                  style: TextStyle(fontWeight: FontWeight.w800),
+              Card(
+                child: ListTile(
+                  leading: Icon(Icons.assignment_outlined, color: scheme.primary),
+                  title: const Text(
+                    'طلباتي العقارية',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: const Text('متابعة حالة طلبات اطلب عقارك'),
+                  trailing: const Icon(Icons.chevron_left_rounded),
+                  onTap: () => context.push(AppRoutes.myPropertyRequests),
                 ),
-                subtitle: const Text('متابعة حالة طلبات اطلب عقارك'),
-                trailing: const Icon(Icons.chevron_left_rounded),
-                onTap: () => context.push(AppRoutes.myPropertyRequests),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
             Card(
               child: ListTile(
                 leading: Icon(Icons.lock_reset_rounded, color: scheme.primary),
@@ -563,13 +634,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                             reel: reel,
                             ownerId: auth.userId ?? '',
                             onEdited: () => ref.invalidate(myReelsProvider),
+                            onDelete: () => _confirmDeleteReel(
+                              reel['id']?.toString() ?? '',
+                            ),
                           );
                         },
                       ),
                     ),
             ),
-            if (auth.role == UserRole.office ||
-                auth.role == UserRole.customer) ...[
+            if ((auth.role == UserRole.office ||
+                    auth.role == UserRole.customer)) ...[
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -632,9 +706,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       items: items,
                       showPublisherModeration: true,
                       viewerIsOffice: auth.role == UserRole.office,
-                      onRejectedEdit: (p) => context.push(
+                      onEdit: (p) => context.push(
                         '${AppRoutes.addProperty}?edit_property_id=${Uri.encodeComponent(p.id)}',
                       ),
+                      onDelete: (p) => _confirmDeleteProperty(p),
                     );
                   },
                 ),
@@ -724,6 +799,23 @@ class _AboutAqarTownCard extends StatelessWidget {
               subtitle: const Text('قواعد استخدام المنصة والنشر'),
               trailing: const Icon(Icons.chevron_left_rounded),
               onTap: () => context.push(AppRoutes.termsOfService),
+            ),
+            FutureBuilder<PackageInfo>(
+              future: PackageInfo.fromPlatform(),
+              builder: (context, snap) {
+                final info = snap.data;
+                if (info == null) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    'إصدار ${info.version} (${info.buildNumber})',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -905,11 +997,13 @@ class _MyReelCard extends ConsumerWidget {
     required this.reel,
     required this.ownerId,
     this.onEdited,
+    this.onDelete,
   });
 
   final Map<String, dynamic> reel;
   final String ownerId;
   final VoidCallback? onEdited;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -921,11 +1015,7 @@ class _MyReelCard extends ConsumerWidget {
     final likes = reel['likes_count'] ?? 0;
     final status = reel['approval_status']?.toString() ?? 'approved';
     final rejectNote = reel['reject_note']?.toString().trim() ?? '';
-    final canEdit =
-        status == 'rejected' &&
-        (reel['resubmission_allowed'] == true ||
-            reel['resubmission_allowed'] == 1 ||
-            '${reel['resubmission_allowed'] ?? ''}' == '1');
+    final canEdit = true;
 
     String? badge;
     Color badgeColor = Colors.white;
@@ -1052,22 +1142,40 @@ class _MyReelCard extends ConsumerWidget {
                       ),
                     ],
                     if (canEdit)
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(0, 28),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        onPressed: () async {
-                          final ok = await showReelCreateSheet(
-                            context,
-                            ref,
-                            existingReel: reel,
-                          );
-                          if (ok == true) onEdited?.call();
-                        },
-                        child: const Text('تعديل وإعادة إرسال'),
+                      Wrap(
+                        spacing: 0,
+                        children: [
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(0, 28),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () async {
+                              final ok = await showReelCreateSheet(
+                                context,
+                                ref,
+                                existingReel: reel,
+                              );
+                              if (ok == true) onEdited?.call();
+                            },
+                            child: const Text('تعديل'),
+                          ),
+                          if (onDelete != null)
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(0, 28),
+                                tapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                foregroundColor: scheme.error,
+                              ),
+                              onPressed: onDelete,
+                              child: const Text('حذف'),
+                            ),
+                        ],
                       ),
                   ],
                 ),

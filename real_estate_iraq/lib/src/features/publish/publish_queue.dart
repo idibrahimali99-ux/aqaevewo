@@ -1,12 +1,12 @@
-import 'dart:typed_data';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/api/api_providers.dart';
 import '../../core/api/vewo_api_client.dart';
 import '../../core/media/vewo_image_watermark_burn.dart';
-import '../../core/media/vewo_video_prepare.dart';
 import '../properties/data/properties_providers.dart';
 import '../properties/domain/property_category.dart';
 import '../properties/domain/property_segment.dart';
@@ -253,7 +253,9 @@ class PublishQueue extends Notifier<PublishQueueState> {
       imagesDone++;
     }
 
-    const workers = 3;
+    // iOS يفشل كثيراً مع رفع متوازٍ على نفس الـHttpClient
+    // (Client is already closed). أندرويد يتحمل 3 عمال.
+    final workers = (!kIsWeb && Platform.isIOS) ? 1 : 3;
     var next = 0;
     Future<void> worker() async {
       while (true) {
@@ -275,35 +277,9 @@ class PublishQueue extends Notifier<PublishQueueState> {
       throw VewoApiException('فشل رفع الصور');
     }
 
-    String? videoUrl = d.removeExistingVideo ? null : d.existingVideoUrl;
-    if (hasVideo) {
-      _report(0.62, 'تجهيز الفيديو');
-      final uploadVideo = await prepareVideoForUpload(
-        d.pickedVideo!,
-        duration: d.videoDuration,
-        startSeconds: d.videoTrimStart,
-        endSeconds: d.videoTrimEnd,
-        outputName: 'video.mp4',
-      );
-      final uv = await api.postMultipartFile(
-        'properties/upload',
-        'file',
-        uploadVideo.path,
-        filename: uploadVideo.name.trim().isNotEmpty
-            ? uploadVideo.name
-            : 'video.mp4',
-        onProgress: (sent, total) {
-          if (total <= 0) return;
-          _report(
-            0.62 + (sent / total) * 0.28,
-            'رفع الفيديو',
-            sent: sent,
-            total: total,
-          );
-        },
-      );
-      videoUrl = uv['public_url']?.toString();
-    }
+    String? videoUrl = d.isEditing && !d.removeExistingVideo
+        ? d.existingVideoUrl
+        : null;
 
     _report(0.93, 'حفظ المنشور');
     final notifier = ref.read(propertyListingsProvider.notifier);

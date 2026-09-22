@@ -59,6 +59,7 @@ $sortOptions = [
                         <th>المكتب</th>
                         <th>المالك</th>
                         <th>الهاتف</th>
+                        <th>الباقة / الرصيد</th>
                         <th>الحالة</th>
                         <th>التاريخ</th>
                         <th class="text-end">إجراءات</th>
@@ -86,6 +87,13 @@ $sortOptions = [
                             </td>
                             <td><?= e((string) ($office['full_name'] ?? '—')) ?></td>
                             <td dir="ltr" class="font-monospace small"><?= e((string) ($office['phone'] ?? '—')) ?></td>
+                            <td class="small">
+                                <?php if (trim((string) ($office['posting_package_name'] ?? '')) !== '' || isset($office['posting_listings_remaining']) || !empty($office['published_count'])): ?>
+                                    <?= e(admin_posting_quota_summary($office)) ?>
+                                <?php else: ?>
+                                    —
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <?php if ($scope === 'pending'): ?>
                                     <span class="badge rounded-pill text-bg-warning">بانتظار الموافقة</span>

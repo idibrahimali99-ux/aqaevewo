@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/news/domain/property_news_models.dart';
@@ -123,17 +124,33 @@ class AppUpdatePolicy {
 
   factory AppUpdatePolicy.fromJson(Map<String, dynamic>? json) {
     if (json == null || json.isEmpty) return empty;
-    var minVersion = json['min_version']?.toString().trim() ?? '';
-    var latestVersion = json['latest_version']?.toString().trim() ?? '';
-    if (minVersion.isEmpty) minVersion = latestVersion;
-    if (latestVersion.isEmpty) latestVersion = minVersion;
+    final isIos = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    Map<String, dynamic>? platform;
+    final nested = json[isIos ? 'ios' : 'android'];
+    if (nested is Map) {
+      platform = Map<String, dynamic>.from(nested);
+    }
+    final source = platform ?? json;
+    bool flagOn(dynamic raw) => raw == true || raw?.toString() == '1';
+    if (!flagOn(source['enabled']) && !flagOn(source['force'])) {
+      return empty;
+    }
+    final url = (source['url'] ?? source['store_url'])?.toString().trim() ?? '';
     return AppUpdatePolicy(
-      minVersion: minVersion,
-      minBuild: int.tryParse('${json['min_build'] ?? 0}') ?? 0,
-      latestVersion: latestVersion,
-      latestBuild: int.tryParse('${json['latest_build'] ?? 0}') ?? 0,
-      androidStoreUrl: json['android_store_url']?.toString().trim() ?? '',
-      iosStoreUrl: json['ios_store_url']?.toString().trim() ?? '',
+      minVersion: source['min_version']?.toString().trim() ?? '',
+      minBuild: int.tryParse('${source['min_build'] ?? 0}') ?? 0,
+      latestVersion: source['latest_version']?.toString().trim() ?? '',
+      latestBuild: int.tryParse('${source['latest_build'] ?? 0}') ?? 0,
+      androidStoreUrl: isIos
+          ? (json['android_store_url']?.toString().trim() ?? '')
+          : (url.isNotEmpty
+                ? url
+                : (json['android_store_url']?.toString().trim() ?? '')),
+      iosStoreUrl: isIos
+          ? (url.isNotEmpty
+                ? url
+                : (json['ios_store_url']?.toString().trim() ?? ''))
+          : (json['ios_store_url']?.toString().trim() ?? ''),
       title: (json['title']?.toString().trim().isNotEmpty ?? false)
           ? json['title'].toString().trim()
           : empty.title,

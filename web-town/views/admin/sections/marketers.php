@@ -24,6 +24,7 @@ require __DIR__ . '/../partials/section-alerts.php';
                         <th>المسوق</th>
                         <th>الهاتف</th>
                         <th>الباقة / الرصيد</th>
+                        <th>المنشورات</th>
                         <th>المتابعون</th>
                         <th>الحالة</th>
                         <th class="text-end">إجراءات</th>
@@ -43,11 +44,12 @@ require __DIR__ . '/../partials/section-alerts.php';
                                 <div class="small text-secondary"><?= e((string) ($row['office_name'] ?? '')) ?></div>
                             </td>
                             <td dir="ltr" class="font-monospace small"><?= e((string) ($row['phone'] ?? '—')) ?></td>
+                            <td class="small"><?= e(admin_posting_quota_summary($row)) ?></td>
                             <td>
-                                <?= e((string) ($row['posting_package_name'] ?? '—')) ?>
-                                <div class="small text-secondary">
-                                    <?= !empty($row['posting_is_unlimited']) ? 'غير محدود' : e(compact_number($row['posting_listings_remaining'] ?? 0)) . ' متبقي' ?>
-                                </div>
+                                <?= e(compact_number($row['published_count'] ?? 0)) ?>
+                                <?php if (!empty($row['reels_count'])): ?>
+                                    <div class="small text-secondary">ريلز <?= e(compact_number($row['reels_count'])) ?></div>
+                                <?php endif; ?>
                             </td>
                             <td><?= e(compact_number($row['followers_count'] ?? $row['follower_count'] ?? 0)) ?></td>
                             <td>
@@ -55,12 +57,12 @@ require __DIR__ . '/../partials/section-alerts.php';
                                 <span class="badge rounded-pill <?= $active ? 'text-bg-light border' : 'text-bg-secondary' ?>"><?= $active ? 'نشط' : 'موقوف' ?></span>
                             </td>
                             <td class="text-end">
-                                <a href="<?= e(url('/admin/user_profile', ['id' => $uid])) ?>" class="btn btn-light btn-sm rounded-pill">الملف</a>
+                                <a href="<?= e(admin_user_profile_url($uid)) ?>" class="btn btn-light btn-sm rounded-pill">الملف</a>
                                 <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-bs-toggle="collapse" data-bs-target="#pkg-<?= e($uid) ?>">تعديل باقة</button>
                             </td>
                         </tr>
                         <tr class="collapse" id="pkg-<?= e($uid) ?>">
-                            <td colspan="6">
+                            <td colspan="7">
                                 <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="admin-form-card row g-2">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="_operation" value="assign_package">

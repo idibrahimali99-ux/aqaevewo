@@ -78,31 +78,5 @@ $accountItems = [
     <div class="dashboard-main">
         <?= $slot ?>
     </div>
-    <?php if ($isAdminConsole): ?>
-        <aside class="admin-notifications-panel" aria-label="الإشعارات الجانبية">
-            <div class="notice-head">
-                <span class="eyebrow">إشعارات</span>
-                <a href="<?= e(url('/dashboard/admin/notifications')) ?>">عرض الكل</a>
-            </div>
-            <div class="notice-list">
-                <a class="notice-card urgent" href="<?= e(url('/dashboard/admin/properties', ['status' => 'pending'])) ?>">
-                    <span>منشورات بانتظار المراجعة</span>
-                    <strong><?= e(compact_number(admin_stat_value($consoleStats, ['pending_properties', 'properties_pending', 'pending']))) ?></strong>
-                </a>
-                <a class="notice-card" href="<?= e(url('/dashboard/admin/offices', ['scope' => 'pending'])) ?>">
-                    <span>مكاتب بانتظار الموافقة</span>
-                    <strong><?= e(compact_number(admin_stat_value($consoleStats, ['pending_offices', 'offices_pending']))) ?></strong>
-                </a>
-                <a class="notice-card" href="<?= e(url('/dashboard/admin/chats')) ?>">
-                    <span>محادثات غير مقروءة</span>
-                    <strong><?= e(compact_number(admin_stat_value($consoleStats, ['unread_chats', 'chat_unread', 'unread_threads']))) ?></strong>
-                </a>
-            </div>
-            <div class="notice-actions">
-                <a class="btn primary" href="<?= e(url('/dashboard/admin/reports')) ?>">التقارير</a>
-                <a class="btn ghost" href="<?= e(url('/dashboard/admin/settings')) ?>">الإعدادات</a>
-            </div>
-        </aside>
-    <?php endif; ?>
 </section>
 <div class="drawer-backdrop" data-dashboard-backdrop></div>

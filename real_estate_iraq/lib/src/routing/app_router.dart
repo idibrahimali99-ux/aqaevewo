@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/data/auth_controller.dart';
-import '../features/auth/domain/user_role.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
 import '../features/auth/presentation/role_select_screen.dart';
@@ -80,9 +79,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (!isAuth && requiresAuth) return AppRoutes.login;
       if (isAuth && isAuthFlow) {
-        return auth.role == UserRole.office
-            ? AppRoutes.offices
-            : AppRoutes.home;
+        return AppRoutes.home;
       }
       if (!isAuth && !guestAllowed && !isAuthFlow) return AppRoutes.home;
       return null;

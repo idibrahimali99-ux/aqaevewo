@@ -80,15 +80,7 @@ function money_iqd(mixed $amount): string
 
 function compact_number(mixed $value): string
 {
-    $n = (int) ($value ?? 0);
-    if ($n >= 1000000) {
-        return round($n / 1000000, 1) . 'M';
-    }
-    if ($n >= 1000) {
-        return round($n / 1000, 1) . 'K';
-    }
-
-    return (string) $n;
+    return number_format((int) ($value ?? 0));
 }
 
 function pick(array $array, string $key, mixed $default = ''): mixed

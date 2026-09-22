@@ -6,7 +6,7 @@ $images = $images ?? property_image_list($property);
 $compact = !empty($compact);
 $details = property_details_array($property) ?? [];
 $coords = property_coordinates($property);
-$publicNo = (string) ($property['property_public_no'] ?? '');
+$publicNo = admin_public_no_label($property['property_public_no'] ?? '');
 $videoUrl = trim((string) ($property['video_url'] ?? $videoUrl ?? ''));
 $owner = property_owner_label($property);
 $specRows = property_spec_rows($property);
@@ -15,7 +15,7 @@ $contactError = trim((string) ($_GET['error'] ?? ''));
 <div class="property-detail-full<?= $compact ? ' property-detail-compact' : '' ?>">
     <div class="row g-4">
         <div class="col-lg-7">
-            <div id="propertyGallery" class="carousel slide property-gallery rounded-4 overflow-hidden shadow-sm" data-bs-ride="carousel">
+            <div id="propertyGallery" class="carousel slide property-gallery rounded-4 overflow-hidden shadow-sm position-relative" data-bs-ride="carousel">
                 <div class="carousel-inner">
                     <?php foreach ($images as $i => $img): ?>
                         <div class="carousel-item<?= $i === 0 ? ' active' : '' ?>">
@@ -25,6 +25,9 @@ $contactError = trim((string) ($_GET['error'] ?? ''));
                         </div>
                     <?php endforeach; ?>
                 </div>
+                <?php if (!empty($property['is_sold'])): ?>
+                    <span class="property-sold-bar">تم البيع</span>
+                <?php endif; ?>
                 <?php if (count($images) > 1): ?>
                     <button class="carousel-control-prev" type="button" data-bs-target="#propertyGallery" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>
                     <button class="carousel-control-next" type="button" data-bs-target="#propertyGallery" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>
@@ -45,13 +48,13 @@ $contactError = trim((string) ($_GET['error'] ?? ''));
                     <?php if ($publicNo !== ''): ?>
                         <button type="button" class="property-public-no property-public-no-lg" data-copy-text="#<?= e($publicNo) ?>" title="اضغط لنسخ رقم المنشور">#<?= e($publicNo) ?></button>
                     <?php endif; ?>
-                    <span class="badge rounded-pill text-bg-warning"><?= e(property_purpose_label((string) ($property['purpose'] ?? ''))) ?></span>
+                    <span class="badge rounded-pill text-bg-warning"><?= e(property_purpose_label((string) ($property['purpose'] ?? ''), $property)) ?></span>
                     <span class="badge rounded-pill text-bg-light border"><?= e(property_category_label((string) ($property['category'] ?? ''))) ?></span>
                     <?php if (!empty($property['is_sold'])): ?><span class="badge rounded-pill text-bg-secondary">تم البيع</span><?php endif; ?>
                 </div>
                 <h1 class="h3 mb-2"><?= e((string) ($property['title'] ?? 'عقار')) ?></h1>
                 <p class="text-secondary mb-3"><?= e(trim((string) ($property['governorate'] ?? '') . ' · ' . (string) ($property['address_line'] ?? ''))) ?></p>
-                <div class="property-detail-price mb-3"><?= e(money_iqd($property['price_iqd'] ?? null)) ?></div>
+                <div class="property-detail-price mb-3"><?= e(property_price_label($property)) ?></div>
 
                 <?php if ($specRows !== []): ?>
                     <div class="property-spec-grid mb-3">

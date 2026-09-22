@@ -198,7 +198,11 @@ class _AdminPropertyRequestsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('طلبات العقار')),
+      appBar: AppBar(
+        title: const Text('طلبات العقار'),
+        automaticallyImplyLeading: false,
+        primary: false,
+      ),
       body: Column(
         children: [
           Padding(

@@ -32,7 +32,14 @@ function url(string $path = '', array $query = []): string
 
 function asset_url(string $path): string
 {
-    return url('/assets/' . ltrim($path, '/'));
+    $rel = ltrim($path, '/');
+    $href = url('/assets/' . $rel);
+    $file = dirname(__DIR__, 2) . '/public/assets/' . $rel;
+    if (is_file($file)) {
+        $href .= '?v=' . filemtime($file);
+    }
+
+    return $href;
 }
 
 function redirect_to(string $path, array $query = []): never
@@ -70,15 +77,12 @@ function money_iqd(mixed $amount): string
 
 function compact_number(mixed $value): string
 {
-    $n = (int) ($value ?? 0);
-    if ($n >= 1000000) {
-        return round($n / 1000000, 1) . 'M';
-    }
-    if ($n >= 1000) {
-        return round($n / 1000, 1) . 'K';
-    }
+    return full_number($value);
+}
 
-    return (string) $n;
+function full_number(mixed $value): string
+{
+    return number_format((int) ($value ?? 0));
 }
 
 function pick(array $array, string $key, mixed $default = ''): mixed
@@ -113,12 +117,7 @@ function api_client(): \App\Models\ApiClient
     if ($client === null) {
         $entry = trim((string) App::config('api_entry', ''));
         if ($entry === '') {
-            $entry = trim((string) App::config('api_base_hint', ''));
-        }
-        if ($entry === '') {
-            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-            $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
-            $entry = $scheme . '://' . $host . '/api/index.php';
+            $entry = 'http://127.0.0.1/api/index.php';
         }
         $client = new \App\Models\ApiClient($entry);
     }
@@ -142,7 +141,7 @@ function api_get_resilient(string $route, array $query = [], ?string $token = nu
     $hint = trim((string) App::config('api_base_hint', ''));
     $current = trim((string) App::config('api_entry', ''));
     $candidates = [];
-    foreach ([$hint, $fallback] as $c) {
+    foreach (['http://127.0.0.1/api/index.php', $hint, $fallback] as $c) {
         if ($c !== '' && $c !== $current && !in_array($c, $candidates, true)) {
             $candidates[] = $c;
         }
@@ -239,12 +238,47 @@ function property_category_label(string $category): string
     };
 }
 
-function property_purpose_label(string $purpose): string
+function property_rent_period(?array $property): string
 {
-    return match ($purpose) {
-        'rent' => 'للإيجار',
-        'sale' => 'للبيع',
-        default => $purpose !== '' ? $purpose : 'عقار',
+    if ($property === null) {
+        return '';
+    }
+    $details = property_details_array($property) ?? [];
+    $v = strtolower(trim((string) ($details['rent_period'] ?? $details['rentPeriod'] ?? '')));
+    if (in_array($v, ['yearly', 'year', 'annual', 'سنوي'], true)) {
+        return 'yearly';
+    }
+    if (in_array($v, ['monthly', 'month', 'شهري'], true)) {
+        return 'monthly';
+    }
+    return '';
+}
+
+function property_purpose_label(string $purpose, ?array $property = null): string
+{
+    if ($purpose !== 'rent') {
+        return match ($purpose) {
+            'sale' => 'للبيع',
+            default => $purpose !== '' ? $purpose : 'عقار',
+        };
+    }
+    return match (property_rent_period($property)) {
+        'yearly' => 'إيجار سنوي',
+        'monthly' => 'إيجار شهري',
+        default => 'للإيجار',
+    };
+}
+
+function property_price_label(array $property): string
+{
+    $base = money_iqd($property['price_iqd'] ?? null);
+    if ((string) ($property['purpose'] ?? '') !== 'rent') {
+        return $base;
+    }
+    return match (property_rent_period($property)) {
+        'yearly' => $base . ' / السنة',
+        'monthly' => $base . ' / الشهر',
+        default => $base,
     };
 }
 
@@ -352,11 +386,16 @@ function property_spec_rows(array $property): array
         'rooms' => 'الغرف',
         'bedrooms' => 'غرف النوم',
         'bathrooms' => 'الحمامات',
+        'kitchen' => 'المطبخ',
+        'living_room' => 'الصالة',
+        'parking' => 'موقف السيارات',
         'floor' => 'الطابق',
         'floors_count' => 'عدد الطوابق',
         'facade' => 'الواجهة',
         'deed_type' => 'نوع السند',
         'building_age' => 'عمر البناء',
+        'furnished' => 'مفروش',
+        'extra_notes' => 'تفاصيل إضافية',
     ] as $key => $label) {
         $push($label, $details[$key] ?? null);
     }
@@ -414,7 +453,7 @@ function property_map_markers(array $items): array
             'lat' => $coords['lat'],
             'lng' => $coords['lng'],
             'title' => (string) ($item['title'] ?? 'عقار'),
-            'price' => money_iqd($item['price_iqd'] ?? null),
+            'price' => property_price_label($item),
             'governorate' => (string) ($item['governorate'] ?? ''),
             'category' => property_category_label((string) ($item['category'] ?? '')),
             'thumb' => first_image($item),
@@ -522,3 +561,28 @@ function account_kind_label(?array $user = null): string
         default => 'زائر',
     };
 }
+
+/** @param array<string,mixed> $promo */
+function promotion_href(array $promo): string
+{
+    $type = trim((string) ($promo['link_type'] ?? ''));
+    $target = trim((string) ($promo['link_target'] ?? ''));
+    if ($type === 'property' && $target !== '') {
+        return url('/property/' . ltrim($target, '#'));
+    }
+    if ($type === 'property_no' && $target !== '') {
+        return url('/property/' . ltrim($target, '#'));
+    }
+    if ($target !== '' && preg_match('#^https?://#i', $target)) {
+        return $target;
+    }
+    if ($type === 'url' && $target !== '') {
+        return $target;
+    }
+    if ($type === 'route' && $target !== '') {
+        return url($target);
+    }
+
+    return url('/properties');
+}
+

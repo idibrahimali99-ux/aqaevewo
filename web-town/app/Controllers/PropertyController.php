@@ -58,6 +58,14 @@ final class PropertyController extends Controller
 
     public function show(string $id): void
     {
+        $id = ltrim($id, '#');
+        if (ctype_digit($id) && strlen($id) >= 5) {
+            $list = api_client()->get('properties/list', ['q' => $id, 'limit' => 1]);
+            $items = is_array($list['items'] ?? null) ? $list['items'] : [];
+            if (isset($items[0]) && is_array($items[0]) && !empty($items[0]['id'])) {
+                $id = (string) $items[0]['id'];
+            }
+        }
         $response = api_client()->get('properties/get', ['id' => $id]);
         if (empty($response['ok'])) {
             http_response_code(404);

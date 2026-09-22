@@ -86,6 +86,7 @@ function admin_sections(): array
                 'approve' => ['label' => 'موافقة ونشر', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور'], 'fixed' => ['action' => 'approve']],
                 'reject' => ['label' => 'رفض مع ملاحظة', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور', 'reject_note' => 'سبب الرفض', 'resubmission_allowed' => '1 أو 0'], 'fixed' => ['action' => 'reject']],
                 'mark_sold' => ['label' => 'تعليم تم البيع', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور'], 'fixed' => ['action' => 'mark_sold']],
+                'unmark_sold' => ['label' => 'إلغاء تم البيع', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور'], 'fixed' => ['action' => 'unmark_sold']],
                 'urgent_sale' => ['label' => 'تفعيل البيع العاجل', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور', 'days' => '1-365', 'notify_all' => '1 لإشعار الجميع'], 'fixed' => ['action' => 'urgent_sale']],
                 'cancel_urgent_sale' => ['label' => 'إلغاء البيع العاجل', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور'], 'fixed' => ['action' => 'cancel_urgent_sale']],
                 'update' => ['label' => 'تعديل منشور', 'endpoint' => 'admin/properties', 'method' => 'POST', 'fields' => ['id' => 'معرّف المنشور', 'title' => 'العنوان', 'governorate' => 'المحافظة', 'address_line' => 'العنوان التفصيلي', 'purpose' => 'sale/rent', 'price_iqd' => 'السعر', 'area_sqm' => 'المساحة', 'description' => 'الوصف', 'requires_review' => '1 أو 0'], 'fixed' => ['action' => 'update']],
@@ -100,6 +101,9 @@ function admin_sections(): array
             'operations' => [
                 'approve' => ['label' => 'موافقة ريل', 'endpoint' => 'admin/reels', 'method' => 'POST', 'fields' => ['id' => 'معرّف الريل'], 'fixed' => ['action' => 'approve']],
                 'reject' => ['label' => 'رفض ريل', 'endpoint' => 'admin/reels', 'method' => 'POST', 'fields' => ['id' => 'معرّف الريل', 'reject_note' => 'سبب الرفض', 'resubmission_allowed' => '1 للسماح بالتعديل'], 'fixed' => ['action' => 'reject']],
+                'update' => ['label' => 'تعديل ريل', 'endpoint' => 'admin/reels', 'method' => 'POST', 'fields' => ['id' => 'معرّف الريل', 'caption' => 'الوصف'], 'fixed' => ['action' => 'update']],
+                'mark_sold' => ['label' => 'تم البيع للريل', 'endpoint' => 'admin/reels', 'method' => 'POST', 'fields' => ['id' => 'معرّف الريل'], 'fixed' => ['action' => 'mark_sold']],
+                'unmark_sold' => ['label' => 'إلغاء تم البيع للريل', 'endpoint' => 'admin/reels', 'method' => 'POST', 'fields' => ['id' => 'معرّف الريل'], 'fixed' => ['action' => 'unmark_sold']],
                 'delete' => ['label' => 'حذف ريل', 'endpoint' => 'admin/reels', 'method' => 'DELETE', 'fields' => ['id' => 'معرّف الريل']],
                 'engagement' => ['label' => 'جدولة تفاعل', 'endpoint' => 'admin/engagement', 'method' => 'POST', 'permission' => 'engagement', 'fields' => ['target_kind' => 'reel', 'target_public_no' => 'رقم الريل', 'views_per_hour' => 'مشاهدات/ساعة', 'likes_per_hour' => 'لايكات/ساعة', 'hours' => 'المدة بالساعات']],
             ],

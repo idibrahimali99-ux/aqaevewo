@@ -105,17 +105,30 @@ class AuthController extends Notifier<AuthState> {
       final officeName = _officeNameFromUser(u);
       final fullName = _fullNameFromUser(u, state.fullName);
       final isMarketer = _isMarketerFromUser(u);
+      final displayName =
+          state.role == UserRole.office &&
+              !isMarketer &&
+              officeName.isNotEmpty
+          ? officeName
+          : fullName;
+      final officePhoto = _officePhotoFromUser(u);
+      final profilePhoto = _profilePhotoFromUser(u);
+      if (state.displayName == displayName &&
+          state.fullName == fullName &&
+          state.officeName == officeName &&
+          state.officePhotoUrl == officePhoto &&
+          state.profilePhotoUrl == profilePhoto &&
+          state.isMarketer == isMarketer &&
+          state.postingTrialUnlimited == pq.trial &&
+          state.postingListingsRemaining == pq.rem) {
+        return;
+      }
       state = state.copyWith(
-        displayName:
-            state.role == UserRole.office &&
-                !isMarketer &&
-                officeName.isNotEmpty
-            ? officeName
-            : fullName,
+        displayName: displayName,
         fullName: fullName,
         officeName: officeName,
-        officePhotoUrl: _officePhotoFromUser(u),
-        profilePhotoUrl: _profilePhotoFromUser(u),
+        officePhotoUrl: officePhoto,
+        profilePhotoUrl: profilePhoto,
         isMarketer: isMarketer,
         postingTrialUnlimited: pq.trial,
         postingListingsRemaining: pq.rem,

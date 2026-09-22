@@ -21,25 +21,42 @@ class MarketersListScreen extends ConsumerWidget {
       appBar: AppBar(title: const AppBarBrandTitle('المسوقون العقاريون')),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => const Center(child: Text('تعذر تحميل المسوقين')),
+        error: (_, _) => RefreshIndicator(
+          onRefresh: () async => ref.invalidate(approvedMarketersProvider),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const [
+              SizedBox(height: 180),
+              Center(child: Text('تعذر تحميل المسوقين')),
+            ],
+          ),
+        ),
         data: (items) {
           if (items.isEmpty) {
-            return Center(
-              child: Padding(
+            return RefreshIndicator(
+              onRefresh: () async => ref.invalidate(approvedMarketersProvider),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(24),
-                child: Text(
-                  'لا يوجد مسوقون معتمدون حالياً.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
+                children: [
+                  const SizedBox(height: 120),
+                  Text(
+                    'لا يوجد مسوقون معتمدون حالياً.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ],
               ),
             );
           }
-          return ListView.separated(
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(approvedMarketersProvider),
+            child: ListView.separated(
             padding: AppResponsive.pagePadding(
               context,
               accountForShellNav: true,
             ),
+            physics: const AlwaysScrollableScrollPhysics(),
             itemCount: items.length,
             separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, i) {
@@ -102,6 +119,7 @@ class MarketersListScreen extends ConsumerWidget {
                 ),
               );
             },
+          ),
           );
         },
       ),

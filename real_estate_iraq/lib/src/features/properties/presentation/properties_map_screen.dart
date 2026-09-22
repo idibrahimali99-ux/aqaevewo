@@ -384,6 +384,13 @@ class _PropertiesMapScreenState extends ConsumerState<PropertiesMapScreen> {
                     ),
                     const SizedBox(width: 8),
                     IconButton.filledTonal(
+                      tooltip: 'تحديث',
+                      onPressed: () =>
+                          ref.read(propertyListingsProvider.notifier).reload(),
+                      icon: const Icon(Icons.refresh_rounded),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
                       tooltip: 'عرض الكل',
                       onPressed: hasAny ? () => _fitAll(points) : null,
                       icon: const Icon(Icons.center_focus_strong_rounded),

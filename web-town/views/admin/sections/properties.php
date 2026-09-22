@@ -29,7 +29,7 @@ require __DIR__ . '/../partials/section-alerts.php';
         <?php foreach ($items as $property): ?>
             <?php
             $pid = (string) ($property['id'] ?? '');
-            $publicNo = (string) ($property['property_public_no'] ?? '');
+            $publicNo = admin_public_no_label($property['property_public_no'] ?? '');
             $thumb = first_image($property);
             $owner = trim((string) ($property['owner_office_name'] ?? $property['office_name'] ?? $property['owner_full_name'] ?? $property['owner_name'] ?? ''));
             $isSold = !empty($property['is_sold']);
@@ -53,6 +53,7 @@ require __DIR__ . '/../partials/section-alerts.php';
                         <div class="admin-property-price"><?= e(money_iqd($property['price_iqd'] ?? null)) ?></div>
                         <?php if ($owner !== ''): ?><div class="small"><i class="fa-solid fa-user ms-1"></i> <?= e($owner) ?></div><?php endif; ?>
                         <div class="small text-secondary"><i class="fa-solid fa-eye ms-1"></i> <?= e(compact_number($property['views'] ?? 0)) ?> مشاهدة</div>
+                        <?= admin_activity_html($property) ?>
                         <?php if (!empty($property['reject_note'])): ?>
                             <div class="alert alert-warning py-2 px-3 small mb-0 mt-2"><?= e((string) $property['reject_note']) ?></div>
                         <?php endif; ?>
@@ -62,6 +63,14 @@ require __DIR__ . '/../partials/section-alerts.php';
                     <button type="button" class="btn btn-warning btn-sm rounded-pill" data-property-open>
                         <?= $status === 'pending' ? 'معاينة ونشر' : 'التفاصيل الكاملة' ?>
                     </button>
+                    <?php if ($status === 'sold' && $isSold && can_staff('unsold')): ?>
+                        <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="d-inline">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="_operation" value="unmark_sold">
+                            <input type="hidden" name="id" value="<?= e($pid) ?>">
+                            <button type="submit" class="btn btn-outline-success btn-sm rounded-pill">إلغاء تم البيع</button>
+                        </form>
+                    <?php endif; ?>
                     <?php if ($status === 'unsold' && !$isSold): ?>
                         <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="d-inline">
                             <?= csrf_field() ?>

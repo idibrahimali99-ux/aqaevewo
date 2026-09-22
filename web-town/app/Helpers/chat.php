@@ -99,6 +99,10 @@ function home_section_icon(string $name): string
         'land' => 'fa-map',
         'shop' => 'fa-store',
         'villa' => 'fa-house-chimney',
+        'key' => 'fa-key',
+        'sale' => 'fa-tag',
+        'person' => 'fa-user',
+        'farm' => 'fa-tractor',
         default => 'fa-compass',
     };
 }

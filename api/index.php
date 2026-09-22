@@ -23,7 +23,20 @@ if ($__vewoEarlyRoute === 'chat/stream') {
     exit;
 }
 
+@ini_set('max_execution_time', '0');
+@ini_set('max_input_time', '0');
+@ini_set('memory_limit', '2048M');
+@ini_set('default_socket_timeout', '600');
+@set_time_limit(0);
+if (in_array($__vewoEarlyRoute, ['properties/upload', 'admin/upload', 'chat/upload', 'register/office_photo', 'farms/upload', 'farms/booking/proof'], true)) {
+    @ignore_user_abort(true);
+}
+
 header('Content-Type: application/json; charset=utf-8');
+@ini_set('display_errors', '0');
+if (ob_get_level() === 0) {
+    ob_start();
+}
 
 $configPath = __DIR__ . '/config.php';
 if (!is_file($configPath)) {
@@ -80,6 +93,7 @@ try {
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
+    $GLOBALS['vewo_pdo'] = $pdo;
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode([
@@ -114,6 +128,8 @@ require_once __DIR__ . '/lib/r2_storage.php';
 require_once __DIR__ . '/lib/extend.php';
 require_once __DIR__ . '/lib/backup_telegram.php';
 require_once __DIR__ . '/lib/social.php';
+require_once __DIR__ . '/lib/app_update.php';
+require_once __DIR__ . '/lib/farms.php';
 
 switch ($route) {
     case '':
@@ -211,6 +227,12 @@ switch ($route) {
     case 'admin_home_sections':
         vewo_require_admin_permission($pdo, 'settings');
         admin_home_sections_route($pdo);
+        break;
+
+    case 'admin/app-update':
+    case 'admin_app_update':
+        vewo_require_admin_permission($pdo, 'settings');
+        admin_app_update_route($pdo);
         break;
 
     case 'admin/property-news':
@@ -415,6 +437,13 @@ switch ($route) {
         admin_stats_route($pdo);
         break;
 
+    case 'admin/notify-pulse':
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
+            json_error(405, 'Method not allowed');
+        }
+        admin_notify_pulse_route($pdo);
+        break;
+
     case 'admin/offices':
         vewo_require_admin_permission($pdo, 'offices');
         admin_offices_route($pdo);
@@ -482,6 +511,13 @@ switch ($route) {
         user_property_update_route($pdo);
         break;
 
+    case 'properties/delete':
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            json_error(405, 'Method not allowed');
+        }
+        user_properties_delete_route($pdo);
+        break;
+
     case 'properties/upload':
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
             json_error(405, 'Method not allowed');
@@ -515,6 +551,21 @@ switch ($route) {
             json_error(405, 'Method not allowed');
         }
         reels_update_route($pdo);
+        break;
+
+    case 'reels/delete':
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            json_error(405, 'Method not allowed');
+        }
+        user_reels_delete_route($pdo);
+        break;
+
+    case 'reels/mark-sold':
+    case 'reels_mark_sold':
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            json_error(405, 'Method not allowed');
+        }
+        reels_mark_sold_route($pdo);
         break;
 
     case 'reels/view':
@@ -772,11 +823,20 @@ function auth_register(PDO $pdo): void
     $isMarketerReq = !empty($in['is_marketer'])
         || ($in['account_kind'] ?? '') === 'marketer'
         || ($in['register_as'] ?? '') === 'marketer';
+    $isFarmReq = !empty($in['is_farm'])
+        || ($in['account_kind'] ?? '') === 'farm'
+        || ($in['register_as'] ?? '') === 'farm';
+    if ($isFarmReq) {
+        json_error(400, 'تسجيل حساب المزرعة غير متاح');
+    }
     if ($role === 'office') {
-        if (mb_strlen($officeName) < 2) {
-            json_error(400, 'اسم المكتب مطلوب');
+        if ($isFarmReq && mb_strlen($officeName) < 2) {
+            $officeName = trim((string) ($in['farm_name'] ?? $in['name'] ?? $fullName));
         }
-        if (!$isMarketerReq) {
+        if (mb_strlen($officeName) < 2) {
+            json_error(400, $isFarmReq ? 'اسم المزرعة مطلوب' : 'اسم المكتب مطلوب');
+        }
+        if (!$isMarketerReq && !$isFarmReq) {
             if (mb_strlen($officeAddr) < 5) {
                 json_error(400, 'عنوان المكتب مطلوب (5 أحرف على الأقل)');
             }
@@ -792,6 +852,9 @@ function auth_register(PDO $pdo): void
             }
             if ($officePhoto === '' && $profilePhoto !== '') {
                 $officePhoto = $profilePhoto;
+            }
+            if ($isFarmReq && $officeAddr === '') {
+                $officeAddr = trim((string) ($in['address_line'] ?? '—'));
             }
         }
     } else {
@@ -846,6 +909,21 @@ function auth_register(PDO $pdo): void
         } catch (Throwable $e) {
         }
     }
+    if ($role === 'office' && $isFarmReq && function_exists('vewo_farms_ensure')) {
+        vewo_farms_ensure($pdo);
+        if (function_exists('vewo_users_has_is_farm_column') && vewo_users_has_is_farm_column($pdo)) {
+            try {
+                $pdo->prepare('UPDATE users SET is_farm = 1 WHERE id = :id LIMIT 1')->execute([':id' => $id]);
+            } catch (Throwable $e) {
+            }
+        }
+        try {
+            if (function_exists('vewo_farm_create_for_owner')) {
+                vewo_farm_create_for_owner($pdo, $id, $in, $phone, $fullName);
+            }
+        } catch (Throwable $e) {
+        }
+    }
     if ($profilePhoto !== '' && function_exists('vewo_users_has_profile_photo_column') && vewo_users_has_profile_photo_column($pdo)) {
         try {
             $pdo->prepare('UPDATE users SET profile_photo_url = :p WHERE id = :id LIMIT 1')->execute([':p' => $profilePhoto, ':id' => $id]);
@@ -885,14 +963,12 @@ function auth_register(PDO $pdo): void
 
     if ($role === 'office') {
         try {
-            $adminId = first_admin_user_id($pdo);
-            if ($adminId !== '') {
-                $tokens = vewo_device_tokens_for_user($pdo, $adminId, true);
-                vewo_fcm_send(
-                    $tokens,
+            if (function_exists('vewo_fcm_notify_admins')) {
+                vewo_fcm_notify_admins(
+                    $pdo,
                     'طلب حساب جديد',
-                    ($isMarketerReq ? 'مسوّق عقاري' : 'مكتب عقاري') . ' بانتظار المراجعة',
-                    ['type' => 'office_pending', 'section' => 'offices', 'user_id' => $id]
+                    ($isFarmReq ? 'صاحب مزرعة' : ($isMarketerReq ? 'مسوّق عقاري' : 'مكتب عقاري')) . ' بانتظار المراجعة',
+                    ['type' => $isFarmReq ? 'farm_pending' : 'office_pending', 'section' => $isFarmReq ? 'farms' : 'offices', 'user_id' => $id]
                 );
             }
         } catch (Throwable $e) {
@@ -1061,6 +1137,7 @@ function app_bootstrap(PDO $pdo, array $config): void
         'property_news' => $newsItems,
         'home_sections' => $homeSections,
         'maintenance_mode' => $maintenance,
+        'app_update' => function_exists('vewo_app_update_public') ? vewo_app_update_public() : null,
     ], JSON_UNESCAPED_UNICODE);
 }
 
@@ -1108,6 +1185,10 @@ function vewo_home_sections_ensure(PDO $pdo): bool
                 ':s' => $d['sort_order'],
             ]);
         }
+        try {
+            $pdo->exec("DELETE FROM home_sections WHERE section_key = 'farms'");
+        } catch (Throwable $e) {
+        }
         $ok = true;
     } catch (Throwable $e) {
         $ok = false;
@@ -1129,7 +1210,17 @@ function vewo_home_sections_list(PDO $pdo): array
              ORDER BY sort_order ASC, label ASC'
         );
         $rows = $stmt !== false ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
-        return is_array($rows) && !empty($rows) ? $rows : vewo_home_section_defaults();
+        if (!is_array($rows) || $rows === []) {
+            return vewo_home_section_defaults();
+        }
+        $out = [];
+        foreach ($rows as $row) {
+            if ((string) ($row['section_key'] ?? '') === 'farms') {
+                continue;
+            }
+            $out[] = $row;
+        }
+        return $out !== [] ? $out : vewo_home_section_defaults();
     } catch (Throwable $e) {
         return vewo_home_section_defaults();
     }
@@ -1244,17 +1335,7 @@ function admin_upload_route(PDO $pdo, array $config): void
         json_error(400, 'لم يُرفع ملف (استخدم الحقل file)');
     }
     $f = $_FILES['file'];
-    if ((int) ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        json_error(400, 'فشل الرفع');
-    }
-    $tmp = (string) ($f['tmp_name'] ?? '');
-    if ($tmp === '' || !is_uploaded_file($tmp)) {
-        json_error(400, 'ملف غير صالح');
-    }
-    $size = (int) ($f['size'] ?? 0);
-    if ($size > 40 * 1024 * 1024) {
-        json_error(400, 'الملف كبير جداً (الحد 40 ميجابايت)');
-    }
+    $tmp = vewo_require_uploaded_file($f);
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mime = $finfo->file($tmp);
     if (!is_string($mime)) {
@@ -1297,17 +1378,7 @@ function chat_upload_route(PDO $pdo, array $config): void
         json_error(400, 'لم يُرفع ملف (استخدم الحقل file)');
     }
     $f = $_FILES['file'];
-    if ((int) ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        json_error(400, 'فشل الرفع');
-    }
-    $tmp = (string) ($f['tmp_name'] ?? '');
-    if ($tmp === '' || !is_uploaded_file($tmp)) {
-        json_error(400, 'ملف غير صالح');
-    }
-    $size = (int) ($f['size'] ?? 0);
-    if ($size > 40 * 1024 * 1024) {
-        json_error(400, 'الملف كبير جداً (الحد 40 ميجابايت)');
-    }
+    $tmp = vewo_require_uploaded_file($f);
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mime = $finfo->file($tmp);
     if (!is_string($mime)) {
@@ -2843,7 +2914,9 @@ function chat_messages_post(PDO $pdo): void
                 ['type' => 'chat', 'thread_id' => $tid]
             );
             if ($adminId !== '') {
-                $adminTokens = vewo_device_tokens_for_user($pdo, $adminId, true);
+                $adminTokens = function_exists('vewo_admin_app_device_tokens')
+                    ? vewo_admin_app_device_tokens($pdo)
+                    : vewo_device_tokens_for_user($pdo, $adminId, true);
                 vewo_fcm_send(
                     $adminTokens,
                     'محادثة مباشرة',
@@ -2863,7 +2936,9 @@ function chat_messages_post(PDO $pdo): void
                 ['type' => 'chat', 'thread_id' => $tid]
             );
             if ($adminId !== '') {
-                $adminTokens = vewo_device_tokens_for_user($pdo, $adminId, true);
+                $adminTokens = function_exists('vewo_admin_app_device_tokens')
+                    ? vewo_admin_app_device_tokens($pdo)
+                    : vewo_device_tokens_for_user($pdo, $adminId, true);
                 vewo_fcm_send(
                     $adminTokens,
                     'محادثة مباشرة',
@@ -2923,7 +2998,9 @@ function chat_messages_post(PDO $pdo): void
             if ($senderId !== $adminId) {
                 $pdo->prepare('UPDATE chat_threads SET admin_unread_count = admin_unread_count + 1 WHERE id = :id LIMIT 1')
                     ->execute([':id' => $tid]);
-                $tokens = vewo_device_tokens_for_user($pdo, $adminId, true);
+                $tokens = function_exists('vewo_admin_app_device_tokens')
+                    ? vewo_admin_app_device_tokens($pdo)
+                    : vewo_device_tokens_for_user($pdo, $adminId, true);
                 vewo_fcm_send(
                     $tokens,
                     'محادثة جديدة',
@@ -2946,7 +3023,9 @@ function chat_messages_post(PDO $pdo): void
             if ($senderId !== $adminId) {
                 $pdo->prepare('UPDATE chat_threads SET admin_unread_count = admin_unread_count + 1 WHERE id = :id LIMIT 1')
                     ->execute([':id' => $tid]);
-                $tokens = vewo_device_tokens_for_user($pdo, $adminId, true);
+                $tokens = function_exists('vewo_admin_app_device_tokens')
+                    ? vewo_admin_app_device_tokens($pdo)
+                    : vewo_device_tokens_for_user($pdo, $adminId, true);
                 vewo_fcm_send(
                     $tokens,
                     'محادثة جديدة',
@@ -2985,7 +3064,9 @@ function chat_messages_post(PDO $pdo): void
                 );
             }
             if ($adminId !== '' && $senderId !== $adminId) {
-                $t3 = vewo_device_tokens_for_user($pdo, $adminId, true);
+                $t3 = function_exists('vewo_admin_app_device_tokens')
+                    ? vewo_admin_app_device_tokens($pdo)
+                    : vewo_device_tokens_for_user($pdo, $adminId, true);
                 vewo_fcm_send(
                     $t3,
                     'محادثة جديدة',
@@ -3164,28 +3245,148 @@ function vewo_fcm_clean_data(array $data, string $title, string $body): array
     return $cleanData + ['title' => $title, 'body' => $body];
 }
 
+function vewo_fcm_error_is_dead_token(string $err): bool
+{
+    $el = strtolower($err);
+    if (str_contains($el, 'invalidapnscredential') || str_contains($el, 'third-party-auth-error')) {
+        return false;
+    }
+    return str_contains($el, 'unregistered')
+        || str_contains($el, 'notregistered')
+        || str_contains($el, 'registration-token-not-registered')
+        || str_contains($el, 'requested entity was not found')
+        || str_contains($el, 'not_found')
+        || str_contains($el, 'notfound')
+        || str_contains($el, 'senderidmismatch')
+        || str_contains($el, 'sender id mismatch');
+}
+
+function vewo_fcm_forget_token(string $token): void
+{
+    $token = trim($token);
+    if ($token === '') {
+        return;
+    }
+    $pdo = $GLOBALS['vewo_pdo'] ?? $GLOBALS['pdo'] ?? null;
+    if (!$pdo instanceof PDO) {
+        return;
+    }
+    try {
+        $stmt = $pdo->prepare('DELETE FROM device_tokens WHERE token = :t');
+        $stmt->execute([':t' => $token]);
+    } catch (Throwable $e) {
+    }
+}
+
+function vewo_device_tokens_prune_user(PDO $pdo, string $userId, int $adminApp): void
+{
+    if ($userId === '') {
+        return;
+    }
+    try {
+        if ((int) $adminApp === 1) {
+            foreach (['android', 'ios'] as $platform) {
+                $keep = $pdo->prepare(
+                    'SELECT id FROM device_tokens
+                     WHERE user_id = :u AND is_admin_app = 1 AND platform = :p
+                     ORDER BY last_seen_at DESC
+                     LIMIT 1'
+                );
+                $keep->execute([':u' => $userId, ':p' => $platform]);
+                $id = trim((string) ($keep->fetchColumn() ?: ''));
+                if ($id === '') {
+                    continue;
+                }
+                $del = $pdo->prepare(
+                    'DELETE FROM device_tokens
+                     WHERE user_id = :u AND is_admin_app = 1 AND platform = :p AND id <> :id'
+                );
+                $del->execute([':u' => $userId, ':p' => $platform, ':id' => $id]);
+            }
+            $pdo->prepare(
+                "DELETE FROM device_tokens
+                 WHERE user_id = :u AND is_admin_app = 1
+                   AND platform NOT IN ('android','ios')"
+            )->execute([':u' => $userId]);
+            return;
+        }
+        $keep = $pdo->prepare(
+            'SELECT id FROM device_tokens
+             WHERE user_id = :u AND is_admin_app = :a
+             ORDER BY last_seen_at DESC
+             LIMIT 2'
+        );
+        $keep->execute([':u' => $userId, ':a' => $adminApp]);
+        $ids = [];
+        foreach ($keep->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $id = trim((string) ($row['id'] ?? ''));
+            if ($id !== '') {
+                $ids[] = $id;
+            }
+        }
+        if ($ids === []) {
+            return;
+        }
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $del = $pdo->prepare(
+            "DELETE FROM device_tokens
+             WHERE user_id = ? AND is_admin_app = ? AND id NOT IN ($in)"
+        );
+        $del->execute(array_merge([$userId, $adminApp], $ids));
+    } catch (Throwable $e) {
+    }
+}
+
+function vewo_fcm_token_is_admin_android(string $token): bool
+{
+    static $cache = [];
+    if (array_key_exists($token, $cache)) {
+        return $cache[$token];
+    }
+    $pdo = $GLOBALS['vewo_pdo'] ?? $GLOBALS['pdo'] ?? null;
+    $is = false;
+    if ($pdo instanceof PDO) {
+        try {
+            $stmt = $pdo->prepare(
+                'SELECT is_admin_app, platform FROM device_tokens WHERE token = :t LIMIT 1'
+            );
+            $stmt->execute([':t' => $token]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($row)) {
+                $is = ((int) ($row['is_admin_app'] ?? 0) === 1)
+                    && strtolower(trim((string) ($row['platform'] ?? ''))) === 'android';
+            }
+        } catch (Throwable $e) {
+        }
+    }
+    $cache[$token] = $is;
+    return $is;
+}
+
+function vewo_fcm_android_channel_id(array $data = []): string
+{
+    return 'vewo_heads_up';
+}
+
 /** @param string[] $tokens */
 function vewo_fcm_send_legacy(array $tokens, string $title, string $body, array $data = []): void
 {
     $key = vewo_fcm_server_key();
     if ($key === '' || empty($tokens)) return;
     $cleanData = vewo_fcm_clean_data($data, $title, $body);
-    $collapse = trim((string) ($cleanData['type'] ?? 'vewo'));
-    if ($collapse === '') {
-        $collapse = 'vewo';
-    }
+    $channel = vewo_fcm_android_channel_id($data);
     foreach (array_chunk(array_values(array_unique($tokens)), 500) as $chunk) {
         $payload = [
             'registration_ids' => array_values($chunk),
             'priority' => 'high',
-            'collapse_key' => $collapse,
             'time_to_live' => 86400,
             'notification' => [
                 'title' => $title,
                 'body' => $body,
                 'sound' => 'default',
                 'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
-                'android_channel_id' => 'vewo_high_alerts',
+                'android_channel_id' => $channel,
+                'icon' => 'ic_launcher',
             ],
             'data' => $cleanData,
         ];
@@ -3223,10 +3424,7 @@ function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $dat
     }
 
     $cleanData = vewo_fcm_clean_data($data, $title, $body);
-    $collapse = trim((string) ($cleanData['type'] ?? 'vewo'));
-    if ($collapse === '') {
-        $collapse = 'vewo';
-    }
+    $channel = vewo_fcm_android_channel_id($data);
     $url = 'https://fcm.googleapis.com/v1/projects/' . rawurlencode($projectId) . '/messages:send';
     $headers = [
         'Content-Type: application/json',
@@ -3244,6 +3442,10 @@ function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $dat
         $mh = curl_multi_init();
         $handles = [];
         foreach ($chunk as $token) {
+            $notifTag = 'v' . bin2hex(random_bytes(8));
+            $isAdminAndroid = vewo_fcm_token_is_admin_android($token);
+            $icon = $isAdminAndroid ? 'ic_stat_notify' : 'ic_launcher';
+            $androidChannel = $isAdminAndroid ? 'aqar_admin_alert' : $channel;
             $payload = [
                 'message' => [
                     'token' => $token,
@@ -3252,20 +3454,24 @@ function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $dat
                     'android' => [
                         'priority' => 'HIGH',
                         'ttl' => '86400s',
-                        'collapse_key' => $collapse,
                         'notification' => [
-                            'channel_id' => 'vewo_high_alerts',
+                            'channel_id' => $androidChannel,
+                            'icon' => $icon,
+                            'tag' => $notifTag,
                             'sound' => 'default',
                             'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
                             'default_vibrate_timings' => true,
                             'default_sound' => true,
+                            'default_light_settings' => true,
+                            'notification_priority' => 'PRIORITY_MAX',
+                            'visibility' => 'PUBLIC',
+                            'ticker' => $title,
                         ],
                     ],
                     'apns' => [
                         'headers' => [
                             'apns-priority' => '10',
                             'apns-push-type' => 'alert',
-                            'apns-collapse-id' => substr($collapse, 0, 64),
                         ],
                         'payload' => [
                             'aps' => [
@@ -3275,6 +3481,8 @@ function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $dat
                                 ],
                                 'sound' => 'default',
                                 'badge' => 1,
+                                'content-available' => 1,
+                                'interruption-level' => 'active',
                             ],
                         ],
                     ],
@@ -3287,7 +3495,7 @@ function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $dat
             curl_setopt($ch, CURLOPT_TIMEOUT, 12);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
             curl_multi_add_handle($mh, $ch);
-            $handles[] = $ch;
+            $handles[] = ['ch' => $ch, 'token' => $token];
         }
         $running = null;
         do {
@@ -3296,7 +3504,9 @@ function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $dat
                 curl_multi_select($mh, 0.5);
             }
         } while ($running > 0 && $status === CURLM_OK);
-        foreach ($handles as $ch) {
+        foreach ($handles as $item) {
+            $ch = $item['ch'];
+            $token = (string) ($item['token'] ?? '');
             $raw = (string) curl_multi_getcontent($ch);
             $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $decoded = json_decode($raw, true);
@@ -3326,6 +3536,9 @@ function vewo_fcm_send_v1(array $tokens, string $title, string $body, array $dat
                 }
                 if ($err === '') {
                     $err = 'http_' . $code;
+                }
+                if (vewo_fcm_error_is_dead_token($err) && $token !== '') {
+                    vewo_fcm_forget_token($token);
                 }
                 if (count($report['errors']) < 8) {
                     $report['errors'][] = $err;
@@ -3401,7 +3614,7 @@ function vewo_device_tokens_for_user(PDO $pdo, string $userId, bool $adminApp): 
     if (!vewo_device_tokens_ensure($pdo)) return [];
     try {
         $stmt = $pdo->prepare(
-            'SELECT token FROM device_tokens WHERE user_id = :u AND is_admin_app = :a ORDER BY last_seen_at DESC LIMIT 30'
+            'SELECT token FROM device_tokens WHERE user_id = :u AND is_admin_app = :a AND last_seen_at >= DATE_SUB(NOW(), INTERVAL 45 DAY) ORDER BY last_seen_at DESC LIMIT 12'
         );
         $stmt->execute([':u' => $userId, ':a' => $adminApp ? 1 : 0]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -3421,7 +3634,7 @@ function vewo_device_tokens_all(PDO $pdo, ?bool $adminApp = false): array
 {
     if (!vewo_device_tokens_ensure($pdo)) return [];
     try {
-        $sql = 'SELECT token FROM device_tokens WHERE last_seen_at >= DATE_SUB(NOW(), INTERVAL 365 DAY)';
+        $sql = 'SELECT token FROM device_tokens WHERE last_seen_at >= DATE_SUB(NOW(), INTERVAL 45 DAY)';
         $params = [];
         if ($adminApp !== null) {
             $sql .= ' AND is_admin_app = :a';
@@ -3440,6 +3653,60 @@ function vewo_device_tokens_all(PDO $pdo, ?bool $adminApp = false): array
     } catch (Throwable $e) {
         return [];
     }
+}
+
+/** @return string[] توكنات تطبيق الأدمن لكل مسؤول وموظف نشط */
+function vewo_admin_app_device_tokens(PDO $pdo): array
+{
+    if (!vewo_device_tokens_ensure($pdo)) {
+        return [];
+    }
+    try {
+        $stmt = $pdo->query(
+            "SELECT d.token FROM device_tokens d
+             INNER JOIN users u ON u.id = d.user_id
+             WHERE d.is_admin_app = 1
+               AND u.is_active = 1
+               AND u.role IN ('admin','staff')
+               AND d.last_seen_at >= DATE_SUB(NOW(), INTERVAL 45 DAY)
+             ORDER BY d.last_seen_at DESC
+             LIMIT 2000"
+        );
+        $rows = $stmt !== false ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+        $out = [];
+        foreach ($rows as $r) {
+            $t = trim((string) ($r['token'] ?? ''));
+            if ($t !== '') {
+                $out[] = $t;
+            }
+        }
+
+        return array_values(array_unique($out));
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/**
+ * إشعار فوري لكل أجهزة تطبيق الأدمن (مسؤولون وموظفون).
+ */
+function vewo_fcm_notify_admins(PDO $pdo, string $title, string $body, array $data = []): int
+{
+    if (!function_exists('vewo_fcm_send')) {
+        return 0;
+    }
+    $title = trim($title);
+    $body = trim($body);
+    if ($title === '' && $body === '') {
+        return 0;
+    }
+    $tokens = vewo_admin_app_device_tokens($pdo);
+    if ($tokens === []) {
+        return 0;
+    }
+    vewo_fcm_send($tokens, $title, $body, $data);
+
+    return count($tokens);
 }
 
 /**
@@ -3545,6 +3812,9 @@ function app_device_register_route(PDO $pdo): void
              ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), is_admin_app = 0, platform = VALUES(platform), last_seen_at = NOW()'
         );
         $stmt->execute([':id' => $id, ':t' => $token, ':u' => ($uid !== '' ? $uid : null), ':p' => $platform]);
+        if ($uid !== '') {
+            vewo_device_tokens_prune_user($pdo, $uid, 0);
+        }
         echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $e) {
         json_error(500, 'تعذر حفظ التوكن');
@@ -3574,6 +3844,21 @@ function admin_device_register_route(PDO $pdo): void
              ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), is_admin_app = 1, platform = VALUES(platform), last_seen_at = NOW()'
         );
         $stmt->execute([':id' => $id, ':t' => $token, ':u' => ($uid !== '' ? $uid : null), ':p' => $platform]);
+        if ($uid !== '') {
+            $pdo->prepare(
+                'DELETE FROM device_tokens
+                 WHERE user_id = :u AND is_admin_app = 1 AND platform = :p AND token <> :t'
+            )->execute([':u' => $uid, ':p' => $platform, ':t' => $token]);
+            try {
+                $pdo->prepare(
+                    "DELETE FROM device_tokens
+                     WHERE user_id = :u AND is_admin_app = 1
+                       AND platform IN ('other','unknown','','windows','linux','macos')"
+                )->execute([':u' => $uid]);
+            } catch (Throwable $e) {
+            }
+            vewo_device_tokens_prune_user($pdo, $uid, 1);
+        }
         echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $e) {
         json_error(500, 'تعذر حفظ التوكن');
@@ -3618,12 +3903,29 @@ function admin_fcm_test_route(PDO $pdo): void
         json_error(500, 'جدول الأجهزة غير جاهز');
     }
 
+    $in = [];
+    try {
+        $in = read_json_body();
+    } catch (Throwable $e) {
+        $in = [];
+    }
+    $delay = (int) ($in['delay_sec'] ?? 40);
+    if ($delay < 0) {
+        $delay = 0;
+    }
+    if ($delay > 45) {
+        $delay = 45;
+    }
+
+    vewo_device_tokens_prune_user($pdo, $uid, 1);
+
     $tokenRows = [];
     try {
         $stmt = $pdo->prepare(
             'SELECT token, platform, last_seen_at FROM device_tokens
              WHERE user_id = :u AND is_admin_app = 1
-             ORDER BY last_seen_at DESC LIMIT 30'
+               AND last_seen_at >= DATE_SUB(NOW(), INTERVAL 45 DAY)
+             ORDER BY last_seen_at DESC LIMIT 12'
         );
         $stmt->execute([':u' => $uid]);
         $tokenRows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -3631,41 +3933,83 @@ function admin_fcm_test_route(PDO $pdo): void
         $tokenRows = [];
     }
 
-    $tokens = [];
+    $latestByPlatform = ['android' => '', 'ios' => ''];
     $platforms = ['ios' => 0, 'android' => 0, 'other' => 0];
     foreach ($tokenRows as $row) {
         $t = trim((string) ($row['token'] ?? ''));
-        if ($t === '') continue;
-        $tokens[] = $t;
+        if ($t === '') {
+            continue;
+        }
         $p = strtolower(trim((string) ($row['platform'] ?? 'other')));
         if ($p === 'ios') {
             $platforms['ios']++;
+            if ($latestByPlatform['ios'] === '') {
+                $latestByPlatform['ios'] = $t;
+            }
         } elseif ($p === 'android') {
             $platforms['android']++;
+            if ($latestByPlatform['android'] === '') {
+                $latestByPlatform['android'] = $t;
+            }
         } else {
             $platforms['other']++;
         }
     }
-    $tokens = array_values(array_unique($tokens));
+    $tokens = array_values(array_filter([
+        $latestByPlatform['android'],
+        $latestByPlatform['ios'],
+    ]));
     if (empty($tokens)) {
         json_error(400, 'لا يوجد توكن جهاز مسجّل لهذا الحساب — افتح تطبيق الأدمن على جهاز حقيقي وهو متصل بالإنترنت');
     }
 
+    $payloadTitle = 'اختبار FCM';
+    $payloadBody = 'إذا وصلك هذا الإشعار والتطبيق مغلق فـ iOS/Android يعملان';
+    $payloadData = ['type' => 'broadcast', 'kind' => 'fcm_test', 'section' => 'settings'];
+
+    if ($delay > 0) {
+        ignore_user_abort(true);
+        @set_time_limit($delay + 30);
+        echo json_encode([
+            'ok' => true,
+            'queued' => true,
+            'mode' => $mode,
+            'project_id' => $projectId,
+            'tokens' => count($tokens),
+            'platforms' => [
+                'ios' => $latestByPlatform['ios'] !== '' ? 1 : 0,
+                'android' => $latestByPlatform['android'] !== '' ? 1 : 0,
+                'other' => 0,
+            ],
+            'sent' => 0,
+            'failed' => 0,
+            'errors' => [],
+            'hint' => 'أغلق التطبيق من قائمة التطبيقات الآن وانتظر ' . $delay . ' ثانية دون فتحه. إغلاق خلال 8 ثوانٍ لا يكفي — أندرويد يقتل العملية بعد نحو 30 ثانية.',
+            'delay_sec' => $delay,
+            'sa_file_exists' => ($saPath !== '' && is_file($saPath)),
+        ], JSON_UNESCAPED_UNICODE);
+        if (function_exists('fastcgi_finish_request')) {
+            @fastcgi_finish_request();
+        } else {
+            if (ob_get_level() > 0) {
+                @ob_end_flush();
+            }
+            @flush();
+        }
+        sleep($delay);
+        if ($mode === 'http_v1') {
+            vewo_fcm_send_v1($tokens, $payloadTitle, $payloadBody, $payloadData);
+        } else {
+            vewo_fcm_send_legacy($tokens, $payloadTitle, $payloadBody, $payloadData);
+        }
+        return;
+    }
+
     $report = ['sent' => 0, 'failed' => 0, 'errors' => []];
     if ($mode === 'http_v1') {
-        $report = vewo_fcm_send_v1(
-            $tokens,
-            'اختبار FCM',
-            'إذا وصلك هذا الإشعار والتطبيق مغلق فـ iOS/Android يعملان',
-            ['type' => 'broadcast', 'kind' => 'fcm_test', 'section' => 'settings']
-        );
+        $report = vewo_fcm_send_v1($tokens, $payloadTitle, $payloadBody, $payloadData);
     } else {
-        vewo_fcm_send_legacy(
-            $tokens,
-            'اختبار FCM',
-            'إذا وصلك هذا الإشعار والتطبيق مغلق فـ iOS/Android يعملان',
-            ['type' => 'broadcast', 'kind' => 'fcm_test']
-        );
+        vewo_fcm_send_legacy($tokens, $payloadTitle, $payloadBody, $payloadData);
         $report['sent'] = count($tokens);
     }
 
@@ -3690,11 +4034,16 @@ function admin_fcm_test_route(PDO $pdo): void
         'mode' => $mode,
         'project_id' => $projectId,
         'tokens' => count($tokens),
-        'platforms' => $platforms,
+        'platforms' => [
+            'ios' => $latestByPlatform['ios'] !== '' ? 1 : 0,
+            'android' => $latestByPlatform['android'] !== '' ? 1 : 0,
+            'other' => 0,
+        ],
         'sent' => (int) ($report['sent'] ?? 0),
         'failed' => (int) ($report['failed'] ?? 0),
         'errors' => array_values(array_unique($report['errors'] ?? [])),
         'hint' => $hint,
+        'delay_sec' => $delay,
         'sa_file_exists' => ($saPath !== '' && is_file($saPath)),
     ], JSON_UNESCAPED_UNICODE);
 }
@@ -3762,6 +4111,9 @@ function admin_properties_route(PDO $pdo): void
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Throwable $e) {
             json_error(500, 'استعلام المنشورات فشل — تحقق من تحديث قاعدة البيانات والجداول.');
+        }
+        if (is_array($rows) && function_exists('vewo_moderation_attach')) {
+            vewo_moderation_attach($pdo, $rows, 'property');
         }
 
         echo json_encode(['ok' => true, 'items' => $rows], JSON_UNESCAPED_UNICODE);
@@ -3845,6 +4197,10 @@ function admin_properties_route(PDO $pdo): void
                     ['type' => 'property_approved', 'property_id' => $id, 'property_public_no' => $publicNo]
                 );
             }
+            if (function_exists('vewo_moderation_log_current')) {
+                $pubInt = $publicNo !== '' && ctype_digit($publicNo) ? (int) $publicNo : null;
+                vewo_moderation_log_current($pdo, 'property', $id, 'approve', $pubInt);
+            }
             echo json_encode(['ok' => true, 'updated' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
 
             return;
@@ -3911,6 +4267,9 @@ function admin_properties_route(PDO $pdo): void
                     ['type' => 'property_updated', 'property_id' => $id]
                 );
             }
+            if (function_exists('vewo_moderation_log_current')) {
+                vewo_moderation_log_current($pdo, 'property', $id, 'update', vewo_property_public_no_of($pdo, $id));
+            }
             echo json_encode(['ok' => true, 'updated' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
 
             return;
@@ -3953,6 +4312,9 @@ function admin_properties_route(PDO $pdo): void
                     ['type' => 'property_rejected', 'property_id' => $id]
                 );
             }
+            if (function_exists('vewo_moderation_log_current')) {
+                vewo_moderation_log_current($pdo, 'property', $id, 'reject', vewo_property_public_no_of($pdo, $id), $note);
+            }
             echo json_encode(['ok' => true, 'updated' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
 
             return;
@@ -3982,7 +4344,26 @@ function admin_properties_route(PDO $pdo): void
                     ['type' => 'property_sold', 'property_id' => $id]
                 );
             }
+            if (function_exists('vewo_moderation_log_current')) {
+                vewo_moderation_log_current($pdo, 'property', $id, 'mark_sold', vewo_property_public_no_of($pdo, $id));
+            }
             echo json_encode(['ok' => true, 'updated' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
+
+            return;
+        }
+        if ($action === 'unmark_sold') {
+            $admin = require_admin_from_bearer($pdo);
+            if (($admin['role'] ?? '') !== 'admin' && !vewo_admin_has_permission($admin, 'unsold')) {
+                json_error(403, 'لا تملك صلاحية إلغاء تم البيع');
+            }
+            $stmt = $pdo->prepare(
+                'UPDATE properties SET is_sold = 0, sold_at = NULL WHERE id = :id LIMIT 1'
+            );
+            $stmt->execute([':id' => $id]);
+            if (function_exists('vewo_moderation_log_current')) {
+                vewo_moderation_log_current($pdo, 'property', $id, 'unmark_sold', vewo_property_public_no_of($pdo, $id));
+            }
+            echo json_encode(['ok' => true, 'updated' => $stmt->rowCount(), 'is_sold' => 0], JSON_UNESCAPED_UNICODE);
 
             return;
         }
@@ -4057,6 +4438,9 @@ function admin_properties_route(PDO $pdo): void
                     ]
                 );
             }
+            if (function_exists('vewo_moderation_log_current')) {
+                vewo_moderation_log_current($pdo, 'property', $id, 'urgent_sale', vewo_property_public_no_of($pdo, $id));
+            }
             echo json_encode([
                 'ok' => true,
                 'updated' => $stmt->rowCount(),
@@ -4094,6 +4478,9 @@ function admin_properties_route(PDO $pdo): void
                 ':dj' => json_encode($details, JSON_UNESCAPED_UNICODE),
                 ':id' => $id,
             ]);
+            if (function_exists('vewo_moderation_log_current')) {
+                vewo_moderation_log_current($pdo, 'property', $id, 'cancel_urgent_sale', vewo_property_public_no_of($pdo, $id));
+            }
             echo json_encode(['ok' => true, 'updated' => $stmt->rowCount()], JSON_UNESCAPED_UNICODE);
 
             return;
@@ -4108,7 +4495,36 @@ function admin_properties_route(PDO $pdo): void
  */
 function json_error(int $code, string $message, array $data = []): void
 {
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
     http_response_code($code);
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=utf-8');
+    }
     echo json_encode(array_merge(['ok' => false, 'error' => $message], $data), JSON_UNESCAPED_UNICODE);
     exit;
+}
+
+/** @param array<string,mixed> $f */
+function vewo_require_uploaded_file(array $f): string
+{
+    $err = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($err !== UPLOAD_ERR_OK) {
+        $msg = match ($err) {
+            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'لم يكتمل رفع الملف على السيرفر، أعد المحاولة',
+            UPLOAD_ERR_PARTIAL => 'لم يكتمل رفع الملف، أعد المحاولة',
+            UPLOAD_ERR_NO_FILE => 'لم يُرفع ملف',
+            UPLOAD_ERR_NO_TMP_DIR => 'مجلد الرفع المؤقت غير موجود',
+            UPLOAD_ERR_CANT_WRITE => 'تعذر حفظ الملف على السيرفر',
+            UPLOAD_ERR_EXTENSION => 'تم منع الرفع من السيرفر',
+            default => 'فشل الرفع',
+        };
+        json_error(400, $msg);
+    }
+    $tmp = (string) ($f['tmp_name'] ?? '');
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        json_error(400, 'ملف غير صالح');
+    }
+    return $tmp;
 }

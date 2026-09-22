@@ -11,13 +11,4 @@
         <div class="col-12"><button class="btn btn-primary rounded-pill px-4" type="submit">حفظ</button></div>
     </form>
 </div>
-<?php if ($properties !== []): ?>
-    <div class="panel-card p-4 mt-4">
-        <h2 class="h5">منشوراتي</h2>
-        <div class="row g-3 mt-1">
-            <?php foreach ($properties as $property): ?>
-                <div class="col-md-6 col-xl-4"><?php require __DIR__ . '/../partials/property-card.php'; ?></div>
-            <?php endforeach; ?>
-        </div>
-    </div>
-<?php endif; ?>
+<?php require __DIR__ . '/_owner-content.php'; ?>

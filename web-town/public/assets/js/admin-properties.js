@@ -160,7 +160,13 @@
         <input type="hidden" name="_operation" value="mark_sold">
         <input type="hidden" name="id" value="${escapeHtml(id)}">
         <button type="submit" class="btn btn-outline-secondary rounded-pill">تم البيع</button>
-      </form>` : '';
+      </form>` : ((status === 'sold' || property.is_sold) ? `
+      <form method="post" action="${escapeHtml(sectionUrl)}" class="d-inline">
+        <input type="hidden" name="_csrf" value="${escapeHtml(csrf)}">
+        <input type="hidden" name="_operation" value="unmark_sold">
+        <input type="hidden" name="id" value="${escapeHtml(id)}">
+        <button type="submit" class="btn btn-outline-success rounded-pill">إلغاء تم البيع</button>
+      </form>` : '');
     actionsEl.innerHTML = `
       <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">إغلاق</button>
       ${publicLink}

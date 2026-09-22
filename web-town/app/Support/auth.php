@@ -35,6 +35,9 @@ function account_kind(?array $user = null): string
 {
     $user ??= auth_user();
     $role = (string) ($user['role'] ?? 'guest');
+    if ($role === 'office' && !empty($user['is_farm'])) {
+        return 'farm';
+    }
     if ($role === 'office' && !empty($user['is_marketer'])) {
         return 'marketer';
     }
@@ -48,6 +51,7 @@ function dashboard_path(?array $user = null): string
         'admin', 'staff' => '/dashboard/admin',
         'office' => '/dashboard/office',
         'marketer' => '/dashboard/marketer',
+        'farm' => '/user/farm',
         'customer' => '/dashboard/customer',
         default => '/login',
     };

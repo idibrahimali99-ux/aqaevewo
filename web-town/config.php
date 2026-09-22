@@ -10,7 +10,7 @@ $apiHint = 'http://212.224.86.115/api/index.php';
 $envEntry = getenv('WEB_TOWN_API_ENTRY');
 $apiEntry = (is_string($envEntry) && trim($envEntry) !== '')
     ? trim($envEntry)
-    : $apiHint;
+    : 'http://127.0.0.1/api/index.php';
 
 return [
     'app_name' => 'عقار تاون',

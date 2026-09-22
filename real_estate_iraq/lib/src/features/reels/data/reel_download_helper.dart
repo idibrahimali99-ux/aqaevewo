@@ -14,14 +14,6 @@ Future<void> downloadReelToGallery(
   if (videoUrl.trim().isEmpty) {
     throw Exception('رابط الفيديو غير متاح');
   }
-  final hasAccess = await Gal.hasAccess();
-  if (!hasAccess) {
-    final granted = await Gal.requestAccess();
-    if (!granted) {
-      throw Exception('يلزم السماح بالوصول للاستوديو لحفظ الريل');
-    }
-  }
-
   final uri = Uri.parse(videoUrl);
   final res = await http.get(uri);
   if (res.statusCode < 200 || res.statusCode >= 300) {

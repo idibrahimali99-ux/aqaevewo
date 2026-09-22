@@ -90,8 +90,8 @@ Future<bool?> showReelCreateSheet(
                         const SizedBox(height: 6),
                         Text(
                           isEdit
-                              ? 'عدّل الوصف أو استبدل الفيديو ثم أعد الإرسال للمراجعة. الوصف حتى 200 حرف.'
-                              : 'اختر الفيديو ثم اسحب طرفي الشريط لتحديد أي جزء تريده. الوصف حتى 200 حرف.',
+                              ? 'عدّل الوصف أو استبدل الفيديو ثم أعد الإرسال للمراجعة. المدة من 30 ثانية إلى 3 دقائق.'
+                              : 'اختر فيديو بين 30 ثانية و3 دقائق، ثم اسحب طرفي الشريط لتحديد الجزء. الوصف حتى 200 حرف.',
                           style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                             color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                           ),
@@ -101,6 +101,7 @@ Future<bool?> showReelCreateSheet(
                           onPressed: () async {
                                   final x = await ImagePicker().pickVideo(
                                     source: ImageSource.gallery,
+                                    maxDuration: const Duration(minutes: 3),
                                   );
                                   if (x == null) return;
                                   final vc = VideoPlayerController.file(
@@ -109,15 +110,37 @@ Future<bool?> showReelCreateSheet(
                                   try {
                                     await vc.initialize();
                                     final d = vc.value.duration;
+                                    final total = d.inMilliseconds / 1000;
+                                    if (total + 0.05 < kReelMinSeconds) {
+                                      if (ctx.mounted) {
+                                        ScaffoldMessenger.of(ctx).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'الريل يجب ألا يقل عن 30 ثانية',
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      return;
+                                    }
+                                    final end = total > kReelMaxSeconds
+                                        ? kReelMaxSeconds
+                                        : total;
                                     setLocal(() {
                                       picked = x;
                                       previewedUploadVideo = null;
                                       duration = d;
-                                      trimRange = RangeValues(
-                                        0,
-                                        d.inMilliseconds / 1000,
-                                      );
+                                      trimRange = RangeValues(0, end);
                                     });
+                                    if (total > kReelMaxSeconds && ctx.mounted) {
+                                      ScaffoldMessenger.of(ctx).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'سيتم قص الريل إلى 3 دقائق كحد أقصى',
+                                          ),
+                                        ),
+                                      );
+                                    }
                                   } finally {
                                     await vc.dispose();
                                   }
@@ -166,7 +189,24 @@ Future<bool?> showReelCreateSheet(
                                   ),
                               enabled: true,
                               onChanged: (v) => setLocal(() {
-                                trimRange = v;
+                                var start = v.start;
+                                var end = v.end;
+                                final maxT = duration!.inMilliseconds / 1000;
+                                if (end - start > kReelMaxSeconds) {
+                                  end = (start + kReelMaxSeconds).clamp(0, maxT);
+                                  if (end - start > kReelMaxSeconds) {
+                                    start = end - kReelMaxSeconds;
+                                  }
+                                }
+                                if (end - start < kReelMinSeconds &&
+                                    maxT >= kReelMinSeconds) {
+                                  end = start + kReelMinSeconds;
+                                  if (end > maxT) {
+                                    end = maxT;
+                                    start = (end - kReelMinSeconds).clamp(0, end);
+                                  }
+                                }
+                                trimRange = RangeValues(start, end);
                                 previewedUploadVideo = null;
                               }),
                             ),

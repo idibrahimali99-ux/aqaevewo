@@ -24,11 +24,28 @@ class FavoritesScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
       appBar: AppBar(title: const AppBarBrandTitle('المحفوظات')),
-      body: loading && items.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(propertyListingsProvider.notifier).reload();
+        },
+        child: loading && items.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(height: 180),
+                Center(child: CircularProgressIndicator()),
+              ],
+            )
           : items.isEmpty
-          ? const Center(child: Text('لا توجد منشورات محفوظة بعد'))
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(height: 180),
+                Center(child: Text('لا توجد منشورات محفوظة بعد')),
+              ],
+            )
           : ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: AppResponsive.pagePadding(
                 context,
                 accountForShellNav: true,
@@ -44,6 +61,7 @@ class FavoritesScreen extends ConsumerWidget {
                 );
               },
             ),
+      ),
     );
   }
 }

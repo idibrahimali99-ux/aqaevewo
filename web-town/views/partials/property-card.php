@@ -1,8 +1,8 @@
 <?php /** @var array<string,mixed> $property */
 $pid = (string) ($property['id'] ?? '');
 $href = $pid !== '' ? url('/property/' . $pid) : url('/properties');
-$publicNo = (string) ($property['property_public_no'] ?? '');
-$purpose = property_purpose_label((string) ($property['purpose'] ?? ''));
+$publicNo = admin_public_no_label($property['property_public_no'] ?? '');
+$purpose = property_purpose_label((string) ($property['purpose'] ?? ''), $property);
 $category = property_category_label((string) ($property['category'] ?? ''));
 $segment = property_segment_label((string) ($property['segment'] ?? ''));
 ?>
@@ -10,6 +10,9 @@ $segment = property_segment_label((string) ($property['segment'] ?? ''));
     <a href="<?= e($href) ?>" class="stretched-link" aria-label="<?= e((string) pick($property, 'title', 'عقار')) ?>"></a>
     <div class="ratio ratio-4x3 card-img-wrap">
         <img src="<?= e(first_image($property)) ?>" alt="<?= e((string) pick($property, 'title', 'عقار')) ?>" loading="lazy" class="card-img-top object-fit-cover">
+        <?php if (!empty($property['is_sold'])): ?>
+            <span class="property-sold-bar">تم البيع</span>
+        <?php endif; ?>
         <?php if ($publicNo !== ''): ?>
             <button type="button" class="property-public-no" data-copy-text="#<?= e($publicNo) ?>" title="نسخ رقم المنشور">#<?= e($publicNo) ?></button>
         <?php endif; ?>
@@ -22,7 +25,7 @@ $segment = property_segment_label((string) ($property['segment'] ?? ''));
         </div>
         <h3 class="h6 mb-2"><?= e((string) pick($property, 'title', 'عقار')) ?></h3>
         <p class="text-secondary small mb-2"><?= e(trim((string) pick($property, 'governorate', '') . ' ' . (string) pick($property, 'address_line', ''))) ?></p>
-        <div class="price-tag"><?= e(money_iqd($property['price_iqd'] ?? null)) ?></div>
+        <div class="price-tag"><?= e(property_price_label($property)) ?></div>
         <span class="property-card-cta">عرض التفاصيل</span>
     </div>
     <?php if ($pid !== '' && is_logged_in()): ?>

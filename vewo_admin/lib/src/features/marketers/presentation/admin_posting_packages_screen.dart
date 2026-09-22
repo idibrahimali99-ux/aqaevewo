@@ -19,6 +19,7 @@ class _AdminPostingPackagesScreenState
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _packages = [];
+  List<Map<String, dynamic>> _assignments = [];
 
   @override
   void initState() {
@@ -42,20 +43,11 @@ class _AdminPostingPackagesScreenState
       final data = await ref
           .read(vewoApiClientProvider)
           .getJson('admin/posting-packages');
-      final raw = data['items'];
-      final list = <Map<String, dynamic>>[];
-      if (raw is List) {
-        for (final e in raw) {
-          if (e is Map<String, dynamic>) {
-            list.add(e);
-          } else if (e is Map) {
-            list.add(Map<String, dynamic>.from(e));
-          }
-        }
-      }
+      final list = _parseMaps(data['items']);
       if (!mounted) return;
       setState(() {
         _packages = list;
+        _assignments = _parseMaps(data['assignments']);
         _loading = false;
       });
     } on VewoApiException catch (e) {
@@ -71,6 +63,20 @@ class _AdminPostingPackagesScreenState
         _loading = false;
       });
     }
+  }
+
+  List<Map<String, dynamic>> _parseMaps(dynamic raw) {
+    final list = <Map<String, dynamic>>[];
+    if (raw is List) {
+      for (final e in raw) {
+        if (e is Map<String, dynamic>) {
+          list.add(e);
+        } else if (e is Map) {
+          list.add(Map<String, dynamic>.from(e));
+        }
+      }
+    }
+    return list;
   }
 
   List<Map<String, dynamic>> _packagesForTab() {
@@ -102,6 +108,14 @@ class _AdminPostingPackagesScreenState
       if (isMarketerTab) return role == 'office' && isMarketer;
       return role == 'office' && !isMarketer;
     }).toList();
+  }
+
+  Map<String, dynamic>? _assignmentFor(String? userId) {
+    if (userId == null || userId.isEmpty) return null;
+    for (final a in _assignments) {
+      if (a['id']?.toString() == userId) return a;
+    }
+    return null;
   }
 
   Future<void> _assignPackageToUser() async {
@@ -148,8 +162,32 @@ class _AdminPostingPackagesScreenState
                         ),
                       ),
                   ],
-                  onChanged: (v) => setL(() => userId = v),
+                  onChanged: (v) {
+                    setL(() {
+                      userId = v;
+                      final a = _assignmentFor(v);
+                      if (a == null) return;
+                      final pid = a['posting_package_id']?.toString();
+                      packageId = (pid == null || pid.isEmpty) ? null : pid;
+                      unlimited =
+                          a['posting_trial_unlimited'] == 1 ||
+                          a['posting_trial_unlimited'] == true;
+                      remCtrl.text =
+                          a['posting_listings_remaining']?.toString() ??
+                          remCtrl.text;
+                    });
+                  },
                 ),
+                if (userId != null && _assignmentFor(userId) != null) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      _quotaLine(_assignmentFor(userId)!),
+                      style: Theme.of(ctx).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
                   decoration: const InputDecoration(labelText: 'الباقة'),
@@ -218,6 +256,7 @@ class _AdminPostingPackagesScreenState
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('تم تعيين الباقة بنجاح')));
+      await _load();
     } on VewoApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -226,7 +265,143 @@ class _AdminPostingPackagesScreenState
     }
   }
 
-  List<Map<String, dynamic>> _filtered() => _packagesForTab();
+  List<Map<String, dynamic>> _assigneesOf(Map<String, dynamic> p) {
+    final raw = p['assignees'];
+    final list = <Map<String, dynamic>>[];
+    if (raw is List) {
+      for (final e in raw) {
+        if (e is Map<String, dynamic>) {
+          list.add(e);
+        } else if (e is Map) {
+          list.add(Map<String, dynamic>.from(e));
+        }
+      }
+    }
+    return list;
+  }
+
+  String _quotaLine(Map<String, dynamic> a) {
+    final unlimited =
+        a['posting_trial_unlimited'] == 1 ||
+        a['posting_trial_unlimited'] == true;
+    final remaining = a['posting_listings_remaining'];
+    final published = a['published_count'] ?? a['published_approved_count'] ?? 0;
+    final reels = a['reels_count'] ?? 0;
+    final used = a['used_count'];
+    final limit = a['posting_package_limit'];
+    final remainingTxt = unlimited ? 'بلا حدود' : 'متبقي ${remaining ?? 0}';
+    final usedTxt = unlimited
+        ? 'نُشر $published'
+        : 'نُشر $published${limit == null ? '' : ' من $limit'}';
+    final reelsTxt = 'ريلز $reels';
+    final extra = used == null ? '' : ' · مستخدم $used';
+    return '$remainingTxt · $usedTxt · $reelsTxt$extra';
+  }
+
+  Future<void> _showAssignees(Map<String, dynamic> p) async {
+    final assignees = _assigneesOf(p);
+    final name = p['name_ar']?.toString() ?? p['name']?.toString() ?? 'باقة';
+    final lim = p['listing_limit'] ?? p['listings_limit'];
+    final unlimited =
+        p['is_unlimited'] == 1 || p['is_unlimited'] == true || lim == null;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  name,
+                  style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${unlimited ? 'بلا حدود' : '$lim منشور'} · ${assignees.length} معيّن',
+                ),
+                const SizedBox(height: 12),
+                if (assignees.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Text(
+                      'لم تُعيَّن هذه الباقة لأي مكتب أو مسوّق بعد.',
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(ctx).size.height * 0.55,
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: assignees.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final a = assignees[i];
+                        final kind = a['kind_label']?.toString() ?? '';
+                        final expiry =
+                            (a['posting_subscription_expires_at']
+                                        ?.toString() ??
+                                    '')
+                                .split(' ')
+                                .first;
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            a['display_name']?.toString() ??
+                                a['office_name']?.toString() ??
+                                a['full_name']?.toString() ??
+                                '—',
+                          ),
+                          subtitle: Text(
+                            [
+                              kind,
+                              a['full_name']?.toString() ?? '',
+                              a['phone']?.toString() ?? '',
+                              _quotaLine(a),
+                              if (expiry.isNotEmpty) 'ينتهي $expiry',
+                              if (a['office_approved'] != 1 &&
+                                  a['office_approved'] != true)
+                                'بانتظار الموافقة',
+                            ].where((e) => e.toString().trim().isNotEmpty).join(' · '),
+                          ),
+                          isThreeLine: true,
+                        );
+                      },
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('إغلاق'),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _upsert(initial: p);
+                      },
+                      child: const Text('تعديل الباقة'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Future<void> _upsert({
     Map<String, dynamic>? initial,
@@ -330,7 +505,7 @@ class _AdminPostingPackagesScreenState
     if (_error != null) {
       return Center(child: Text(_error!, textAlign: TextAlign.center));
     }
-    final rows = _filtered();
+    final rows = _packagesForTab();
     return Column(
       children: [
         TabBar(
@@ -404,11 +579,38 @@ class _AdminPostingPackagesScreenState
             separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (context, i) {
               final p = rows[i];
-              final lim = p['listing_limit'];
-              final limTxt = lim == null ? 'بلا حدود' : '$lim منشور';
+              final lim = p['listing_limit'] ?? p['listings_limit'];
+              final unlimited =
+                  p['is_unlimited'] == 1 ||
+                  p['is_unlimited'] == true ||
+                  lim == null;
+              final limTxt = unlimited ? 'بلا حدود' : '$lim منشور';
+              final assignees = _assigneesOf(p);
+              final count = p['assignees_count'] ?? assignees.length;
+              final names = assignees
+                  .take(3)
+                  .map(
+                    (a) =>
+                        a['display_name']?.toString() ??
+                        a['office_name']?.toString() ??
+                        a['full_name']?.toString() ??
+                        '',
+                  )
+                  .where((e) => e.trim().isNotEmpty)
+                  .join(' · ');
               return ListTile(
-                title: Text(p['name_ar']?.toString() ?? ''),
-                subtitle: Text('${p['applies_to']} · $limTxt'),
+                onTap: () => _showAssignees(p),
+                title: Text(
+                  p['name_ar']?.toString() ?? p['name']?.toString() ?? '',
+                ),
+                subtitle: Text(
+                  [
+                    limTxt,
+                    '$count معيّن',
+                    if (names.isNotEmpty) names,
+                  ].join(' · '),
+                ),
+                isThreeLine: names.isNotEmpty,
                 trailing: IconButton(
                   icon: const Icon(Icons.edit_outlined),
                   onPressed: () => _upsert(initial: p),

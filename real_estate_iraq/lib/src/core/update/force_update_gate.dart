@@ -111,20 +111,28 @@ class _ForceUpdateGateState extends ConsumerState<ForceUpdateGate>
       if (isIos) {
         final ios = policy.iosStoreUrl.trim();
         if (ios.isNotEmpty) urls.add(Uri.parse(ios));
-        urls.add(
-          Uri.parse(
-            'https://apps.apple.com/search?term=${Uri.encodeComponent('عقار تاون')}',
-          ),
-        );
+        if (ios.isEmpty || ios.contains('apps.apple.com')) {
+          urls.add(
+            Uri.parse(
+              'https://apps.apple.com/search?term=${Uri.encodeComponent('عقار تاون')}',
+            ),
+          );
+        }
       } else if (defaultTargetPlatform == TargetPlatform.android) {
         final android = policy.androidStoreUrl.trim();
         if (android.isNotEmpty) urls.add(Uri.parse(android));
-        urls.add(Uri.parse('market://details?id=com.aqartown.app'));
-        urls.add(
-          Uri.parse(
-            'https://play.google.com/store/apps/details?id=com.aqartown.app',
-          ),
-        );
+        final looksLikeDirect = android.toLowerCase().contains('.apk') ||
+            (android.isNotEmpty &&
+                !android.contains('play.google.com') &&
+                !android.startsWith('market:'));
+        if (!looksLikeDirect) {
+          urls.add(Uri.parse('market://details?id=com.aqartown.app'));
+          urls.add(
+            Uri.parse(
+              'https://play.google.com/store/apps/details?id=com.aqartown.app',
+            ),
+          );
+        }
       }
       var opened = false;
       for (final uri in urls) {
@@ -271,6 +279,12 @@ class _ForceUpdateScreen extends StatelessWidget {
                   Text(
                     defaultTargetPlatform == TargetPlatform.iOS
                         ? 'سيتم فتح App Store'
+                        : (policy.androidStoreUrl.toLowerCase().contains('.apk') ||
+                              (policy.androidStoreUrl.isNotEmpty &&
+                                  !policy.androidStoreUrl.contains(
+                                    'play.google.com',
+                                  )))
+                        ? 'سيتم فتح رابط تحميل التحديث'
                         : 'سيتم فتح Google Play',
                     style: const TextStyle(
                       color: AppColors.textSecondary,

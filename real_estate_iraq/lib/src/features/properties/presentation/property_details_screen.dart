@@ -93,6 +93,7 @@ class _PropertyDetailsBody extends ConsumerStatefulWidget {
 
 class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
   bool _busySold = false;
+  bool _busyDelete = false;
 
   bool get _negotiableFlag {
     final d = widget.property.detailsJson;
@@ -162,6 +163,41 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
     }
   }
 
+  Future<void> _deleteMine() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('حذف المنشور'),
+        content: const Text('سيتم حذف هذا المنشور نهائياً. هل أنت متأكد؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busyDelete = true);
+    final err = await ref
+        .read(propertyListingsProvider.notifier)
+        .deleteRemote(widget.property.id);
+    if (!mounted) return;
+    setState(() => _busyDelete = false);
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('تم حذف المنشور')));
+    widget.onBack();
+  }
+
   @override
   Widget build(BuildContext context) {
     final property = widget.property;
@@ -194,8 +230,14 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
           onPressed: widget.onBack,
         ),
       ),
-      body: ListView(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(propertyDetailProvider(widget.property.id));
+          await ref.read(propertyListingsProvider.notifier).reload();
+        },
+        child: ListView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
           AppResponsive.pageHorizontalPadding(context),
           8,
@@ -310,7 +352,7 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
                       ? Icons.key_rounded
                       : Icons.sell_outlined,
                   label: 'الغرض',
-                  value: property.purpose == 'rent' ? 'إيجار' : 'بيع',
+                  value: property.purposeLabelAr,
                 ),
                 if (compoundName.isNotEmpty) ...[
                   const Divider(height: 1),
@@ -426,7 +468,7 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
                     )
                   else
                     Text(
-                      IQDFormatter.format(property.priceIqd),
+                      '${IQDFormatter.format(property.priceIqd)}${property.pricePeriodSuffixAr}',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                         color: Theme.of(context).colorScheme.primary,
@@ -444,6 +486,38 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
                 avatar: const Icon(Icons.handshake_outlined, size: 18),
                 label: const Text('السعر قابل للتفاوض'),
               ),
+            ),
+          ],
+          if (isMine) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: _busyDelete
+                        ? null
+                        : () => context.push(
+                            '${AppRoutes.addProperty}?edit_property_id=${Uri.encodeComponent(property.id)}',
+                          ),
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('تعديل'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _busyDelete ? null : _deleteMine,
+                    icon: _busyDelete
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.delete_outline_rounded),
+                    label: const Text('حذف'),
+                  ),
+                ),
+              ],
             ),
           ],
           if (isMine && property.isApproved) ...[
@@ -500,6 +574,7 @@ class _PropertyDetailsBodyState extends ConsumerState<_PropertyDetailsBody> {
             ],
           ],
         ],
+      ),
       ),
       bottomNavigationBar: SafeArea(
         top: false,

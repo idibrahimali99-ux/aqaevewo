@@ -29,6 +29,11 @@ return static function (Router $router): void {
 
     $router->get('/map', [MapController::class, 'index']);
     $router->get('/reels', [ReelController::class, 'index']);
+    $router->get('/reels/add', [ReelController::class, 'createForm'], [AuthMiddleware::class]);
+    $router->post('/reels/add', [ReelController::class, 'createSubmit'], [AuthMiddleware::class]);
+    $router->get('/reels/{id}/edit', [ReelController::class, 'editForm'], [AuthMiddleware::class]);
+    $router->post('/reels/{id}/edit', [ReelController::class, 'editSubmit'], [AuthMiddleware::class]);
+    $router->post('/reels/{id}/delete', [ReelController::class, 'deleteSubmit'], [AuthMiddleware::class]);
     $router->get('/reels/{id}', [ReelController::class, 'show']);
     $router->post('/reels/view', [ReelController::class, 'apiView']);
     $router->post('/reels/react', [ReelController::class, 'apiReact'], [AuthMiddleware::class]);
@@ -80,6 +85,9 @@ return static function (Router $router): void {
 
     $router->get('/property/add', [PropertyFormController::class, 'createForm'], [AuthMiddleware::class]);
     $router->post('/property/add', [PropertyFormController::class, 'createSubmit'], [AuthMiddleware::class]);
+    $router->get('/property/{id}/edit', [PropertyFormController::class, 'editForm'], [AuthMiddleware::class]);
+    $router->post('/property/{id}/edit', [PropertyFormController::class, 'editSubmit'], [AuthMiddleware::class]);
+    $router->post('/property/{id}/delete', [PropertyFormController::class, 'deleteSubmit'], [AuthMiddleware::class]);
 
     $router->get('/dashboard', static function (): void {
         redirect_to(dashboard_path(auth_user()));

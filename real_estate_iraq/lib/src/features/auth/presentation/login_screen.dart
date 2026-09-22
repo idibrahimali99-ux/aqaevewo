@@ -47,13 +47,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ).showSnackBar(SnackBar(content: Text(err)));
         return;
       }
-      final role = ref.read(authControllerProvider).role;
       if (!mounted) return;
-      if (role == UserRole.office) {
-        context.go(AppRoutes.offices);
-      } else {
-        context.go(AppRoutes.home);
-      }
+      context.go(AppRoutes.home);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

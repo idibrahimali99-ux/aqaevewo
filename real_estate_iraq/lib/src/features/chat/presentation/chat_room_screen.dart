@@ -76,13 +76,6 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
 
   Future<void> _saveChatImage(String imageUrl) async {
     try {
-      final hasAccess = await Gal.hasAccess();
-      if (!hasAccess) {
-        final granted = await Gal.requestAccess();
-        if (!granted) {
-          throw Exception('يلزم السماح بالوصول للاستوديو لحفظ الصورة');
-        }
-      }
       final uri = Uri.parse(imageUrl);
       final res = await http.get(uri);
       if (res.statusCode < 200 || res.statusCode >= 300) {

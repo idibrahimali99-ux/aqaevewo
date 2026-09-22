@@ -34,13 +34,15 @@ $title = page_title((string) ($title ?? ''));
 
 </head>
 
-<body class="reels-body">
+<body class="reels-body"<?= is_logged_in() ? ' data-logged-in="1"' : '' ?>>
 
 <?= $content ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
 <script src="<?= e(asset_url('js/reels.js')) ?>" defer></script>
+<?php if (is_logged_in()): ?>
+<script src="<?= e(asset_url('js/notifications.js')) ?>" defer></script>
+<?php endif; ?>
 
 </body>
 

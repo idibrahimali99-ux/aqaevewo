@@ -4,7 +4,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/data/auth_controller.dart';
+import '../../features/offices/data/offices_providers.dart';
+import '../../features/marketers/data/marketers_providers.dart';
+import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/properties/data/properties_providers.dart';
 import '../api/api_providers.dart';
+import '../api/app_bootstrap_provider.dart';
 import '../push/fcm_client.dart';
 import 'app_notification_service.dart';
 
@@ -46,6 +51,7 @@ class _AppNotificationWatcherState
     if (state == AppLifecycleState.resumed) {
       unawaited(_poll());
       unawaited(ref.read(fcmBootstrapProvider).start());
+      unawaited(_refreshLists());
     }
   }
 
@@ -195,6 +201,19 @@ class _AppNotificationWatcherState
         );
       }
     } catch (_) {}
+  }
+
+  Future<void> _refreshLists() async {
+    try {
+      await ref.read(propertyListingsProvider.notifier).reload();
+    } catch (_) {}
+    ref.invalidate(appBootstrapProvider);
+    ref.invalidate(parcelsListProvider);
+    ref.invalidate(compoundsListProvider);
+    ref.invalidate(approvedOfficesProvider);
+    ref.invalidate(approvedMarketersProvider);
+    ref.invalidate(myPropertiesProvider);
+    ref.invalidate(myReelsProvider);
   }
 
   @override

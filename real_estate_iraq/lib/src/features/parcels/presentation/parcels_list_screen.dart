@@ -76,7 +76,10 @@ class _ParcelsListScreenState extends ConsumerState<ParcelsListScreen> {
             ...groups.keys.where((g) => !govs.contains(g)).toList()..sort(),
           ];
 
-          return ListView(
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(parcelsListProvider),
+            child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: AppResponsive.pagePadding(
               context,
               top: 12,
@@ -230,6 +233,7 @@ class _ParcelsListScreenState extends ConsumerState<ParcelsListScreen> {
                   ],
                 ],
             ],
+          ),
           );
         },
       ),

@@ -53,9 +53,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(ref.read(propertyListingsProvider.notifier).reload());
       ref.read(authControllerProvider.notifier).refreshPostingFromServer();
       ref.invalidate(parcelsListProvider);
       ref.invalidate(compoundsListProvider);
+      ref.invalidate(approvedOfficesProvider);
     });
   }
 
@@ -70,6 +72,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final _ = await ref.refresh(appBootstrapProvider.future);
     ref.invalidate(parcelsListProvider);
     ref.invalidate(compoundsListProvider);
+    ref.invalidate(approvedOfficesProvider);
     await ref.read(authControllerProvider.notifier).refreshPostingFromServer();
   }
 
@@ -1173,10 +1176,12 @@ List<HomeSectionConfig> _homeSectionsWithRequiredItems(
   List<HomeSectionConfig> serverItems,
 ) {
   if (serverItems.isEmpty) return _defaultHomeSections;
-  final hasMarketers = serverItems.any((item) => item.key == 'marketers');
-  if (hasMarketers) return serverItems;
-  final merged = <HomeSectionConfig>[...serverItems, _marketersHomeSection]
-    ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+  var merged = [...serverItems];
+  if (!merged.any((item) => item.key == 'marketers')) {
+    merged = [...merged, _marketersHomeSection];
+  }
+  merged = merged.where((item) => item.key != 'farms').toList();
+  merged.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
   return merged;
 }
 
@@ -1275,6 +1280,8 @@ IconData _homeSectionIcon(String iconName) {
       return Icons.park_outlined;
     case 'person':
       return Icons.person_pin_circle_rounded;
+    case 'farm':
+      return Icons.agriculture_outlined;
     case 'sale':
       return Icons.sell_rounded;
     case 'shop':

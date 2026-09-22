@@ -219,17 +219,12 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                               row['approval_status']?.toString() ?? 'approved';
                           final rejectNote =
                               row['reject_note']?.toString().trim() ?? '';
-                          final canEdit =
-                              status == 'rejected' &&
-                              (row['resubmission_allowed'] == true ||
-                                  row['resubmission_allowed'] == 1 ||
-                                  '${row['resubmission_allowed'] ?? ''}' ==
-                                      '1');
                           final myId =
                               ref.read(authControllerProvider).userId ?? '';
                           final isMine =
                               myId.isNotEmpty &&
                               row['owner_user_id']?.toString() == myId;
+                          final canEdit = isMine;
                           return _ReelPage(
                             key: ValueKey(reelId.isEmpty ? 'reel-$index' : reelId),
                             reelId: reelId,
@@ -268,7 +263,8 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                                     }
                                   }
                                 : null,
-                            onEdit: () async {
+                            onEdit: isMine
+                                ? () async {
                               final ok = await showReelCreateSheet(
                                 context,
                                 ref,
@@ -281,7 +277,55 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                                 ),
                               );
                               await _load();
-                            },
+                            }
+                                : null,
+                            onDelete: isMine
+                                ? () async {
+                                    final ok = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('حذف الريل'),
+                                        content: const Text(
+                                          'سيتم حذف هذا الريل نهائياً. هل أنت متأكد؟',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, false),
+                                            child: const Text('إلغاء'),
+                                          ),
+                                          FilledButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, true),
+                                            child: const Text('حذف'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (ok != true || !context.mounted) return;
+                                    try {
+                                      await ref
+                                          .read(vewoApiClientProvider)
+                                          .postJson('reels/delete', {
+                                        'id': reelId,
+                                      });
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text('تم حذف الريل'),
+                                        ),
+                                      );
+                                      await _load();
+                                    } on VewoApiException catch (e) {
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(content: Text(e.message)),
+                                      );
+                                    }
+                                  }
+                                : null,
                             onChatOwner: () {
                               final q = <String, String>{
                                 if (reelId.isNotEmpty) 'reel_id': reelId,
@@ -329,6 +373,7 @@ class _ReelPage extends ConsumerStatefulWidget {
     this.rejectNote = '',
     this.canEdit = false,
     this.onEdit,
+    this.onDelete,
     this.isSold = false,
     this.isMine = false,
     this.onToggleSold,
@@ -347,6 +392,7 @@ class _ReelPage extends ConsumerStatefulWidget {
   final String rejectNote;
   final bool canEdit;
   final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
   final bool isSold;
   final bool isMine;
   final Future<void> Function(bool sold)? onToggleSold;
@@ -664,7 +710,7 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
                       const SizedBox(height: 8),
                       FilledButton.tonal(
                         onPressed: widget.onEdit,
-                        child: const Text('تعديل وإعادة إرسال'),
+                        child: const Text('تعديل'),
                       ),
                     ],
                   ],
@@ -710,16 +756,32 @@ class _ReelPageState extends ConsumerState<_ReelPage> {
                   fontSize: 13,
                 ),
               ),
-              if (widget.isMine &&
-                  widget.onToggleSold != null &&
-                  widget.approvalStatus == 'approved') ...[
+              if (widget.isMine) ...[
                 const SizedBox(height: 8),
-                FilledButton.tonal(
-                  onPressed: () =>
-                      widget.onToggleSold!(!widget.isSold),
-                  child: Text(
-                    widget.isSold ? 'إلغاء تم البيع' : 'تم البيع',
-                  ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (widget.onEdit != null)
+                      FilledButton.tonal(
+                        onPressed: widget.onEdit,
+                        child: const Text('تعديل'),
+                      ),
+                    if (widget.onDelete != null)
+                      FilledButton.tonal(
+                        onPressed: widget.onDelete,
+                        child: const Text('حذف'),
+                      ),
+                    if (widget.onToggleSold != null &&
+                        widget.approvalStatus == 'approved')
+                      FilledButton.tonal(
+                        onPressed: () =>
+                            widget.onToggleSold!(!widget.isSold),
+                        child: Text(
+                          widget.isSold ? 'إلغاء تم البيع' : 'تم البيع',
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ],

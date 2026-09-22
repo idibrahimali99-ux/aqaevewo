@@ -60,7 +60,14 @@
     <h2 class="section-title mb-4">أقسام سريعة</h2>
     <div class="category-grid">
         <?php foreach ($sections as $sec): ?>
-            <a class="category-tile" href="<?= e(web_route_from_app((string) ($sec['route_target'] ?? '/'))) ?>">
+            <?php
+            $secKey = (string) ($sec['section_key'] ?? $sec['key'] ?? '');
+            $secRoute = (string) ($sec['route_target'] ?? '');
+            if ($secKey === 'farms' || str_contains($secRoute, '/farms')) {
+                continue;
+            }
+            ?>
+            <a class="category-tile" href="<?= e(web_route_from_app($secRoute !== '' ? $secRoute : '/')) ?>">
                 <i class="fa-solid <?= e(home_section_icon((string) ($sec['icon_name'] ?? ''))) ?>"></i>
                 <strong><?= e((string) ($sec['label'] ?? '')) ?></strong>
             </a>
@@ -76,7 +83,7 @@
     <div class="row g-3">
         <?php foreach (array_slice($promotions, 0, 3) as $promo): ?>
             <div class="col-md-4">
-                <a class="promo-card" href="<?= e(url('/properties')) ?>">
+                <a class="promo-card" href="<?= e(promotion_href($promo)) ?>">
                     <?php if (!empty($promo['image_url'])): ?><img src="<?= e((string) $promo['image_url']) ?>" alt=""><?php endif; ?>
                     <div class="overlay">
                         <strong><?= e((string) ($promo['title'] ?? '')) ?></strong>

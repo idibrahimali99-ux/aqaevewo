@@ -12,7 +12,7 @@ body.admin-body {
 }
 .admin-app {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 320px;
+  grid-template-columns: 280px minmax(0, 1fr);
   min-height: 100vh;
   gap: 0;
 }
@@ -76,14 +76,18 @@ body.admin-body {
 .panel-card { padding: 1.25rem; }
 .panel-head h2 { font-size: 1.1rem; font-weight: 900; margin: 0; }
 .stat-card {
-  display:flex; align-items:center; gap:1rem; padding:1.1rem; text-decoration:none; color:inherit;
+  display:flex; align-items:center; gap:1rem; padding:1.15rem 1.2rem; text-decoration:none; color:inherit;
+  min-height: 108px; height: 100%;
 }
 .stat-icon {
-  width:48px; height:48px; border-radius:14px; display:grid; place-items:center;
+  width:52px; height:52px; border-radius:14px; display:grid; place-items:center; flex-shrink:0;
   background:#fff3cc; color:#9a7200;
 }
-.stat-card strong { display:block; font-size:1.5rem; }
-.stat-card span { color:#8a8172; font-size:.9rem; }
+.stat-card strong {
+  display:block; font-size:1.65rem; font-weight:900; line-height:1.2;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.stat-card span { display:block; color:#8a8172; font-size:.92rem; white-space:normal; }
 .shortcut-card {
   display:block; padding:1rem; text-decoration:none; color:inherit; min-height:120px;
 }
@@ -130,7 +134,7 @@ body.admin-body {
   border: 2px solid #fff;
 }
 .admin-backdrop { display:none; }
-body.admin-collapsed .admin-app { grid-template-columns: 92px minmax(0, 1fr) 320px; }
+body.admin-collapsed .admin-app { grid-template-columns: 92px minmax(0, 1fr); }
 body.admin-collapsed .sidebar-text, body.admin-collapsed .sidebar-user, body.admin-collapsed .nav-group-label, body.admin-collapsed .sidebar-link span, body.admin-collapsed .sidebar-footer span { display:none; }
 body.admin-collapsed .sidebar-link { justify-content:center; }
 body.admin-notifications-open .admin-notifications { box-shadow: -20px 0 60px rgba(0,0,0,.12); }
@@ -138,14 +142,6 @@ body.admin-notifications-open .admin-notifications { box-shadow: -20px 0 60px rg
 [data-bs-theme="dark"] .panel-card, [data-bs-theme="dark"] .admin-topbar, [data-bs-theme="dark"] .admin-notifications { background:#1a1a1a; border-color:#333; color:#eee; }
 @media (max-width: 1400px) {
   .admin-app { grid-template-columns: 280px minmax(0, 1fr); }
-  .admin-notifications {
-    position: fixed; inset-block:0; inset-inline-end:0; width:min(360px, 100vw);
-    z-index: 1050; transform: translateX(110%); box-shadow:none;
-  }
-  body.admin-notifications-open .admin-notifications { transform: translateX(0); }
-  body.admin-notifications-open .admin-backdrop {
-    display:block; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:1040;
-  }
 }
 @media (max-width: 992px) {
   .admin-app { grid-template-columns: 1fr; }

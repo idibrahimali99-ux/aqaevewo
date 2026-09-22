@@ -57,14 +57,14 @@ require __DIR__ . '/../partials/section-alerts.php';
                     </form>
                 </div>
                 <div class="collapse mt-3 w-100" id="compound-<?= e($cid) ?>">
-                    <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="admin-form-card row g-2">
+                    <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="admin-form-card row g-2" enctype="multipart/form-data">
                         <?= csrf_field() ?>
                         <input type="hidden" name="_operation" value="upsert">
                         <input type="hidden" name="id" value="<?= e($cid) ?>">
                         <div class="col-12"><?= admin_select_field('governorate_id', $govOptions, 'المحافظة', (string) ($row['governorate_id'] ?? ''), true) ?></div>
                         <div class="col-12"><?= admin_select_field('district_id', $districtOptions, 'القضاء', (string) ($row['district_id'] ?? '')) ?></div>
                         <div class="col-12"><input type="text" name="name" class="form-control form-control-sm" value="<?= e((string) ($row['compound_name'] ?? $row['name'] ?? '')) ?>" required></div>
-                        <div class="col-12"><input type="url" name="photo_url" class="form-control form-control-sm" value="<?= e((string) ($row['photo_url'] ?? '')) ?>" placeholder="رابط الصورة"></div>
+                        <div class="col-12"><?= admin_image_picker('photo_url', (string) ($row['photo_url'] ?? '')) ?></div>
                         <div class="col-6"><input type="number" name="sort_order" class="form-control form-control-sm" value="<?= e((string) ($row['sort_order'] ?? '0')) ?>"></div>
                         <div class="col-6"><button type="submit" class="btn btn-success btn-sm rounded-pill w-100">حفظ</button></div>
                     </form>
@@ -76,13 +76,13 @@ require __DIR__ . '/../partials/section-alerts.php';
 
 <div class="panel-card admin-form-card">
     <h2 class="h5 mb-3">إضافة مجمع جديد</h2>
-    <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="row g-2">
+    <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="row g-2" enctype="multipart/form-data">
         <?= csrf_field() ?>
         <input type="hidden" name="_operation" value="upsert">
         <div class="col-md-3"><?= admin_select_field('governorate_id', $govOptions, 'المحافظة', null, true) ?></div>
         <div class="col-md-3"><?= admin_select_field('district_id', $districtOptions, 'القضاء') ?></div>
         <div class="col-md-3"><input type="text" name="name" class="form-control" placeholder="اسم المجمع" required></div>
-        <div class="col-md-3"><input type="url" name="photo_url" class="form-control" placeholder="رابط الصورة"></div>
+        <div class="col-md-4"><?= admin_image_picker('photo_url') ?></div>
         <div class="col-md-2"><input type="number" name="sort_order" class="form-control" value="0"></div>
         <div class="col-md-2"><button type="submit" class="btn btn-primary rounded-pill w-100">إضافة</button></div>
     </form>

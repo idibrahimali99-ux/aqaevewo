@@ -141,3 +141,37 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('touchend', stop);
   });
 });
+
+(() => {
+  const indicator = document.createElement('div');
+  indicator.className = 'pull-refresh-indicator';
+  indicator.innerHTML = '<i class="fa-solid fa-rotate"></i><span>اسحب للتحديث</span>';
+  document.body.appendChild(indicator);
+  let startY = 0;
+  let pulling = false;
+  const threshold = 86;
+  const onStart = (e) => {
+    if (window.scrollY > 4) return;
+    startY = e.touches[0].clientY;
+    pulling = true;
+  };
+  const onMove = (e) => {
+    if (!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 24 && window.scrollY <= 0) {
+      indicator.classList.add('is-visible');
+    }
+  };
+  const onEnd = (e) => {
+    if (!pulling) return;
+    pulling = false;
+    const dy = e.changedTouches[0].clientY - startY;
+    indicator.classList.remove('is-visible');
+    if (dy > threshold && window.scrollY <= 2) {
+      location.reload();
+    }
+  };
+  document.addEventListener('touchstart', onStart, { passive: true });
+  document.addEventListener('touchmove', onMove, { passive: true });
+  document.addEventListener('touchend', onEnd, { passive: true });
+})();

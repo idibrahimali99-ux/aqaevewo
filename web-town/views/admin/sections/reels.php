@@ -78,6 +78,7 @@ require __DIR__ . '/../partials/section-alerts.php';
                             <i class="fa-solid fa-eye ms-1"></i> <?= e(compact_number($views)) ?>
                             <i class="fa-solid fa-heart ms-2"></i> <?= e(compact_number($likes)) ?>
                         </div>
+                        <?= admin_activity_html($reel) ?>
                         <?php if (!empty($reel['reject_note'])): ?>
                             <div class="alert alert-warning py-2 px-3 small mb-0 mt-2"><?= e((string) $reel['reject_note']) ?></div>
                         <?php endif; ?>
@@ -88,6 +89,30 @@ require __DIR__ . '/../partials/section-alerts.php';
                         <button type="button" class="btn btn-warning btn-sm rounded-pill" data-reel-open><i class="fa-solid fa-play ms-1"></i> معاينة وموافقة</button>
                     <?php else: ?>
                         <button type="button" class="btn btn-light btn-sm rounded-pill" data-reel-open>معاينة</button>
+                        <?php if ($status === 'approved'): ?>
+                            <?php if (empty($reel['is_sold'])): ?>
+                                <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="d-inline">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="_operation" value="mark_sold">
+                                    <input type="hidden" name="id" value="<?= e($rid) ?>">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill">تم البيع</button>
+                                </form>
+                            <?php elseif (can_staff('unsold')): ?>
+                                <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="d-inline">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="_operation" value="unmark_sold">
+                                    <input type="hidden" name="id" value="<?= e($rid) ?>">
+                                    <button type="submit" class="btn btn-outline-success btn-sm rounded-pill">إلغاء تم البيع</button>
+                                </form>
+                            <?php endif; ?>
+                            <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="d-inline-flex gap-1">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="_operation" value="update">
+                                <input type="hidden" name="id" value="<?= e($rid) ?>">
+                                <input type="text" name="caption" value="<?= e((string) ($reel['caption'] ?? '')) ?>" class="form-control form-control-sm" style="width:9rem" placeholder="وصف الريل">
+                                <button type="submit" class="btn btn-outline-primary btn-sm rounded-pill">حفظ</button>
+                            </form>
+                        <?php endif; ?>
                         <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="d-inline" onsubmit="return confirm('حذف هذا الريل؟');">
                             <?= csrf_field() ?>
                             <input type="hidden" name="_operation" value="delete">

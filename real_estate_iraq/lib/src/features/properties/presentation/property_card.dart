@@ -118,9 +118,9 @@ class PropertyCard extends ConsumerWidget {
         (property.compoundName ??
                 property.detailsJson?['compound_name']?.toString())
             ?.trim();
-    final purposeAr = property.purpose == 'rent' ? 'للإيجار' : 'للبيع';
+    final purposeAr = property.purposeLabelAr;
     final priceLabel = property.priceIqd > 0
-        ? IQDFormatter.format(property.priceIqd)
+        ? '${IQDFormatter.format(property.priceIqd)}${property.pricePeriodSuffixAr}'
         : 'حسب الاتفاق';
     const border = AppColors.cardBorder;
 

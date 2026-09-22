@@ -10,7 +10,7 @@ final class HomeController extends Controller
     public function index(): void
     {
         $bootstrap = api_get_resilient('app/bootstrap');
-        $properties = api_get_resilient('properties/list', ['limit' => 12]);
+        $properties = api_get_resilient('properties/list', ['limit' => 36]);
         $offices = api_get_resilient('offices/list', ['limit' => 6]);
         $parcels = api_get_resilient('parcels/list', ['limit' => 8]);
         $compounds = api_get_resilient('compounds/list', ['limit' => 8]);

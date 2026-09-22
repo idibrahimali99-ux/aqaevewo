@@ -168,8 +168,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final m = ref.read(registrationMarketerProvider);
-      if (m && mounted) {
-        setState(() => _isMarketer = true);
+      if (mounted) {
+        setState(() {
+          _isMarketer = m;
+        });
       }
     });
   }
@@ -300,14 +302,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           return;
         }
       } else if (_officeName.text.trim().length < 2) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('اسم المكتب مطلوب')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('اسم المكتب مطلوب'),
+          ),
+        );
         return;
       }
       if (!_isMarketer && _officeAddress.text.trim().length < 5) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('عنوان المكتب مطلوب (5 أحرف على الأقل)'),
           ),
         );
@@ -435,7 +439,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ref.read(registrationMarketerProvider.notifier).state =
                             marketer;
                         ref.read(authControllerProvider.notifier).setRole(role);
-                        setState(() => _isMarketer = marketer);
+                        setState(() {
+                          _isMarketer = marketer;
+                        });
                       },
                     ),
                     const SizedBox(height: 14),
@@ -459,7 +465,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   ),
                                   validator: (v) {
                                     final s = (v ?? '').trim();
-                                    if (s.length < 2) return 'اسم المكتب مطلوب';
+                                    if (s.length < 2) {
+                                      return 'اسم المكتب مطلوب';
+                                    }
                                     return null;
                                   },
                                 ),
@@ -585,7 +593,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                             )
                                             .state =
                                         v;
-                                    setState(() => _isMarketer = v);
+                                    setState(() {
+                                      _isMarketer = v;
+                                    });
                                   },
                                 ),
                               ],
@@ -613,7 +623,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   icon: const Icon(Icons.map_outlined),
                                   label: Text(
                                     _officeMapLocation == null
-                                        ? 'تحديد الموقع على الخريطة (اختياري)'
+                                        ? 'تحديد الموقع على الخريطة'
                                         : 'تم تحديد الموقع — تعديل',
                                   ),
                                 ),

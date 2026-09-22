@@ -53,6 +53,44 @@ function vewo_media_public_base(array $config): string
 }
 
 /**
+ * يحوّل مسار صورة نسبي إلى رابط مطلق يفتح في المتصفح.
+ */
+function vewo_absolute_media_url(mixed $url): string
+{
+    $url = is_scalar($url) ? trim((string) $url) : '';
+    if ($url === '' || strcasecmp($url, 'null') === 0) {
+        return '';
+    }
+    if (preg_match('#^https?://#i', $url) === 1 || str_starts_with($url, 'data:')) {
+        return $url;
+    }
+    if (str_starts_with($url, '//')) {
+        return 'https:' . $url;
+    }
+    $config = is_array($GLOBALS['vewo_config'] ?? null) ? $GLOBALS['vewo_config'] : [];
+    $base = rtrim(vewo_media_public_base($config), '/');
+    if (str_starts_with($url, '/')) {
+        return $base . $url;
+    }
+
+    return $base . '/' . ltrim($url, '/');
+}
+
+/**
+ * يمنع أباتشي من قطع الاتصال أثناء انتظار رفع R2.
+ */
+function vewo_begin_long_upload(): void
+{
+    @ignore_user_abort(true);
+    @set_time_limit(0);
+    @ini_set('max_execution_time', '0');
+    @ini_set('max_input_time', '0');
+    if (!headers_sent()) {
+        header('Connection: close');
+    }
+}
+
+/**
  * Store an uploaded temp file either on R2 or local disk.
  *
  * @param array<string,mixed> $config
@@ -65,6 +103,7 @@ function vewo_store_uploaded_file(
     string $ext,
     string $folder = ''
 ): array {
+    vewo_begin_long_upload();
     $folder = trim(str_replace('\\', '/', $folder), '/');
     $name = uuid_v4() . '.' . ltrim($ext, '.');
     $relative = $folder === '' ? $name : ($folder . '/' . $name);
@@ -120,17 +159,15 @@ function vewo_r2_put_file(array $r2, string $key, string $filePath, string $cont
     if ($size === false || $size < 0) {
         json_error(500, 'تعذر تحديد حجم الملف');
     }
-    $payloadHash = hash_file('sha256', $filePath);
-    if (!is_string($payloadHash) || $payloadHash === '') {
-        json_error(500, 'تعذر حساب بصمة الملف');
-    }
 
     $fp = fopen($filePath, 'rb');
     if ($fp === false) {
         json_error(500, 'تعذر فتح الملف للرفع إلى R2');
     }
     try {
-        vewo_r2_signed_put($r2, $key, $contentType, $payloadHash, (int) $size, $fp);
+        // UNSIGNED-PAYLOAD: لا نحسب SHA-256 للملف كاملاً قبل الرفع.
+        // الحساب كان يجمّد PHP دقائق فيفشل أباتشي بـ "Connection closed before full header".
+        vewo_r2_signed_put($r2, $key, $contentType, 'UNSIGNED-PAYLOAD', (int) $size, $fp);
     } finally {
         fclose($fp);
     }
@@ -229,9 +266,16 @@ function vewo_r2_signed_put(
         CURLOPT_CUSTOMREQUEST => 'PUT',
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER => $headers,
-        CURLOPT_TIMEOUT => 300,
+        CURLOPT_TIMEOUT => 600,
         CURLOPT_CONNECTTIMEOUT => 30,
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
     ];
+    if (defined('CURLOPT_NOSIGNAL')) {
+        $opts[CURLOPT_NOSIGNAL] = true;
+    }
+    if (defined('CURLOPT_TCP_NODELAY')) {
+        $opts[CURLOPT_TCP_NODELAY] = true;
+    }
 
     if (is_resource($bodyOrStream)) {
         $opts[CURLOPT_UPLOAD] = true;

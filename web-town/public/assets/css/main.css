@@ -119,34 +119,76 @@ body.site-body {
 .home-quick-card-request .home-quick-icon { background: #fff3cc; color: #9a7200; }
 .home-quick-card-add .home-quick-icon { background: #F5B400; color: #1d1a13; }
 
-/* رقم المنشور — نسخ بالضغط */
+/* رقم المنشور — شارة صغيرة في زاوية الصورة وليست شريطاً على البطاقة */
 .property-public-no {
   position: absolute;
-  top: .65rem;
-  right: .65rem;
-  z-index: 3;
+  inset-inline-start: .55rem;
+  inset-inline-end: auto;
+  top: .55rem;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  width: auto !important;
+  max-width: min(72%, 11rem);
   border: 0;
   border-radius: 999px;
-  padding: .28rem .65rem;
-  font-size: .78rem;
+  padding: .2rem .55rem;
+  font-size: .72rem;
   font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   background: rgba(29,26,19,.88);
   color: #fff;
   cursor: pointer;
-  transition: background .15s ease, transform .15s ease;
+  box-shadow: 0 6px 16px rgba(0,0,0,.18);
 }
 .property-public-no:hover,
 .property-public-no.copied {
   background: #F5B400;
   color: #1d1a13;
-  transform: scale(1.04);
+  transform: none;
 }
 .property-public-no-lg {
   position: static;
   display: inline-flex;
+  max-width: 100%;
   margin-bottom: .25rem;
 }
-.card-img-wrap { position: relative; }
+.card-img-wrap,
+.property-card .ratio {
+  position: relative;
+  overflow: hidden;
+}
+.admin-activity-log {
+  border-top: 1px dashed #e6e2d6;
+  padding-top: .45rem;
+  margin-top: .45rem;
+}
+.admin-activity-log > div {
+  font-size: .78rem;
+  line-height: 1.45;
+}
+.property-sold-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  background: #1565C0;
+  color: #fff;
+  text-align: center;
+  font-weight: 900;
+  font-size: .82rem;
+  padding: .35rem .5rem;
+  letter-spacing: .04em;
+}
+.property-card .ratio {
+  position: relative;
+  overflow: hidden;
+}
 
 /* إشعارات — نمط فيسبوك */
 .nav-icon-btn {
@@ -607,7 +649,67 @@ body.site-body {
   gap: .75rem;
   padding: .65rem 1rem;
   background: #fff;
-  border-bottom: 1px solid var(--at-line);
+}
+.publish-progress-bar {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: 1080;
+  padding: .75rem 1rem;
+  pointer-events: none;
+}
+.publish-progress-card {
+  max-width: 42rem;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.16);
+  padding: .85rem 1rem;
+}
+.publish-progress-label {
+  font-weight: 800;
+  margin-bottom: .55rem;
+}
+.publish-progress-track {
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(245,180,0,.2);
+  overflow: hidden;
+}
+.publish-progress-track span {
+  display: block;
+  width: 40%;
+  height: 100%;
+  background: #F5B400;
+  animation: publish-progress-slide 1.1s ease-in-out infinite;
+}
+@keyframes publish-progress-slide {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(280%); }
+}
+
+.pull-refresh-indicator {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-80px);
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: #1d1a13;
+  color: #fff;
+  border-radius: 999px;
+  padding: .45rem .9rem;
+  font-size: .85rem;
+  font-weight: 800;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .2s ease, opacity .2s ease;
+}
+.pull-refresh-indicator.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .fw-black { font-weight: 900 !important; }

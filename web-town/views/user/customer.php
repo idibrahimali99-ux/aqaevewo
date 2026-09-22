@@ -9,6 +9,6 @@
 </div>
 <div class="row g-3">
     <div class="col-md-4"><a class="shortcut-card" href="<?= e(url('/search')) ?>"><strong>البحث المتقدم</strong><span>فلترة حسب المحافظة والغرض</span></a></div>
-    <div class="col-md-4"><a class="shortcut-card" href="<?= e(url('/offices')) ?>"><strong>المكاتب</strong><span>تواصل مع مكاتب معتمدة</span></a></div>
+    <div class="col-md-4"><a class="shortcut-card" href="<?= e(url('/messages')) ?>"><strong>الرسائل</strong><span>محادثات المكاتب والدعم</span></a></div>
     <div class="col-md-4"><a class="shortcut-card" href="<?= e(url('/profile')) ?>"><strong>الملف الشخصي</strong><span>إدارة بياناتك</span></a></div>
 </div>

@@ -17,12 +17,37 @@ final class AccountController extends Controller
             'include_mine' => '1',
             'limit' => 50,
         ], auth_token());
+        $myReels = api_client()->get('reels/list', [
+            'owner_id' => (string) ($user['id'] ?? ''),
+            'include_mine' => '1',
+            'limit' => 50,
+        ], auth_token());
+        $success = '';
+        $error = '';
+        if (($_GET['ok'] ?? '') === 'property_updated') {
+            $success = 'تم تعديل المنشور.';
+        } elseif (($_GET['ok'] ?? '') === 'property_deleted') {
+            $success = 'تم حذف المنشور.';
+        } elseif (($_GET['ok'] ?? '') === 'reel_created') {
+            $success = 'تم إرسال الريل.';
+        } elseif (($_GET['ok'] ?? '') === 'reel_updated') {
+            $success = 'تم تعديل الريل.';
+        } elseif (($_GET['ok'] ?? '') === 'reel_deleted') {
+            $success = 'تم حذف الريل.';
+        }
+        if (($_GET['error'] ?? '') !== '') {
+            $error = (string) $_GET['error'];
+            if ($error === 'not_found') {
+                $error = 'العنصر غير موجود أو ليست لديك صلاحية.';
+            }
+        }
         $this->view('user/profile', [
             'title' => 'الملف الشخصي',
             'user' => $user,
             'properties' => $myProps['items'] ?? [],
-            'error' => '',
-            'success' => '',
+            'reels' => $myReels['items'] ?? [],
+            'error' => $error,
+            'success' => $success,
         ], 'user');
     }
 
@@ -42,10 +67,16 @@ final class AccountController extends Controller
                 'include_mine' => '1',
                 'limit' => 50,
             ], auth_token());
+            $myReels = api_client()->get('reels/list', [
+                'owner_id' => (string) ($user['id'] ?? ''),
+                'include_mine' => '1',
+                'limit' => 50,
+            ], auth_token());
             $this->view('user/profile', [
                 'title' => 'الملف الشخصي',
                 'user' => $user,
                 'properties' => $myProps['items'] ?? [],
+                'reels' => $myReels['items'] ?? [],
                 'error' => '',
                 'success' => 'تم تحديث الملف.',
             ], 'user');
@@ -55,6 +86,7 @@ final class AccountController extends Controller
             'title' => 'الملف الشخصي',
             'user' => $user,
             'properties' => [],
+            'reels' => [],
             'error' => (string) ($response['error'] ?? 'تعذر التحديث'),
             'success' => '',
         ], 'user');
@@ -96,6 +128,9 @@ final class AccountController extends Controller
         require_login();
         header('Content-Type: application/json; charset=utf-8');
         $data = api_client()->get('app/notifications/poll', ['since_ms' => '0'], auth_token());
+        if ((int) ($data['status'] ?? 0) === 401) {
+            kick_replaced_session();
+        }
         echo json_encode($data, JSON_UNESCAPED_UNICODE);
     }
 

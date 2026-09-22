@@ -39,14 +39,24 @@ require __DIR__ . '/../partials/section-alerts.php';
                         </tr>
                         <tr class="collapse" id="promo-<?= e($id) ?>">
                             <td colspan="5">
-                                <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="admin-form-card row g-2">
+                                <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="admin-form-card row g-2" enctype="multipart/form-data">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="_operation" value="update">
                                     <input type="hidden" name="id" value="<?= e($id) ?>">
                                     <div class="col-md-3"><input type="text" name="title" class="form-control form-control-sm" value="<?= e((string) ($row['title'] ?? '')) ?>" required></div>
-                                    <div class="col-md-3"><input type="url" name="image_url" class="form-control form-control-sm" value="<?= e((string) ($row['image_url'] ?? '')) ?>"></div>
+                                    <div class="col-md-4"><?= admin_image_picker('image_url', (string) ($row['image_url'] ?? '')) ?></div>
                                     <div class="col-md-2"><input type="number" name="sort_order" class="form-control form-control-sm" value="<?= e((string) ($row['sort_order'] ?? '0')) ?>"></div>
                                     <div class="col-md-2"><input type="number" name="is_active" class="form-control form-control-sm" value="<?= !empty($row['is_active']) ? '1' : '0' ?>"></div>
+                                    <div class="col-md-3">
+                                        <select name="link_type" class="form-select form-select-sm">
+                                            <?php $lt = (string) ($row['link_type'] ?? 'none'); ?>
+                                            <option value="none"<?= $lt === 'none' ? ' selected' : '' ?>>بدون رابط</option>
+                                            <option value="property_no"<?= $lt === 'property_no' ? ' selected' : '' ?>>رقم منشور</option>
+                                            <option value="property"<?= $lt === 'property' ? ' selected' : '' ?>>معرّف منشور</option>
+                                            <option value="url"<?= $lt === 'url' ? ' selected' : '' ?>>رابط خارجي</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3"><input type="text" name="link_target" class="form-control form-control-sm" value="<?= e((string) ($row['link_target'] ?? '')) ?>" placeholder="رقم المنشور"></div>
                                     <div class="col-md-2"><button type="submit" class="btn btn-success btn-sm rounded-pill w-100">حفظ</button></div>
                                 </form>
                             </td>
@@ -60,12 +70,21 @@ require __DIR__ . '/../partials/section-alerts.php';
 
 <div class="panel-card admin-form-card">
     <h2 class="h5 mb-3">إضافة إعلان جديد</h2>
-    <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="row g-2">
+    <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="row g-2" enctype="multipart/form-data">
         <?= csrf_field() ?>
         <input type="hidden" name="_operation" value="create">
         <div class="col-md-4"><input type="text" name="title" class="form-control" placeholder="العنوان" required></div>
-        <div class="col-md-4"><input type="url" name="image_url" class="form-control" placeholder="رابط الصورة"></div>
+        <div class="col-md-4"><?= admin_image_picker('image_url') ?></div>
         <div class="col-md-2"><input type="number" name="sort_order" class="form-control" value="0"></div>
+        <div class="col-md-3">
+            <select name="link_type" class="form-select">
+                <option value="none">بدون رابط</option>
+                <option value="property_no" selected>رقم منشور</option>
+                <option value="property">معرّف منشور (UUID)</option>
+                <option value="url">رابط خارجي</option>
+            </select>
+        </div>
+        <div class="col-md-3"><input type="text" name="link_target" class="form-control" placeholder="رقم المنشور مثل 20000001"></div>
         <div class="col-md-2"><button type="submit" class="btn btn-primary rounded-pill w-100">إضافة</button></div>
     </form>
 </div>

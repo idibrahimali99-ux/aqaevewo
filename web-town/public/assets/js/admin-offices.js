@@ -32,6 +32,9 @@
         <div><span>العنوان</span><strong>${escapeHtml(office.office_address || '—')}</strong></div>
         <div><span>رقم الإجازة</span><strong>${escapeHtml(office.office_license_no || '—')}</strong></div>
         <div><span>نوع الحساب</span><strong>${isMarketer ? 'مسوق' : 'مكتب'}</strong></div>
+        <div><span>الباقة</span><strong>${escapeHtml(office.posting_package_name || '—')}</strong></div>
+        <div><span>المتبقي</span><strong>${office.posting_trial_unlimited == 1 || office.posting_trial_unlimited === true ? 'بلا حدود' : escapeHtml(String(office.posting_listings_remaining ?? '—'))}</strong></div>
+        <div><span>نُشر</span><strong>${escapeHtml(String(office.published_count ?? 0))}${office.reels_count ? ' · ريلز ' + escapeHtml(String(office.reels_count)) : ''}</strong></div>
         <div><span>تاريخ التسجيل</span><strong>${escapeHtml(office.created_at || '—')}</strong></div>
       </div>`;
 

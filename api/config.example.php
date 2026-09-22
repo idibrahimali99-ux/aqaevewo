@@ -37,6 +37,23 @@ return [
     'support_phone' => '07887444177',
 
     /**
+     * تحديث إجباري لتطبيق عقار تاون.
+     * يُدار من لوحة الأدمن (إعدادات → تحديث التطبيق). enabled=0 يوقف الشاشة فوراً.
+     */
+    'app_update' => [
+        'title' => 'يتوفر إصدار جديد',
+        'message' => 'حدّث تطبيق عقار تاون للاستمرار في استخدام التطبيق.',
+        'android_enabled' => 0,
+        'android_min_version' => '',
+        'android_latest_version' => '',
+        'android_store_url' => '',
+        'ios_enabled' => 0,
+        'ios_min_version' => '',
+        'ios_latest_version' => '',
+        'ios_store_url' => '',
+    ],
+
+    /**
      * إعدادات Push (Firebase Cloud Messaging).
      * الأفضل استخدام HTTP v1 عبر service account (لا تحتاج بايثون).
      *
@@ -65,5 +82,15 @@ return [
     ],
 
     /** مفتاح سري لمسار cron/push-reminders — غيّره في config.php */
+    /** مفتاح سري لمسار cron/push-reminders و cron/hourly-backup — غيّره في config.php */
     'cron_secret' => '',
+
+    /**
+     * بوت تيليغرام للنسخ الاحتياطي الساعي (SQL + أرشيف api/web-town).
+     * يمكن أيضاً حفظ القيم من لوحة الإعدادات (api/secrets/telegram.json).
+     */
+    'telegram' => [
+        'bot_token' => '',
+        'chat_id' => '',
+    ],
 ];

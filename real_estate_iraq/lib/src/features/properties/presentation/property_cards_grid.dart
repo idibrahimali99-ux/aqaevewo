@@ -11,17 +11,20 @@ class PropertyCardsGrid extends StatelessWidget {
     required this.items,
     this.showPublisherModeration = false,
     this.viewerIsOffice = false,
-    this.onRejectedEdit,
+    this.onEdit,
+    this.onDelete,
   });
 
   final List<Property> items;
   final bool showPublisherModeration;
   final bool viewerIsOffice;
-  final void Function(Property property)? onRejectedEdit;
+  final void Function(Property property)? onEdit;
+  final void Function(Property property)? onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final extraFooter = showPublisherModeration && onRejectedEdit != null;
+    final extraFooter =
+        showPublisherModeration && (onEdit != null || onDelete != null);
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -30,14 +33,10 @@ class PropertyCardsGrid extends StatelessWidget {
         crossAxisCount: 2,
         crossAxisSpacing: 10,
         mainAxisSpacing: 12,
-        mainAxisExtent: extraFooter ? 368 : 318,
+        mainAxisExtent: extraFooter ? 408 : 318,
       ),
       itemBuilder: (context, index) {
         final p = items[index];
-        final showEdit =
-            extraFooter &&
-            p.approvalStatus == 'rejected' &&
-            p.resubmissionAllowed;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -51,14 +50,33 @@ class PropertyCardsGrid extends StatelessWidget {
                     context.push('${AppRoutes.propertyDetails}/${p.id}'),
               ),
             ),
-            if (showEdit) ...[
+            if (extraFooter) ...[
               const SizedBox(height: 6),
-              SizedBox(
-                height: 36,
-                child: FilledButton.tonal(
-                  onPressed: () => onRejectedEdit!(p),
-                  child: const Text('تعديل وإعادة إرسال'),
-                ),
+              Row(
+                children: [
+                  if (onEdit != null)
+                    Expanded(
+                      child: SizedBox(
+                        height: 36,
+                        child: FilledButton.tonal(
+                          onPressed: () => onEdit!(p),
+                          child: const Text('تعديل'),
+                        ),
+                      ),
+                    ),
+                  if (onEdit != null && onDelete != null)
+                    const SizedBox(width: 6),
+                  if (onDelete != null)
+                    Expanded(
+                      child: SizedBox(
+                        height: 36,
+                        child: OutlinedButton(
+                          onPressed: () => onDelete!(p),
+                          child: const Text('حذف'),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ],
           ],

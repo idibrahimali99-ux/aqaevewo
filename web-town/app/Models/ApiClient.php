@@ -83,7 +83,7 @@ final class ApiClient
         $ch = curl_init($url);
         $opts = $this->curlBaseOptions($headers) + [
             CURLOPT_CUSTOMREQUEST => $method,
-            CURLOPT_TIMEOUT => 25,
+            CURLOPT_TIMEOUT => 90,
         ];
         if ($body !== null) {
             $opts[CURLOPT_POSTFIELDS] = json_encode($body, JSON_UNESCAPED_UNICODE);

@@ -7,4 +7,18 @@
   RewriteRule ^ index.php [L,QSA]
 </IfModule>
 
+# شبكات الجوال البطيئة: الافتراضي يغلق الاتصال قبل أن يرد PHP
+# (ClientException: Connection closed before full header was received)
+<IfModule mod_reqtimeout.c>
+  RequestReadTimeout header=20-120,MinRate=80 body=60-3600,MinRate=50
+</IfModule>
+
+<IfModule mod_php.c>
+  php_value upload_max_filesize 4G
+  php_value post_max_size 4G
+  php_value max_execution_time 0
+  php_value max_input_time 0
+  php_value memory_limit 2048M
+</IfModule>
+
 # إذا كان اسم المجلد ليس "api" غيّر RewriteBase ليطابق المسار، مثلاً: /vewo-api/

@@ -30,7 +30,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (location.startsWith(AppRoutes.propertyDetails)) return 0;
     if (location.startsWith(AppRoutes.chats)) return 1;
     if (location.startsWith(AppRoutes.reels)) return 3;
-    if (location.startsWith(AppRoutes.profile)) return 4;
+    if (location.startsWith(AppRoutes.profile)) {
+      return 4;
+    }
     return 0;
   }
 

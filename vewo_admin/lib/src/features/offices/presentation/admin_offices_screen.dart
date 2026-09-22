@@ -220,6 +220,18 @@ class _AdminOfficesScreenState extends ConsumerState<AdminOfficesScreen>
                     ),
                   ),
                 _detailRow(context, 'تاريخ الطلب', u['created_at']?.toString()),
+                _detailRow(
+                  context,
+                  'الباقة',
+                  u['posting_package_name']?.toString(),
+                ),
+                _detailRow(context, 'رصيد النشر', _officeQuotaLine(u)),
+                _detailRow(
+                  context,
+                  'المنشورات',
+                  u['published_count']?.toString(),
+                ),
+                _detailRow(context, 'الريلز', u['reels_count']?.toString()),
                 const SizedBox(height: 20),
                 if (showApprove && id.isNotEmpty)
                   FilledButton.icon(
@@ -428,6 +440,11 @@ class _AdminOfficesScreenState extends ConsumerState<AdminOfficesScreen>
                               Text(name, style: Theme.of(context).textTheme.bodySmall),
                               const SizedBox(height: 4),
                               Text(phone),
+                              if (_officeQuotaLine(u).isNotEmpty)
+                                Text(
+                                  _officeQuotaLine(u),
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
                               if (addr.isNotEmpty)
                                 Text(
                                   addr,
@@ -546,7 +563,14 @@ class _AdminOfficesScreenState extends ConsumerState<AdminOfficesScreen>
                 on.isNotEmpty ? on : name,
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
-              subtitle: Text('$phone\n$name', maxLines: 3),
+              subtitle: Text(
+                [
+                  phone,
+                  name,
+                  _officeQuotaLine(u),
+                ].where((e) => e.trim().isNotEmpty).join('\n'),
+                maxLines: 4,
+              ),
               onTap: id.isEmpty
                   ? null
                   : () => _showOfficeDetailSheet(u, showApprove: false),
@@ -560,6 +584,26 @@ class _AdminOfficesScreenState extends ConsumerState<AdminOfficesScreen>
         },
       ),
     );
+  }
+
+  String _officeQuotaLine(Map<String, dynamic> u) {
+    final pkg = u['posting_package_name']?.toString().trim() ?? '';
+    final unlimited =
+        u['posting_trial_unlimited'] == 1 ||
+        u['posting_trial_unlimited'] == true;
+    final rem = u['posting_listings_remaining'];
+    final pub = u['published_count'];
+    final reels = u['reels_count'];
+    if (pkg.isEmpty && rem == null && pub == null && u['posting_package_id'] == null) {
+      return '';
+    }
+    final quota = unlimited ? 'بلا حدود' : 'متبقي ${rem ?? 0}';
+    return [
+      if (pkg.isNotEmpty) pkg,
+      quota,
+      if (pub != null) 'نُشر $pub',
+      if (reels != null && reels != 0) 'ريلز $reels',
+    ].join(' · ');
   }
 
   Widget _detailRow(BuildContext context, String label, String? value) {

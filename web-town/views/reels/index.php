@@ -51,6 +51,7 @@ $itemsJson = json_encode($items, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HE
                 $likes = (int) ($reel['likes_count'] ?? 0);
                 $likedByMe = !empty($reel['liked_by_me']);
                 $propertyId = (string) ($reel['property_id'] ?? '');
+                $isSold = !empty($reel['is_sold']);
 
                 ?>
 
@@ -69,6 +70,9 @@ $itemsJson = json_encode($items, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HE
                     <?php endif; ?>
 
                     <div class="reel-gradient"></div>
+                    <?php if ($isSold): ?>
+                        <div class="reel-sold-bar">تم البيع</div>
+                    <?php endif; ?>
 
                     </div>
 

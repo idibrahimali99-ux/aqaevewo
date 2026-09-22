@@ -93,4 +93,30 @@ class Property {
     if (segment == PropertySegment.parcel) return 'مقاطعة';
     return category.labelAr;
   }
+
+  String get rentPeriod {
+    final raw = detailsJson?['rent_period'] ?? detailsJson?['rentPeriod'];
+    final v = raw?.toString().trim().toLowerCase() ?? '';
+    if (v == 'yearly' || v == 'year' || v == 'annual' || v == 'سنوي') {
+      return 'yearly';
+    }
+    if (v == 'monthly' || v == 'month' || v == 'شهري') {
+      return 'monthly';
+    }
+    return '';
+  }
+
+  String get purposeLabelAr {
+    if (purpose != 'rent') return 'للبيع';
+    if (rentPeriod == 'yearly') return 'إيجار سنوي';
+    if (rentPeriod == 'monthly') return 'إيجار شهري';
+    return 'للإيجار';
+  }
+
+  String get pricePeriodSuffixAr {
+    if (purpose != 'rent') return '';
+    if (rentPeriod == 'yearly') return ' / السنة';
+    if (rentPeriod == 'monthly') return ' / الشهر';
+    return '';
+  }
 }

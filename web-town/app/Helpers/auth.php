@@ -53,6 +53,14 @@ function dashboard_path(?array $user = null): string
     };
 }
 
+function after_login_path(?array $user = null): string
+{
+    if (is_admin_area_user($user)) {
+        return dashboard_path($user);
+    }
+    return '/';
+}
+
 function require_login(): array
 {
     $user = auth_user();
@@ -127,6 +135,51 @@ function refresh_current_user(): void
         return;
     }
     $response = api_client()->get('users/me', [], auth_token());
+    $status = (int) ($response['status'] ?? 0);
+    if ($status === 401) {
+        kick_replaced_session();
+    }
+    if (!empty($response['ok']) && isset($response['user']) && is_array($response['user'])) {
+        $_SESSION['auth_user'] = array_merge(auth_user() ?? [], $response['user']);
+    }
+}
+
+function kick_replaced_session(): never
+{
+    logout();
+    $accept = (string) ($_SERVER['HTTP_ACCEPT'] ?? '');
+    $path = current_path();
+    $wantsJson = str_contains($accept, 'application/json')
+        || str_contains($path, '/api/')
+        || str_ends_with($path, '/poll');
+    if ($wantsJson) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'ok' => false,
+            'error' => 'تم تسجيل الدخول من جهاز آخر',
+            'status' => 401,
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    redirect_to('/login', ['error' => 'session_replaced']);
+}
+
+function enforce_live_session(): void
+{
+    if (!is_logged_in()) {
+        return;
+    }
+    $now = time();
+    $last = (int) ($_SESSION['auth_live_check_at'] ?? 0);
+    if ($now - $last < 3) {
+        return;
+    }
+    $_SESSION['auth_live_check_at'] = $now;
+    $response = api_client()->get('users/me', [], auth_token());
+    if ((int) ($response['status'] ?? 0) === 401) {
+        kick_replaced_session();
+    }
     if (!empty($response['ok']) && isset($response['user']) && is_array($response['user'])) {
         $_SESSION['auth_user'] = array_merge(auth_user() ?? [], $response['user']);
     }

@@ -72,7 +72,10 @@ class _CompoundsListScreenState extends ConsumerState<CompoundsListScreen> {
               ),
             );
           }
-          return ListView.separated(
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(compoundsListProvider),
+            child: ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: AppResponsive.pagePadding(
               context,
               accountForShellNav: true,
@@ -174,6 +177,7 @@ class _CompoundsListScreenState extends ConsumerState<CompoundsListScreen> {
                 ),
               );
             },
+          ),
           );
         },
       ),

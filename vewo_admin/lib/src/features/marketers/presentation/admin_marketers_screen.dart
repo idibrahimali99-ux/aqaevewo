@@ -293,6 +293,8 @@ class _AdminMarketersScreenState extends ConsumerState<AdminMarketersScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('مسوقون وباقات النشر'),
+        automaticallyImplyLeading: false,
+        primary: false,
         actions: [
           IconButton(
             tooltip: 'إدارة الباقات',
@@ -325,9 +327,20 @@ class _AdminMarketersScreenState extends ConsumerState<AdminMarketersScreen> {
                 final phone = row['phone']?.toString() ?? '';
                 final unlimited =
                     row['posting_trial_unlimited'] == 1 ||
-                    row['posting_trial_unlimited'] == true;
+                    row['posting_trial_unlimited'] == true ||
+                    row['posting_is_unlimited'] == 1 ||
+                    row['posting_is_unlimited'] == true;
                 final rem = row['posting_listings_remaining'];
+                final pkg = row['posting_package_name']?.toString().trim() ?? '';
+                final published = row['published_count'] ?? 0;
+                final reels = row['reels_count'] ?? 0;
                 final quota = unlimited ? 'بلا حدود' : 'متبقي: ${rem ?? '—'}';
+                final pkgLine = [
+                  if (pkg.isNotEmpty) pkg,
+                  quota,
+                  'نُشر $published',
+                  if (reels != 0) 'ريلز $reels',
+                ].join(' · ');
                 final followers =
                     (row['follower_count'] is num
                         ? (row['follower_count'] as num).toInt()
@@ -346,7 +359,7 @@ class _AdminMarketersScreenState extends ConsumerState<AdminMarketersScreen> {
                 return ListTile(
                   title: Text(name),
                   subtitle: Text(
-                    '$phone · ${approved ? 'معتمد' : 'بانتظار الموافقة'} · ${active ? 'مفعل' : 'موقوف'} · $quota · $followers متابع${expiry.isEmpty ? '' : ' · ينتهي: ${expiry.split(' ').first}'}',
+                    '$phone · ${approved ? 'معتمد' : 'بانتظار الموافقة'} · ${active ? 'مفعل' : 'موقوف'} · $pkgLine · $followers متابع${expiry.isEmpty ? '' : ' · ينتهي: ${expiry.split(' ').first}'}',
                     textDirection: TextDirection.ltr,
                   ),
                   isThreeLine: true,
@@ -516,11 +529,19 @@ class _PackagesSheetState extends ConsumerState<_PackagesSheet> {
               itemCount: widget.packages.length,
               itemBuilder: (context, i) {
                 final p = widget.packages[i];
-                final lim = p['listing_limit'];
-                final limTxt = lim == null ? 'بلا حدود' : '$lim منشور';
+                final lim = p['listing_limit'] ?? p['listings_limit'];
+                final unlimited =
+                    p['is_unlimited'] == 1 ||
+                    p['is_unlimited'] == true ||
+                    lim == null;
+                final limTxt = unlimited ? 'بلا حدود' : '$lim منشور';
+                final count = p['assignees_count'] ??
+                    ((p['assignees'] is List) ? (p['assignees'] as List).length : 0);
                 return ListTile(
-                  title: Text(p['name_ar']?.toString() ?? ''),
-                  subtitle: Text('${p['applies_to']} · $limTxt'),
+                  title: Text(
+                    p['name_ar']?.toString() ?? p['name']?.toString() ?? '',
+                  ),
+                  subtitle: Text('$limTxt · $count معيّن'),
                   trailing: IconButton(
                     icon: const Icon(Icons.edit_outlined),
                     onPressed: () => _upsert(initial: p),

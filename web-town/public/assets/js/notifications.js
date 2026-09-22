@@ -4,8 +4,8 @@
   const badge = document.getElementById('notificationCountBadge');
   const listEl = document.getElementById('notificationDropdownList');
   const msgLink = document.querySelector('.nav-icon-btn[href*="messages"], a[title="الرسائل"]');
-
-  if (!badge && !listEl) return;
+  const loggedIn = document.body?.dataset?.loggedIn === '1';
+  if (!badge && !listEl && !loggedIn) return;
 
   const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -79,6 +79,10 @@
   const poll = async () => {
     try {
       const res = await fetch(pollUrl, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+      if (res.status === 401) {
+        window.location.href = `${base}/login?error=session_replaced`;
+        return;
+      }
       if (!res.ok) return;
       const data = await res.json();
       if (!data.ok) return;
@@ -106,5 +110,5 @@
   };
 
   poll();
-  setInterval(poll, 45000);
+  setInterval(poll, 4000);
 })();

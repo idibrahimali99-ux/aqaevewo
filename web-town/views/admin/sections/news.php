@@ -35,13 +35,13 @@ require __DIR__ . '/../partials/section-alerts.php';
                     </form>
                 </div>
                 <div class="collapse mt-3 w-100" id="news-<?= e($id) ?>">
-                    <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="admin-form-card">
+                    <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="admin-form-card" enctype="multipart/form-data">
                         <?= csrf_field() ?>
                         <input type="hidden" name="_operation" value="update">
                         <input type="hidden" name="id" value="<?= e($id) ?>">
                         <input type="text" name="title" class="form-control form-control-sm mb-2" value="<?= e((string) ($row['title'] ?? '')) ?>" required>
                         <textarea name="body" class="form-control form-control-sm mb-2" rows="3"><?= e((string) ($row['body'] ?? '')) ?></textarea>
-                        <input type="url" name="image_url" class="form-control form-control-sm mb-2" value="<?= e((string) ($row['image_url'] ?? '')) ?>">
+                        <?= admin_image_picker('image_url', (string) ($row['image_url'] ?? '')) ?>
                         <button type="submit" class="btn btn-success btn-sm rounded-pill">حفظ</button>
                     </form>
                 </div>
@@ -52,12 +52,12 @@ require __DIR__ . '/../partials/section-alerts.php';
 
 <div class="panel-card admin-form-card">
     <h2 class="h5 mb-3">إضافة خبر جديد</h2>
-    <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="row g-2">
+    <form method="post" action="<?= e(url('/admin/' . $sectionKey)) ?>" class="row g-2" enctype="multipart/form-data">
         <?= csrf_field() ?>
         <input type="hidden" name="_operation" value="create">
         <div class="col-md-4"><input type="text" name="title" class="form-control" placeholder="العنوان" required></div>
         <div class="col-12"><textarea name="body" class="form-control" rows="3" placeholder="المحتوى"></textarea></div>
-        <div class="col-md-4"><input type="url" name="image_url" class="form-control" placeholder="رابط الصورة"></div>
+        <div class="col-md-4"><?= admin_image_picker('image_url') ?></div>
         <div class="col-md-2"><input type="number" name="sort_order" class="form-control" value="0"></div>
         <div class="col-md-3 d-flex align-items-center">
             <input type="hidden" name="notify_all" value="0">

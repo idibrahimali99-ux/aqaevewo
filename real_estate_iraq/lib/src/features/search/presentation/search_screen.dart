@@ -454,7 +454,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final filtered = _applyFilters(merged);
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
-      body: NestedScrollView(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.read(propertyListingsProvider.notifier).reload();
+          final q = _searchQuery.text.trim();
+          if (q.isNotEmpty) await _runServerSearch(q);
+        },
+        child: NestedScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         headerSliverBuilder: (context, inner) => [
           SliverAppBar.large(
             pinned: true,
@@ -581,6 +588,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             ),
           ],
         ),
+      ),
       ),
     );
   }
