@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
-const kReelMinSeconds = 30.0;
+const kReelMinSeconds = 0.0;
 const kReelMaxSeconds = 180.0;
 
 const _mediaTools = MethodChannel('com.aqartown.app/media_tools');
@@ -24,8 +24,8 @@ Future<XFile> prepareVideoForUpload(
   if (end - start > kReelMaxSeconds + 0.05) {
     throw Exception('مدة الريل يجب ألا تتجاوز 3 دقائق');
   }
-  if (end - start + 0.05 < kReelMinSeconds && duration != null && total >= kReelMinSeconds) {
-    throw Exception('مدة الريل يجب ألا تقل عن 30 ثانية');
+  if (duration != null && end - start < 0.1) {
+    throw Exception('مدة الفيديو المحددة قصيرة جداً');
   }
   final needsTrim =
       duration != null && total > 0 && !(start <= 0.2 && end >= total - 0.2);

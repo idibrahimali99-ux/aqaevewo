@@ -114,7 +114,8 @@ class _AdminChatsScreenState extends ConsumerState<AdminChatsScreen> {
     }
     final ttype = row['thread_type']?.toString() ?? '';
     if (ttype == 'direct') {
-      parts.add('مستفسر ↔ معلن');
+      final farm = row['farm_name']?.toString().trim() ?? '';
+      parts.add(farm.isNotEmpty ? 'مباشر مع المزرعة' : 'مستفسر ↔ معلن');
     } else if (ttype == 'mediated') {
       parts.add('عبر الإدارة');
     }
@@ -141,9 +142,11 @@ class _AdminChatsScreenState extends ConsumerState<AdminChatsScreen> {
   }
 
   String _title(Map<String, dynamic> row) {
+    final party = row['party_title']?.toString().trim() ?? '';
     final tpn = row['thread_public_no'];
-    final prop = row['property_title']?.toString().trim() ?? '';
     final numPart = tpn != null && '$tpn'.isNotEmpty ? '#$tpn' : 'محادثة';
+    if (party.isNotEmpty) return '$numPart · $party';
+    final prop = row['property_title']?.toString().trim() ?? '';
     if (prop.isEmpty) return numPart;
     return '$numPart · $prop';
   }

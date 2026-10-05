@@ -42,7 +42,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 4, vsync: this);
+    _tabs = TabController(length: 5, vsync: this);
     _tabs.addListener(() {
       if (_tabs.indexIsChanging) return;
       setState(() {});
@@ -105,14 +105,31 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
     bool keep(Map<String, dynamic> u) {
       final role = u['role']?.toString() ?? '';
       final isMarketer = u['is_marketer'] == 1 || u['is_marketer'] == true;
+      final isFarm = u['is_farm'] == 1 || u['is_farm'] == true;
       if (tab == 0) return role == 'customer';
       if (tab == 1) return role == 'staff' || role == 'admin';
-      if (tab == 2) return role == 'office' && !isMarketer;
+      if (tab == 2) return role == 'office' && !isMarketer && !isFarm;
       if (tab == 3) return role == 'office' && isMarketer;
+      if (tab == 4) return role == 'office' && isFarm;
       return false;
     }
 
     return _items.where(keep).toList();
+  }
+
+  Future<void> _approveFarm(String farmId) async {
+    if (farmId.isEmpty) return;
+    try {
+      await ref.read(vewoApiClientProvider).postJson('admin/farms', {
+        'action': 'approve',
+        'farm_id': farmId,
+      });
+      if (!mounted) return;
+      await _load();
+    } on VewoApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 
   Future<void> _setActive(String userId, bool active) async {
@@ -795,6 +812,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
                   Tab(text: 'لوحة التحكم'),
                   Tab(text: 'مكاتب'),
                   Tab(text: 'مسوّقون'),
+                  Tab(text: 'مزارع'),
                 ],
               ),
             ),
@@ -880,6 +898,13 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
                             if (role == 'office' && officeName.isNotEmpty)
                               'الممثل: $name',
                             if (role == 'office' && isMarketer) 'مسوّق عقاري',
+                            if ((u['is_farm'] == 1 || u['is_farm'] == true) &&
+                                (u['farm_status']?.toString() ?? '') == 'pending')
+                              'بانتظار الموافقة',
+                            if (u['is_farm'] == 1 || u['is_farm'] == true)
+                              (u['booking_quota'] == null
+                                  ? 'تم ${u['bookings_used'] ?? 0} حجز · باقة بلا حدود'
+                                  : 'تم ${u['bookings_used'] ?? 0} حجز · المتبقي ${u['bookings_remaining'] ?? 0}'),
                             if (role != 'office') _roleShort(role),
                           ].where((e) => e.isNotEmpty).join(' · ');
 
@@ -1102,6 +1127,14 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen>
                                       crossAxisAlignment:
                                           WrapCrossAlignment.center,
                                       children: [
+                                        if ((u['is_farm'] == 1 || u['is_farm'] == true) &&
+                                            (u['farm_status']?.toString() ?? '') != 'approved' &&
+                                            (u['farm_id']?.toString() ?? '').isNotEmpty)
+                                          FilledButton.icon(
+                                            onPressed: () => _approveFarm(u['farm_id'].toString()),
+                                            icon: const Icon(Icons.verified_outlined, size: 18),
+                                            label: const Text('موافقة المزرعة'),
+                                          ),
                                         if (canEdit)
                                           OutlinedButton.icon(
                                             onPressed: () => _editUser(u),

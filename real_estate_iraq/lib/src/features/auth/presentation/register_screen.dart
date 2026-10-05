@@ -36,17 +36,21 @@ class _RegisterRoleCards extends StatelessWidget {
   const _RegisterRoleCards({
     required this.selected,
     required this.isMarketer,
+    required this.isFarm,
     required this.onPick,
   });
 
   final UserRole selected;
   final bool isMarketer;
-  final void Function(UserRole role, {required bool marketer}) onPick;
+  final bool isFarm;
+  final void Function(UserRole role, {required bool marketer, required bool farm}) onPick;
 
   @override
   Widget build(BuildContext context) {
-    final officeSelected = selected == UserRole.office && !isMarketer;
+    final officeSelected =
+        selected == UserRole.office && !isMarketer && !isFarm;
     final marketerSelected = selected == UserRole.office && isMarketer;
+    final farmSelected = selected == UserRole.office && isFarm;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -57,7 +61,7 @@ class _RegisterRoleCards extends StatelessWidget {
                 icon: Icons.person_outline_rounded,
                 title: 'شخصي',
                 selected: selected == UserRole.customer,
-                onTap: () => onPick(UserRole.customer, marketer: false),
+                onTap: () => onPick(UserRole.customer, marketer: false, farm: false),
               ),
             ),
             const SizedBox(width: 10),
@@ -66,18 +70,34 @@ class _RegisterRoleCards extends StatelessWidget {
                 icon: Icons.storefront_outlined,
                 title: 'مكتب',
                 selected: officeSelected,
-                onTap: () => onPick(UserRole.office, marketer: false),
+                onTap: () => onPick(UserRole.office, marketer: false, farm: false),
               ),
             ),
           ],
         ),
         const SizedBox(height: 10),
-        _RegisterRoleCard(
-          icon: Icons.campaign_outlined,
-          title: 'مسوّق عقاري',
-          dense: true,
-          selected: marketerSelected,
-          onTap: () => onPick(UserRole.office, marketer: true),
+        Row(
+          children: [
+            Expanded(
+              child: _RegisterRoleCard(
+                icon: Icons.campaign_outlined,
+                title: 'مسوّق',
+                dense: true,
+                selected: marketerSelected,
+                onTap: () => onPick(UserRole.office, marketer: true, farm: false),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _RegisterRoleCard(
+                icon: Icons.agriculture_outlined,
+                title: 'مزرعة',
+                dense: true,
+                selected: farmSelected,
+                onTap: () => onPick(UserRole.office, marketer: false, farm: true),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -160,7 +180,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _obscure = true;
   String? _officePhotoPublicUrl;
   String? _profilePhotoPublicUrl;
+  final List<String> _farmPhotoUrls = [];
   bool _isMarketer = false;
+  bool _isFarm = false;
   LatLng? _officeMapLocation;
 
   @override
@@ -168,9 +190,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final m = ref.read(registrationMarketerProvider);
+      final f = ref.read(registrationFarmProvider);
       if (mounted) {
         setState(() {
           _isMarketer = m;
+          _isFarm = f;
         });
       }
     });
@@ -186,6 +210,44 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _officeAddress.dispose();
     _officeLicense.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickFarmPhotos() async {
+    if (_farmPhotoUrls.length >= 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('الحد الأعلى 10 صور')),
+      );
+      return;
+    }
+    setState(() => _uploadingPhoto = true);
+    try {
+      final files = await ImagePicker().pickMultiImage(
+        maxWidth: 1600,
+        imageQuality: 88,
+      );
+      if (files.isEmpty || !mounted) return;
+      final api = VewoApiClient();
+      for (final file in files) {
+        if (_farmPhotoUrls.length >= 10) break;
+        final bytes = await file.readAsBytes();
+        final data = await api.postMultipartBytes(
+          'register/office_photo',
+          'file',
+          bytes,
+          'farm.jpg',
+        );
+        final url = data['public_url']?.toString() ?? '';
+        if (url.length >= 12 && mounted) {
+          setState(() => _farmPhotoUrls.add(url));
+        }
+      }
+    } on VewoApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
   }
 
   Future<void> _pickOfficePhoto(
@@ -301,15 +363,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           );
           return;
         }
+      } else if (_isFarm && (_farmPhotoUrls.length < 3 || _farmPhotoUrls.length > 10)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ارفع من 3 إلى 10 صور للمزرعة')),
+        );
+        return;
       } else if (_officeName.text.trim().length < 2) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('اسم المكتب مطلوب'),
+            content: Text(_isFarm ? 'اسم المزرعة مطلوب' : 'اسم المكتب مطلوب'),
           ),
         );
         return;
       }
-      if (!_isMarketer && _officeAddress.text.trim().length < 5) {
+      if (!_isMarketer && !_isFarm && _officeAddress.text.trim().length < 5) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('عنوان المكتب مطلوب (5 أحرف على الأقل)'),
@@ -317,7 +384,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         );
         return;
       }
-      if (!_isMarketer) {
+      if (!_isMarketer && !_isFarm) {
         if (_officeLicense.text.trim().isEmpty) {
           ScaffoldMessenger.of(
             context,
@@ -343,14 +410,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             iraqiPhone: _iraqiPhone.text,
             email: _email.text,
             password: _password.text,
-            officeName: _isMarketer ? _fullName.text : _officeName.text,
-            officeAddress: _officeAddress.text,
-            officeLicenseNo: _officeLicense.text,
+            officeName: _isFarm
+                ? _officeName.text
+                : (_isMarketer ? _fullName.text : _officeName.text),
+            officeAddress: _isFarm ? '—' : _officeAddress.text,
+            officeLicenseNo: _isFarm || _isMarketer ? '—' : _officeLicense.text,
             officePhotoUrl: _officePhotoPublicUrl ?? '',
             profilePhotoUrl: _profilePhotoPublicUrl ?? '',
-            isMarketer: _isMarketer,
+            isMarketer: _isMarketer && !_isFarm,
+            isFarm: _isFarm,
             officeLat: _officeMapLocation?.latitude,
             officeLng: _officeMapLocation?.longitude,
+            farmImageUrls: _farmPhotoUrls,
           );
       if (!mounted) return;
       if (err != null) {
@@ -360,9 +431,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         return;
       }
       ref.read(registrationMarketerProvider.notifier).state = false;
-      final role = ref.read(authControllerProvider).role;
+      ref.read(registrationFarmProvider.notifier).state = false;
+      final auth = ref.read(authControllerProvider);
       if (!mounted) return;
-      if (role == UserRole.office) {
+      if (auth.isFarm) {
+        context.go(AppRoutes.farmHub);
+      } else if (auth.role == UserRole.office) {
         context.go(AppRoutes.offices);
       } else {
         context.go(AppRoutes.home);
@@ -376,6 +450,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isOffice = ref.watch(authControllerProvider).role == UserRole.office;
+    final isPureOffice = isOffice && !_isMarketer && !_isFarm;
 
     return Scaffold(
       body: Stack(
@@ -435,12 +510,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     _RegisterRoleCards(
                       selected: ref.watch(authControllerProvider).role,
                       isMarketer: _isMarketer,
-                      onPick: (role, {required marketer}) {
+                      isFarm: _isFarm,
+                      onPick: (role, {required marketer, required farm}) {
                         ref.read(registrationMarketerProvider.notifier).state =
                             marketer;
+                        ref.read(registrationFarmProvider.notifier).state =
+                            farm;
                         ref.read(authControllerProvider.notifier).setRole(role);
                         setState(() {
                           _isMarketer = marketer;
+                          _isFarm = farm;
                         });
                       },
                     ),
@@ -455,23 +534,68 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           key: _formKey,
                           child: Column(
                             children: [
-                              if (isOffice && !_isMarketer) ...[
+                              if (isPureOffice || _isFarm) ...[
                                 TextFormField(
                                   controller: _officeName,
-                                  decoration: const InputDecoration(
-                                    labelText: 'اسم المكتب',
-                                    hintText: 'دار النخيل للعقارات',
-                                    prefixIcon: Icon(Icons.apartment_rounded),
+                                  decoration: InputDecoration(
+                                    labelText: _isFarm ? 'اسم المزرعة' : 'اسم المكتب',
+                                    hintText: _isFarm
+                                        ? 'مزرعة النخيل'
+                                        : 'دار النخيل للعقارات',
+                                    prefixIcon: Icon(
+                                      _isFarm
+                                          ? Icons.agriculture_outlined
+                                          : Icons.apartment_rounded,
+                                    ),
                                   ),
                                   validator: (v) {
                                     final s = (v ?? '').trim();
                                     if (s.length < 2) {
-                                      return 'اسم المكتب مطلوب';
+                                      return _isFarm
+                                          ? 'اسم المزرعة مطلوب'
+                                          : 'اسم المكتب مطلوب';
                                     }
                                     return null;
                                   },
                                 ),
                                 const SizedBox(height: 14),
+                                if (_isFarm) ...[
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      'صور المزرعة (من 3 إلى 10)',
+                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  OutlinedButton.icon(
+                                    onPressed: _uploadingPhoto ? null : _pickFarmPhotos,
+                                    icon: const Icon(Icons.photo_library_outlined),
+                                    label: Text('رفع صور (${_farmPhotoUrls.length}/10)'),
+                                  ),
+                                  if (_farmPhotoUrls.isNotEmpty) ...[
+                                    const SizedBox(height: 10),
+                                    SizedBox(
+                                      height: 92,
+                                      child: ListView.separated(
+                                        scrollDirection: Axis.horizontal,
+                                        itemCount: _farmPhotoUrls.length,
+                                        separatorBuilder: (_, _) => const SizedBox(width: 8),
+                                        itemBuilder: (context, index) => ClipRRect(
+                                          borderRadius: BorderRadius.circular(12),
+                                          child: SizedBox(
+                                            width: 120,
+                                            child: CachedNetworkImage(
+                                              imageUrl: _farmPhotoUrls[index],
+                                              fit: BoxFit.cover,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 14),
+                                ],
                               ],
                               TextFormField(
                                 controller: _fullName,
@@ -579,7 +703,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   return null;
                                 },
                               ),
-                              if (isOffice) ...[
+                              if (isPureOffice) ...[
                                 const SizedBox(height: 10),
                                 SwitchListTile(
                                   contentPadding: EdgeInsets.zero,
@@ -599,7 +723,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   },
                                 ),
                               ],
-                              if (isOffice && !_isMarketer) ...[
+                              if (isPureOffice) ...[
                                 const SizedBox(height: 18),
                                 Text(
                                   'بيانات المكتب (مطلوبة)',

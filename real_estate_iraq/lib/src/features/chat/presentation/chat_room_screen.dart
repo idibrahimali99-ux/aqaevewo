@@ -33,17 +33,15 @@ class ChatRoomScreen extends ConsumerStatefulWidget {
     this.propertyId,
     this.fromReelTitle,
     this.reelId,
+    this.farmId,
     this.supportChat = false,
   });
 
   final String chatId;
   final String? propertyId;
-
-  /// عنوان مختصر عند فتح المحادثة من الريلز (قديم).
   final String? fromReelTitle;
-
-  /// معرّف الريل عند التواصل من قسم الريلز.
   final String? reelId;
+  final String? farmId;
 
   /// محادثة دعم مع الإدارة (بدون منشور / بدون رسالة ترحيب تلقائية).
   final bool supportChat;
@@ -173,6 +171,10 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       final rid = widget.reelId?.trim();
       if (rid != null && rid.isNotEmpty) {
         body['reel_id'] = rid;
+      }
+      final fid = widget.farmId?.trim();
+      if (fid != null && fid.isNotEmpty) {
+        body['farm_id'] = fid;
       }
       final data = await api.postJson('chat/thread/open', body);
       final tid = data['thread_id']?.toString();

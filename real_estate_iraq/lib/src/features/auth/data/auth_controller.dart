@@ -77,6 +77,26 @@ class AuthController extends Notifier<AuthState> {
     return raw == true || raw == 1 || raw?.toString() == '1';
   }
 
+  bool _isFarmFromUser(Map<String, dynamic> u) {
+    final raw = u['is_farm'];
+    return raw == true || raw == 1 || raw?.toString() == '1';
+  }
+
+  String _displayFromUser({
+    required UserRole role,
+    required bool isMarketer,
+    required bool isFarm,
+    required String officeName,
+    required String farmName,
+    required String fullName,
+  }) {
+    if (isFarm && farmName.isNotEmpty) return farmName;
+    if (role == UserRole.office && !isMarketer && officeName.isNotEmpty) {
+      return officeName;
+    }
+    return fullName;
+  }
+
   /// يُرجع قيماً `null` إن لم تُرسل من الـ API (قبل تفعيل أعمدة الباقة في قاعدة البيانات).
   ({bool? trial, int? rem}) _postingQuotaFromUser(Map<String, dynamic> u) {
     if (!u.containsKey('posting_trial_unlimited')) {
@@ -105,12 +125,16 @@ class AuthController extends Notifier<AuthState> {
       final officeName = _officeNameFromUser(u);
       final fullName = _fullNameFromUser(u, state.fullName);
       final isMarketer = _isMarketerFromUser(u);
-      final displayName =
-          state.role == UserRole.office &&
-              !isMarketer &&
-              officeName.isNotEmpty
-          ? officeName
-          : fullName;
+      final isFarm = _isFarmFromUser(u);
+      final farmName = u['farm_name']?.toString().trim() ?? '';
+      final displayName = _displayFromUser(
+        role: state.role,
+        isMarketer: isMarketer,
+        isFarm: isFarm,
+        officeName: officeName,
+        farmName: farmName,
+        fullName: fullName,
+      );
       final officePhoto = _officePhotoFromUser(u);
       final profilePhoto = _profilePhotoFromUser(u);
       if (state.displayName == displayName &&
@@ -119,6 +143,8 @@ class AuthController extends Notifier<AuthState> {
           state.officePhotoUrl == officePhoto &&
           state.profilePhotoUrl == profilePhoto &&
           state.isMarketer == isMarketer &&
+          state.isFarm == isFarm &&
+          state.farmName == farmName &&
           state.postingTrialUnlimited == pq.trial &&
           state.postingListingsRemaining == pq.rem) {
         return;
@@ -130,6 +156,11 @@ class AuthController extends Notifier<AuthState> {
         officePhotoUrl: officePhoto,
         profilePhotoUrl: profilePhoto,
         isMarketer: isMarketer,
+        isFarm: isFarm,
+        farmId: u['farm_id']?.toString() ?? '',
+        farmName: farmName,
+        farmPublicCode: u['farm_public_code']?.toString() ?? '',
+        farmStatus: u['farm_status']?.toString() ?? '',
         postingTrialUnlimited: pq.trial,
         postingListingsRemaining: pq.rem,
       );
@@ -156,13 +187,19 @@ class AuthController extends Notifier<AuthState> {
       final fullName = _fullNameFromUser(u, loginValue);
       final officeName = _officeNameFromUser(u);
       final isMarketer = _isMarketerFromUser(u);
+      final isFarm = _isFarmFromUser(u);
+      final farmName = u['farm_name']?.toString().trim() ?? '';
       state = AuthState(
         isAuthenticated: true,
         role: role,
-        displayName:
-            role == UserRole.office && !isMarketer && officeName.isNotEmpty
-            ? officeName
-            : fullName,
+        displayName: _displayFromUser(
+          role: role,
+          isMarketer: isMarketer,
+          isFarm: isFarm,
+          officeName: officeName,
+          farmName: farmName,
+          fullName: fullName,
+        ),
         fullName: fullName,
         officeName: officeName,
         officePhotoUrl: _officePhotoFromUser(u),
@@ -170,6 +207,11 @@ class AuthController extends Notifier<AuthState> {
         email: (u['email'] as String?)?.trim() ?? '',
         profilePhotoUrl: _profilePhotoFromUser(u),
         isMarketer: isMarketer,
+        isFarm: isFarm,
+        farmId: u['farm_id']?.toString() ?? '',
+        farmName: farmName,
+        farmPublicCode: u['farm_public_code']?.toString() ?? '',
+        farmStatus: u['farm_status']?.toString() ?? '',
         officeApproved: role == UserRole.office ? officeApproved : true,
         userId: u['id']?.toString(),
         apiToken: _tokenFromResponse(data),
@@ -199,8 +241,10 @@ class AuthController extends Notifier<AuthState> {
     String officePhotoUrl = '',
     String profilePhotoUrl = '',
     bool isMarketer = false,
+    bool isFarm = false,
     double? officeLat,
     double? officeLng,
+    List<String> farmImageUrls = const [],
   }) async {
     final phone = iraqiPhone.trim();
     final roleName = switch (state.role) {
@@ -222,7 +266,16 @@ class AuthController extends Notifier<AuthState> {
         body['office_address'] = officeAddress.trim();
         body['office_license_no'] = officeLicenseNo.trim();
         body['office_photo_url'] = officePhotoUrl.trim();
-        if (isMarketer) {
+        if (isFarm) {
+          body['is_farm'] = 1;
+          body['account_kind'] = 'farm';
+          body['farm_name'] = officeName.trim();
+          body['images'] = farmImageUrls;
+          if (farmImageUrls.isNotEmpty) {
+            body['cover_url'] = farmImageUrls.first;
+            body['office_photo_url'] = farmImageUrls.first;
+          }
+        } else if (isMarketer) {
           body['is_marketer'] = 1;
         }
       }
@@ -242,12 +295,16 @@ class AuthController extends Notifier<AuthState> {
       final apiOfficeName = (u['office_name'] as String?)?.trim() ?? '';
       final fullNameShown = _fullNameFromUser(u, fullName);
       final isMarketerAccount = _isMarketerFromUser(u);
-      final shownName =
-          role == UserRole.office &&
-              !isMarketerAccount &&
-              apiOfficeName.isNotEmpty
-          ? apiOfficeName
-          : fullNameShown;
+      final accountIsFarm = _isFarmFromUser(u);
+      final farmName = u['farm_name']?.toString().trim() ?? '';
+      final shownName = _displayFromUser(
+        role: role,
+        isMarketer: isMarketerAccount,
+        isFarm: accountIsFarm,
+        officeName: apiOfficeName,
+        farmName: farmName,
+        fullName: fullNameShown,
+      );
       final pq = _postingQuotaFromUser(u);
       state = AuthState(
         isAuthenticated: true,
@@ -260,6 +317,11 @@ class AuthController extends Notifier<AuthState> {
         email: (u['email'] as String?)?.trim() ?? email.trim(),
         profilePhotoUrl: _profilePhotoFromUser(u),
         isMarketer: isMarketerAccount,
+        isFarm: accountIsFarm,
+        farmId: u['farm_id']?.toString() ?? '',
+        farmName: farmName,
+        farmPublicCode: u['farm_public_code']?.toString() ?? '',
+        farmStatus: u['farm_status']?.toString() ?? '',
         officeApproved: role == UserRole.office ? officeApproved : true,
         userId: u['id']?.toString(),
         apiToken: _tokenFromResponse(data),
@@ -279,6 +341,7 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> signOut() async {
     ref.read(registrationMarketerProvider.notifier).state = false;
+    ref.read(registrationFarmProvider.notifier).state = false;
     final prefs = await SharedPreferences.getInstance();
     await AuthSessionStorage.clear(prefs);
     state = AuthState(
@@ -334,13 +397,17 @@ class AuthController extends Notifier<AuthState> {
         final apiFullName = _fullNameFromUser(u, name);
         final apiOfficeName = _officeNameFromUser(u);
         final isMarketer = _isMarketerFromUser(u);
+        final isFarm = _isFarmFromUser(u);
+        final farmName = u['farm_name']?.toString().trim() ?? '';
         state = state.copyWith(
-          displayName:
-              state.role == UserRole.office &&
-                  !isMarketer &&
-                  apiOfficeName.isNotEmpty
-              ? apiOfficeName
-              : apiFullName,
+          displayName: _displayFromUser(
+            role: state.role,
+            isMarketer: isMarketer,
+            isFarm: isFarm,
+            officeName: apiOfficeName,
+            farmName: farmName,
+            fullName: apiFullName,
+          ),
           fullName: apiFullName,
           officeName: apiOfficeName,
           officePhotoUrl: _officePhotoFromUser(u),
@@ -348,6 +415,11 @@ class AuthController extends Notifier<AuthState> {
           email: u['email']?.toString().trim() ?? state.email,
           profilePhotoUrl: _profilePhotoFromUser(u),
           isMarketer: isMarketer,
+          isFarm: isFarm,
+          farmId: u['farm_id']?.toString() ?? state.farmId,
+          farmName: farmName.isNotEmpty ? farmName : state.farmName,
+          farmPublicCode: u['farm_public_code']?.toString() ?? state.farmPublicCode,
+          farmStatus: u['farm_status']?.toString() ?? state.farmStatus,
         );
       } else {
         state = state.copyWith(

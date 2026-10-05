@@ -34,6 +34,8 @@ class _AdminOverviewTabState extends ConsumerState<AdminOverviewTab> {
   Map<String, dynamic>? _topProperty;
   Map<String, dynamic>? _topReel;
   List<Map<String, dynamic>> _urgentSaleItems = const [];
+  int? _pendingFarms;
+  int? _farmBookings;
   bool _loading = true;
 
   @override
@@ -86,6 +88,15 @@ class _AdminOverviewTabState extends ConsumerState<AdminOverviewTab> {
             : const [];
         _loading = false;
       });
+      try {
+        final farms = await api.getJson('admin/farms', query: {'scope': 'pending'});
+        final books = await api.getJson('admin/farm-bookings');
+        if (!mounted) return;
+        setState(() {
+          _pendingFarms = farms['items'] is List ? (farms['items'] as List).length : 0;
+          _farmBookings = books['items'] is List ? (books['items'] as List).length : 0;
+        });
+      } catch (_) {}
     } on VewoApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -252,6 +263,20 @@ class _AdminOverviewTabState extends ConsumerState<AdminOverviewTab> {
               value: _loading ? '…' : _v(_totalReelViews),
               subtitle: 'قسم الريلز',
               onTap: () => widget.onOpenSection(8),
+            ),
+            _StatTile(
+              icon: Icons.agriculture_outlined,
+              title: 'مزارع بانتظار الموافقة',
+              value: _loading ? '…' : _v(_pendingFarms),
+              subtitle: 'قسم المزارع',
+              onTap: () => widget.onOpenSection(15),
+            ),
+            _StatTile(
+              icon: Icons.event_note_outlined,
+              title: 'حجوزات المزارع',
+              value: _loading ? '…' : _v(_farmBookings),
+              subtitle: 'تفاصيل الحجز والوصل',
+              onTap: () => widget.onOpenSection(15),
             ),
             _StatTile(
               icon: Icons.local_fire_department_rounded,

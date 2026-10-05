@@ -15,6 +15,11 @@ class AuthState {
     this.apiToken,
     this.profilePhotoUrl = '',
     this.isMarketer = false,
+    this.isFarm = false,
+    this.farmId = '',
+    this.farmName = '',
+    this.farmPublicCode = '',
+    this.farmStatus = '',
     this.postingTrialUnlimited,
     this.postingListingsRemaining,
   });
@@ -36,6 +41,11 @@ class AuthState {
   final String? apiToken;
   final String profilePhotoUrl;
   final bool isMarketer;
+  final bool isFarm;
+  final String farmId;
+  final String farmName;
+  final String farmPublicCode;
+  final String farmStatus;
 
   /// `null` إذا لم يُرجع الخادم حقول الباقة بعد (قبل تنفيذ الباتش).
   final bool? postingTrialUnlimited;
@@ -57,6 +67,11 @@ class AuthState {
     String? apiToken,
     String? profilePhotoUrl,
     bool? isMarketer,
+    bool? isFarm,
+    String? farmId,
+    String? farmName,
+    String? farmPublicCode,
+    String? farmStatus,
     bool? postingTrialUnlimited,
     int? postingListingsRemaining,
   }) {
@@ -74,6 +89,11 @@ class AuthState {
       apiToken: apiToken ?? this.apiToken,
       profilePhotoUrl: profilePhotoUrl ?? this.profilePhotoUrl,
       isMarketer: isMarketer ?? this.isMarketer,
+      isFarm: isFarm ?? this.isFarm,
+      farmId: farmId ?? this.farmId,
+      farmName: farmName ?? this.farmName,
+      farmPublicCode: farmPublicCode ?? this.farmPublicCode,
+      farmStatus: farmStatus ?? this.farmStatus,
       postingTrialUnlimited:
           postingTrialUnlimited ?? this.postingTrialUnlimited,
       postingListingsRemaining:
@@ -95,6 +115,11 @@ class AuthState {
     apiToken: null,
     profilePhotoUrl: '',
     isMarketer: false,
+    isFarm: false,
+    farmId: '',
+    farmName: '',
+    farmPublicCode: '',
+    farmStatus: '',
     postingTrialUnlimited: null,
     postingListingsRemaining: null,
   );

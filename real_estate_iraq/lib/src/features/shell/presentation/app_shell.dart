@@ -33,6 +33,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (location.startsWith(AppRoutes.profile)) {
       return 4;
     }
+    if (location.startsWith(AppRoutes.farmHub) ||
+        location.startsWith(AppRoutes.farmManage)) {
+      return 5;
+    }
     return 0;
   }
 
@@ -61,6 +65,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     final auth = ref.read(authControllerProvider);
     final canPost =
         auth.isAuthenticated &&
+        !auth.isFarm &&
         (auth.role == UserRole.office || auth.role == UserRole.customer);
     if (!canPost) {
       if (context.mounted) context.push(AppRoutes.login);
@@ -78,8 +83,10 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   Future<void> _showPublishMenu(BuildContext context, WidgetRef ref) async {
+    final auth = ref.read(authControllerProvider);
     await showPublishOptionsSheet(
       context,
+      allowProperty: !auth.isFarm,
       onPostProperty: () => _openPropertyPublish(context, ref),
       onPostReel: () => _openReelComposer(context, ref),
     );
@@ -103,6 +110,9 @@ class _AppShellState extends ConsumerState<AppShell> {
         break;
       case 4:
         context.go(AppRoutes.profile);
+        break;
+      case 5:
+        context.go(AppRoutes.farmHub);
         break;
     }
   }
@@ -196,6 +206,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
     final slot = _slotFromLocation(location);
+    final isFarm = ref.watch(authControllerProvider).isFarm;
     final width = MediaQuery.sizeOf(context).width;
     final maxNavWidth = (width - 24).clamp(0.0, 560.0);
     final minNavWidth = maxNavWidth < 312 ? maxNavWidth : 312.0;
@@ -325,6 +336,16 @@ class _AppShellState extends ConsumerState<AppShell> {
                           label: 'حسابي',
                           onTap: () => _go(context, 4),
                         ),
+                        if (isFarm)
+                          _navTile(
+                            context,
+                            index: 5,
+                            slot: slot,
+                            icon: Icons.agriculture_outlined,
+                            iconSel: Icons.agriculture,
+                            label: 'لوحة المزرعة',
+                            onTap: () => _go(context, 5),
+                          ),
                       ],
                     ),
                   ),

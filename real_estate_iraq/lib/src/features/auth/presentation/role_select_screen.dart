@@ -39,6 +39,7 @@ class RoleSelectScreen extends ConsumerWidget {
                   onTap: () {
                     ref.read(registrationMarketerProvider.notifier).state =
                         false;
+                    ref.read(registrationFarmProvider.notifier).state = false;
                     ref
                         .read(authControllerProvider.notifier)
                         .setRole(UserRole.customer);
@@ -52,10 +53,12 @@ class RoleSelectScreen extends ConsumerWidget {
                   icon: Icons.business_outlined,
                   isSelected:
                       selected == UserRole.office &&
-                      !ref.watch(registrationMarketerProvider),
+                      !ref.watch(registrationMarketerProvider) &&
+                      !ref.watch(registrationFarmProvider),
                   onTap: () {
                     ref.read(registrationMarketerProvider.notifier).state =
                         false;
+                    ref.read(registrationFarmProvider.notifier).state = false;
                     ref
                         .read(authControllerProvider.notifier)
                         .setRole(UserRole.office);
@@ -71,8 +74,27 @@ class RoleSelectScreen extends ConsumerWidget {
                       selected == UserRole.office &&
                       ref.watch(registrationMarketerProvider),
                   onTap: () {
+                    ref.read(registrationFarmProvider.notifier).state = false;
                     ref.read(registrationMarketerProvider.notifier).state =
                         true;
+                    ref
+                        .read(authControllerProvider.notifier)
+                        .setRole(UserRole.office);
+                  },
+                ),
+                const SizedBox(height: 12),
+                _RoleCard(
+                  title: 'مزرعة',
+                  subtitle:
+                      'حساب خاص للمزرعة: حجوزات وريلز فقط، بدون نشر عقار',
+                  icon: Icons.agriculture_outlined,
+                  isSelected:
+                      selected == UserRole.office &&
+                      ref.watch(registrationFarmProvider),
+                  onTap: () {
+                    ref.read(registrationMarketerProvider.notifier).state =
+                        false;
+                    ref.read(registrationFarmProvider.notifier).state = true;
                     ref
                         .read(authControllerProvider.notifier)
                         .setRole(UserRole.office);

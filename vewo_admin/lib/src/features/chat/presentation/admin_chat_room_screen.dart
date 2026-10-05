@@ -44,6 +44,7 @@ class _AdminChatRoomScreenState extends ConsumerState<AdminChatRoomScreen> {
   int _mediatedLaneTab = 0;
   int? _threadPublicNo;
   String _threadType = 'mediated';
+  String? _partyTitle;
   Map<String, dynamic>? _property;
   Map<String, dynamic>? _reel;
   String? _customerDisplayName;
@@ -159,6 +160,7 @@ class _AdminChatRoomScreenState extends ConsumerState<AdminChatRoomScreen> {
         _messages = list;
         if (tpn != null && tpn > 0) _threadPublicNo = tpn;
         _threadType = data['thread_type']?.toString() ?? _threadType;
+        _partyTitle = data['party_title']?.toString().trim();
         _customerUserId = data['customer_user_id']?.toString().trim();
         _officeUserId = data['office_user_id']?.toString().trim();
         _customerDisplayName = data['customer_display_name']?.toString().trim();
@@ -480,9 +482,13 @@ class _AdminChatRoomScreenState extends ConsumerState<AdminChatRoomScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              _threadType == 'direct'
-                  ? 'محادثة مباشرة'
-                  : 'محادثة — مستفسر ومعلن',
+              (_partyTitle != null && _partyTitle!.isNotEmpty)
+                  ? _partyTitle!
+                  : (_threadType == 'direct'
+                      ? 'محادثة مباشرة'
+                      : 'محادثة — مستفسر ومعلن'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
             if (tpn != null)
               Text(

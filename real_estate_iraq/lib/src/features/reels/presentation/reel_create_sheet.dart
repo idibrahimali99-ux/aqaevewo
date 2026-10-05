@@ -90,8 +90,8 @@ Future<bool?> showReelCreateSheet(
                         const SizedBox(height: 6),
                         Text(
                           isEdit
-                              ? 'عدّل الوصف أو استبدل الفيديو ثم أعد الإرسال للمراجعة. المدة من 30 ثانية إلى 3 دقائق.'
-                              : 'اختر فيديو بين 30 ثانية و3 دقائق، ثم اسحب طرفي الشريط لتحديد الجزء. الوصف حتى 200 حرف.',
+                              ? 'عدّل الوصف أو استبدل الفيديو ثم أعد الإرسال للمراجعة. المدة حتى 3 دقائق.'
+                              : 'اختر فيديو حتى 3 دقائق، ثم اسحب طرفي الشريط لتحديد الجزء. الوصف حتى 200 حرف.',
                           style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                             color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                           ),
@@ -111,13 +111,11 @@ Future<bool?> showReelCreateSheet(
                                     await vc.initialize();
                                     final d = vc.value.duration;
                                     final total = d.inMilliseconds / 1000;
-                                    if (total + 0.05 < kReelMinSeconds) {
+                                    if (total < 0.1) {
                                       if (ctx.mounted) {
                                         ScaffoldMessenger.of(ctx).showSnackBar(
                                           const SnackBar(
-                                            content: Text(
-                                              'الريل يجب ألا يقل عن 30 ثانية',
-                                            ),
+                                            content: Text('الفيديو قصير جداً'),
                                           ),
                                         );
                                       }
@@ -198,13 +196,8 @@ Future<bool?> showReelCreateSheet(
                                     start = end - kReelMaxSeconds;
                                   }
                                 }
-                                if (end - start < kReelMinSeconds &&
-                                    maxT >= kReelMinSeconds) {
-                                  end = start + kReelMinSeconds;
-                                  if (end > maxT) {
-                                    end = maxT;
-                                    start = (end - kReelMinSeconds).clamp(0, end);
-                                  }
+                                if (end - start < 0.1) {
+                                  end = (start + 0.1).clamp(0, maxT);
                                 }
                                 trimRange = RangeValues(start, end);
                                 previewedUploadVideo = null;

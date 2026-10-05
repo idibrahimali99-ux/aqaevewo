@@ -8,6 +8,7 @@ Future<void> showPublishOptionsSheet(
   BuildContext context, {
   required VoidCallback onPostProperty,
   required VoidCallback onPostReel,
+  bool allowProperty = true,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -42,17 +43,19 @@ Future<void> showPublishOptionsSheet(
                     ),
               ),
               const SizedBox(height: 20),
-              _PublishOptionTile(
-                icon: Icons.home_work_rounded,
-                title: 'نشر عقار',
-                subtitle: 'إعلان بيع أو إيجار مع صور وتفاصيل',
-                accent: scheme.primary,
-                onTap: () {
-                  Navigator.pop(ctx);
-                  onPostProperty();
-                },
-              ),
-              const SizedBox(height: 12),
+              if (allowProperty) ...[
+                _PublishOptionTile(
+                  icon: Icons.home_work_rounded,
+                  title: 'نشر عقار',
+                  subtitle: 'إعلان بيع أو إيجار مع صور وتفاصيل',
+                  accent: scheme.primary,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onPostProperty();
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
               _PublishOptionTile(
                 icon: Icons.play_circle_fill_rounded,
                 title: 'نشر ريلز',

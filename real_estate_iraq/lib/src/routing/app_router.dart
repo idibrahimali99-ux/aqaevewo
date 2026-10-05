@@ -27,6 +27,11 @@ import '../features/parcels/presentation/parcel_profile_screen.dart';
 import '../features/parcels/presentation/parcels_list_screen.dart';
 import '../features/compounds/presentation/compound_profile_screen.dart';
 import '../features/compounds/presentation/compounds_list_screen.dart';
+import '../features/farms/presentation/farm_hub_screen.dart';
+import '../features/farms/presentation/farm_manage_screen.dart';
+import '../features/farms/presentation/farm_profile_screen.dart';
+import '../features/farms/presentation/farms_list_screen.dart';
+import '../features/farms/presentation/my_farm_bookings_screen.dart';
 import '../features/notifications/presentation/notifications_screen.dart';
 import '../features/news/presentation/property_news_detail_screen.dart';
 import '../features/properties/presentation/properties_map_screen.dart';
@@ -56,9 +61,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           loc == AppRoutes.offices ||
           loc == AppRoutes.parcels ||
           loc == AppRoutes.compounds ||
+          loc == AppRoutes.farms ||
           loc == AppRoutes.propertiesMap ||
           loc.startsWith('${AppRoutes.parcelProfile}/') ||
           loc.startsWith('${AppRoutes.compoundProfile}/') ||
+          loc.startsWith('${AppRoutes.farmProfile}/') ||
           loc.startsWith('${AppRoutes.officeProfile}/') ||
           loc.startsWith('${AppRoutes.marketerProfile}/') ||
           loc.startsWith(AppRoutes.propertyDetails) ||
@@ -75,9 +82,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           loc == AppRoutes.notifications ||
           loc == AppRoutes.requestProperty ||
           loc == AppRoutes.myPropertyRequests ||
+          loc == AppRoutes.farmHub ||
+          loc == AppRoutes.farmManage ||
+          loc == AppRoutes.myFarmBookings ||
           loc.startsWith(AppRoutes.chatRoom);
 
       if (!isAuth && requiresAuth) return AppRoutes.login;
+      if (isAuth && auth.isFarm && loc == AppRoutes.addProperty) {
+        return AppRoutes.farmHub;
+      }
       if (isAuth && isAuthFlow) {
         return AppRoutes.home;
       }
@@ -101,6 +114,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           chatId: state.pathParameters['chatId']!,
           propertyId: state.uri.queryParameters['property'],
           reelId: state.uri.queryParameters['reel_id'],
+          farmId: state.uri.queryParameters['farm'],
           fromReelTitle: state.uri.queryParameters['reel'],
           supportChat: state.uri.queryParameters['support'] == '1',
         ),
@@ -157,6 +171,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.parcels,
             builder: (_, _) => const ParcelsListScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.farms,
+            builder: (_, _) => const FarmsListScreen(),
+          ),
+          GoRoute(
+            path: '${AppRoutes.farmProfile}/:farmId',
+            builder: (context, state) => FarmProfileScreen(
+              farmId: state.pathParameters['farmId']!,
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.farmHub,
+            builder: (_, _) => const FarmHubScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.farmManage,
+            builder: (_, state) => FarmManageScreen(
+              initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0,
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.myFarmBookings,
+            builder: (_, _) => const MyFarmBookingsScreen(),
           ),
           GoRoute(
             path: AppRoutes.compounds,

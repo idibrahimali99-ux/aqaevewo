@@ -17,6 +17,7 @@ import '../compounds/presentation/admin_compounds_screen.dart';
 import '../reels/presentation/admin_reels_screen.dart';
 import '../requests/presentation/admin_property_requests_screen.dart';
 import '../settings/presentation/admin_settings_screen.dart';
+import '../farms/presentation/admin_farms_screen.dart';
 import '../users/presentation/admin_users_screen.dart';
 import '../notifications/presentation/admin_notifications_screen.dart';
 import '../marketers/presentation/admin_marketers_screen.dart';
@@ -63,6 +64,7 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
     _NavDest(Icons.badge_outlined, 'مسوقون', 'users'),
     _NavDest(Icons.inventory_2_outlined, 'باقات النشر', 'users'),
     _NavDest(Icons.settings_outlined, 'إعدادات', 'settings'),
+    _NavDest(Icons.agriculture_outlined, 'مزارع', 'offices'),
   ];
 
   void _select(int i) {
@@ -96,6 +98,7 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
       'chats' => 10,
       'properties' => 7,
       'offices' => 3,
+      'farms' => 15,
       'property_requests' => 9,
       'reels' => 8,
       _ => 0,
@@ -136,6 +139,7 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
       'properties' => 7,
       'property_requests' => 9,
       'offices' => 3,
+      'farms' => 15,
       'reels' => 8,
       'users' => 11,
       _ => threadId != null && threadId.isNotEmpty
@@ -204,6 +208,7 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
       12 => const AdminMarketersScreen(),
       13 => const AdminPostingPackagesScreen(),
       14 => const AdminSettingsScreen(),
+      15 => const AdminFarmsScreen(),
       _ => const SizedBox.shrink(),
     };
   }

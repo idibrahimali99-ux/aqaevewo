@@ -488,7 +488,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                                     .trim()
                                     .isEmpty
                                 ? Icon(
-                                    auth.role == UserRole.office
+                                    auth.isFarm
+                                        ? Icons.agriculture
+                                        : auth.role == UserRole.office
                                         ? Icons.business
                                         : Icons.person,
                                     color: scheme.primary,
@@ -587,6 +589,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             const SizedBox(height: 12),
             const _AboutAqarTownCard(),
             const SizedBox(height: 12),
+            if (auth.isFarm) const _FarmBookingPackageCard(),
+            if (auth.isFarm)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.agriculture_outlined),
+                  title: Text(auth.farmName.isEmpty ? 'مزرعتي' : auth.farmName),
+                  subtitle: Text(
+                    auth.farmPublicCode.isEmpty
+                        ? 'لوحة المزرعة والحجوزات'
+                        : 'رقم المزرعة ${auth.farmPublicCode}',
+                  ),
+                  trailing: const Icon(Icons.chevron_left_rounded),
+                  onTap: () => context.push(AppRoutes.farmHub),
+                ),
+              )
+            else
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.agriculture_outlined),
+                  title: const Text('حجوزات المزارع'),
+                  subtitle: const Text('حجوزاتك على المزارع'),
+                  trailing: const Icon(Icons.chevron_left_rounded),
+                  onTap: () => context.push(AppRoutes.myFarmBookings),
+                ),
+              ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Text(
@@ -643,7 +671,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     ),
             ),
             if ((auth.role == UserRole.office ||
-                    auth.role == UserRole.customer)) ...[
+                    auth.role == UserRole.customer) &&
+                !auth.isFarm) ...[
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -880,6 +909,58 @@ class _SocialLinkTile extends StatelessWidget {
   }
 }
 
+class _FarmBookingPackageCard extends ConsumerStatefulWidget {
+  const _FarmBookingPackageCard();
+
+  @override
+  ConsumerState<_FarmBookingPackageCard> createState() => _FarmBookingPackageCardState();
+}
+
+class _FarmBookingPackageCardState extends ConsumerState<_FarmBookingPackageCard> {
+  String _label = 'جارٍ التحميل';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await ref.read(vewoApiClientProvider).getJson('farms/owner/dashboard');
+      final item = data['item'];
+      if (item is! Map || !mounted) return;
+      final quota = item['booking_quota'];
+      final used = item['bookings_used'] ?? 0;
+      final remaining = item['bookings_remaining'];
+      setState(() {
+        _label = quota == null
+            ? 'تم $used حجز · باقة بلا حدود'
+            : 'تم $used حجز · المتبقي $remaining';
+      });
+    } catch (_) {
+      if (mounted) setState(() => _label = 'باقة الحجوزات');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        child: ListTile(
+          leading: Icon(Icons.inventory_2_outlined, color: scheme.primary),
+          title: const Text('باقة الحجوزات', style: TextStyle(fontWeight: FontWeight.w800)),
+          subtitle: Text(_label),
+          trailing: const Icon(Icons.chevron_left_rounded),
+          onTap: () => context.push(AppRoutes.farmHub),
+        ),
+      ),
+    );
+  }
+}
+
 class _ProfileInfoGrid extends StatelessWidget {
   const _ProfileInfoGrid({required this.auth});
 
@@ -903,11 +984,13 @@ class _ProfileInfoGrid extends StatelessWidget {
       (
         icon: Icons.account_circle_outlined,
         label: 'نوع الحساب',
-        value: auth.role == UserRole.office
+        value: auth.isFarm
+            ? 'حساب مزرعة'
+            : auth.role == UserRole.office
             ? (auth.isMarketer ? 'مسوق عقاري' : 'مكتب عقاري')
             : 'زبون',
       ),
-      if (auth.role == UserRole.office)
+      if (auth.role == UserRole.office && !auth.isFarm)
         (
           icon: Icons.inventory_2_outlined,
           label: 'رصيد النشر',

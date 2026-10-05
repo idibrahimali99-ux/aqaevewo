@@ -17,6 +17,7 @@ void navigateFromAdminNotificationPayload(
     'admin_reel_pending' || 'reel_pending' => 'reels',
     'property_request' || 'admin_property_request' => 'property_requests',
     'office_pending' || 'admin_office_pending' => 'offices',
+    'farm_pending' || 'admin_farm_pending' => 'farms',
     'broadcast' || 'reminder' || 'fcm_test' => null,
     _ => data['section']?.toString(),
   };
