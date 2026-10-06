@@ -1180,9 +1180,7 @@ List<HomeSectionConfig> _homeSectionsWithRequiredItems(
   if (!merged.any((item) => item.key == 'marketers')) {
     merged = [...merged, _marketersHomeSection];
   }
-  if (!merged.any((item) => item.key == 'farms')) {
-    merged = [...merged, _farmsHomeSection];
-  }
+  merged = merged.where((item) => item.key != 'farms').toList();
   merged.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
   return merged;
 }
@@ -1193,15 +1191,6 @@ const _marketersHomeSection = HomeSectionConfig(
   iconName: 'person',
   routeTarget: AppRoutes.marketers,
   sortOrder: 15,
-  isActive: true,
-);
-
-const _farmsHomeSection = HomeSectionConfig(
-  key: 'farms',
-  label: 'مزارع للحجز',
-  iconName: 'farm',
-  routeTarget: AppRoutes.farms,
-  sortOrder: 16,
   isActive: true,
 );
 
@@ -1307,10 +1296,7 @@ IconData _homeSectionIcon(String iconName) {
 void _openHomeSection(BuildContext context, String routeTarget) {
   final target = routeTarget.trim();
   if (target.isEmpty) return;
-  if (target == '/farms' || target.endsWith('/farms')) {
-    context.push(AppRoutes.farms);
-    return;
-  }
+  if (target == '/farms' || target.endsWith('/farms')) return;
   context.push(target.startsWith('/') ? target : '/$target');
 }
 

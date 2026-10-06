@@ -47,28 +47,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ).showSnackBar(SnackBar(content: Text(err)));
         return;
       }
-      final auth = ref.read(authControllerProvider);
-      final pickedFarm = ref.read(registrationFarmProvider);
-      if (pickedFarm && !auth.isFarm) {
-        await ref.read(authControllerProvider.notifier).signOut();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('هذا الرقم ليس حساب مزرعة')),
-        );
-        return;
-      }
-      if (!pickedFarm && auth.isFarm) {
-        await ref.read(authControllerProvider.notifier).signOut();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('هذا حساب مزرعة. اختر نوع الحساب: مزرعة'),
-          ),
-        );
-        return;
-      }
       if (!mounted) return;
-      context.go(auth.isFarm ? AppRoutes.farmHub : AppRoutes.home);
+      context.go(AppRoutes.home);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -255,7 +235,6 @@ class _AccountTypeChooser extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final role = ref.watch(authControllerProvider).role;
     final isMarketer = ref.watch(registrationMarketerProvider);
-    final isFarm = ref.watch(registrationFarmProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -268,7 +247,6 @@ class _AccountTypeChooser extends ConsumerWidget {
                 selected: role == UserRole.customer,
                 onTap: () {
                   ref.read(registrationMarketerProvider.notifier).state = false;
-                  ref.read(registrationFarmProvider.notifier).state = false;
                   ref
                       .read(authControllerProvider.notifier)
                       .setRole(UserRole.customer);
@@ -280,10 +258,9 @@ class _AccountTypeChooser extends ConsumerWidget {
               child: _AccountTypeCard(
                 icon: Icons.storefront_outlined,
                 title: 'مكتب',
-                selected: role == UserRole.office && !isMarketer && !isFarm,
+                selected: role == UserRole.office && !isMarketer,
                 onTap: () {
                   ref.read(registrationMarketerProvider.notifier).state = false;
-                  ref.read(registrationFarmProvider.notifier).state = false;
                   ref
                       .read(authControllerProvider.notifier)
                       .setRole(UserRole.office);
@@ -301,23 +278,7 @@ class _AccountTypeChooser extends ConsumerWidget {
                 title: 'مسوّق',
                 selected: role == UserRole.office && isMarketer,
                 onTap: () {
-                  ref.read(registrationFarmProvider.notifier).state = false;
                   ref.read(registrationMarketerProvider.notifier).state = true;
-                  ref
-                      .read(authControllerProvider.notifier)
-                      .setRole(UserRole.office);
-                },
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _AccountTypeCard(
-                icon: Icons.agriculture_outlined,
-                title: 'مزرعة',
-                selected: role == UserRole.office && isFarm,
-                onTap: () {
-                  ref.read(registrationMarketerProvider.notifier).state = false;
-                  ref.read(registrationFarmProvider.notifier).state = true;
                   ref
                       .read(authControllerProvider.notifier)
                       .setRole(UserRole.office);

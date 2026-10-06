@@ -30,12 +30,6 @@ class AppRoutes {
   static const propertyDetails = '/app/property';
   static const addProperty = '/app/add-property';
   static const favorites = '/app/favorites';
-  static const farms = '/app/farms';
-  static const farmProfile = '/app/farm';
-  static const farmHub = '/app/my-farm';
-  static const farmManage = '/app/my-farm/manage';
-  static const myFarmBookings = '/app/my-farm-bookings';
-
   /// تفاصيل خبر عقاري (معرّف UUID)
   static const newsDetail = '/app/news';
 }

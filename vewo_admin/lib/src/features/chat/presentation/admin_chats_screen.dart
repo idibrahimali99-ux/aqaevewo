@@ -114,8 +114,7 @@ class _AdminChatsScreenState extends ConsumerState<AdminChatsScreen> {
     }
     final ttype = row['thread_type']?.toString() ?? '';
     if (ttype == 'direct') {
-      final farm = row['farm_name']?.toString().trim() ?? '';
-      parts.add(farm.isNotEmpty ? 'مباشر مع المزرعة' : 'مستفسر ↔ معلن');
+      parts.add('مستفسر ↔ معلن');
     } else if (ttype == 'mediated') {
       parts.add('عبر الإدارة');
     }

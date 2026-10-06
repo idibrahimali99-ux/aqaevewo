@@ -50,7 +50,6 @@ class _RegisterRoleCards extends StatelessWidget {
     final officeSelected =
         selected == UserRole.office && !isMarketer && !isFarm;
     final marketerSelected = selected == UserRole.office && isMarketer;
-    final farmSelected = selected == UserRole.office && isFarm;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -85,16 +84,6 @@ class _RegisterRoleCards extends StatelessWidget {
                 dense: true,
                 selected: marketerSelected,
                 onTap: () => onPick(UserRole.office, marketer: true, farm: false),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _RegisterRoleCard(
-                icon: Icons.agriculture_outlined,
-                title: 'مزرعة',
-                dense: true,
-                selected: farmSelected,
-                onTap: () => onPick(UserRole.office, marketer: false, farm: true),
               ),
             ),
           ],
@@ -180,7 +169,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _obscure = true;
   String? _officePhotoPublicUrl;
   String? _profilePhotoPublicUrl;
-  final List<String> _farmPhotoUrls = [];
   bool _isMarketer = false;
   bool _isFarm = false;
   LatLng? _officeMapLocation;
@@ -190,11 +178,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final m = ref.read(registrationMarketerProvider);
-      final f = ref.read(registrationFarmProvider);
       if (mounted) {
         setState(() {
           _isMarketer = m;
-          _isFarm = f;
+          _isFarm = false;
         });
       }
     });
@@ -210,44 +197,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _officeAddress.dispose();
     _officeLicense.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickFarmPhotos() async {
-    if (_farmPhotoUrls.length >= 10) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('الحد الأعلى 10 صور')),
-      );
-      return;
-    }
-    setState(() => _uploadingPhoto = true);
-    try {
-      final files = await ImagePicker().pickMultiImage(
-        maxWidth: 1600,
-        imageQuality: 88,
-      );
-      if (files.isEmpty || !mounted) return;
-      final api = VewoApiClient();
-      for (final file in files) {
-        if (_farmPhotoUrls.length >= 10) break;
-        final bytes = await file.readAsBytes();
-        final data = await api.postMultipartBytes(
-          'register/office_photo',
-          'file',
-          bytes,
-          'farm.jpg',
-        );
-        final url = data['public_url']?.toString() ?? '';
-        if (url.length >= 12 && mounted) {
-          setState(() => _farmPhotoUrls.add(url));
-        }
-      }
-    } on VewoApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    } finally {
-      if (mounted) setState(() => _uploadingPhoto = false);
-    }
   }
 
   Future<void> _pickOfficePhoto(
@@ -363,16 +312,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           );
           return;
         }
-      } else if (_isFarm && (_farmPhotoUrls.length < 3 || _farmPhotoUrls.length > 10)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ارفع من 3 إلى 10 صور للمزرعة')),
-        );
-        return;
       } else if (_officeName.text.trim().length < 2) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_isFarm ? 'اسم المزرعة مطلوب' : 'اسم المكتب مطلوب'),
-          ),
+          const SnackBar(content: Text('اسم المكتب مطلوب')),
         );
         return;
       }
@@ -417,11 +359,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             officeLicenseNo: _isFarm || _isMarketer ? '—' : _officeLicense.text,
             officePhotoUrl: _officePhotoPublicUrl ?? '',
             profilePhotoUrl: _profilePhotoPublicUrl ?? '',
-            isMarketer: _isMarketer && !_isFarm,
-            isFarm: _isFarm,
+            isMarketer: _isMarketer,
+            isFarm: false,
             officeLat: _officeMapLocation?.latitude,
             officeLng: _officeMapLocation?.longitude,
-            farmImageUrls: _farmPhotoUrls,
+            farmImageUrls: const [],
           );
       if (!mounted) return;
       if (err != null) {
@@ -431,12 +373,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         return;
       }
       ref.read(registrationMarketerProvider.notifier).state = false;
-      ref.read(registrationFarmProvider.notifier).state = false;
       final auth = ref.read(authControllerProvider);
       if (!mounted) return;
-      if (auth.isFarm) {
-        context.go(AppRoutes.farmHub);
-      } else if (auth.role == UserRole.office) {
+      if (auth.role == UserRole.office) {
         context.go(AppRoutes.offices);
       } else {
         context.go(AppRoutes.home);
@@ -514,12 +453,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       onPick: (role, {required marketer, required farm}) {
                         ref.read(registrationMarketerProvider.notifier).state =
                             marketer;
-                        ref.read(registrationFarmProvider.notifier).state =
-                            farm;
                         ref.read(authControllerProvider.notifier).setRole(role);
                         setState(() {
                           _isMarketer = marketer;
-                          _isFarm = farm;
+                          _isFarm = false;
                         });
                       },
                     ),
@@ -534,68 +471,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           key: _formKey,
                           child: Column(
                             children: [
-                              if (isPureOffice || _isFarm) ...[
+                              if (isPureOffice) ...[
                                 TextFormField(
                                   controller: _officeName,
-                                  decoration: InputDecoration(
-                                    labelText: _isFarm ? 'اسم المزرعة' : 'اسم المكتب',
-                                    hintText: _isFarm
-                                        ? 'مزرعة النخيل'
-                                        : 'دار النخيل للعقارات',
-                                    prefixIcon: Icon(
-                                      _isFarm
-                                          ? Icons.agriculture_outlined
-                                          : Icons.apartment_rounded,
-                                    ),
+                                  decoration: const InputDecoration(
+                                    labelText: 'اسم المكتب',
+                                    hintText: 'دار النخيل للعقارات',
+                                    prefixIcon: Icon(Icons.apartment_rounded),
                                   ),
                                   validator: (v) {
                                     final s = (v ?? '').trim();
-                                    if (s.length < 2) {
-                                      return _isFarm
-                                          ? 'اسم المزرعة مطلوب'
-                                          : 'اسم المكتب مطلوب';
-                                    }
+                                    if (s.length < 2) return 'اسم المكتب مطلوب';
                                     return null;
                                   },
                                 ),
                                 const SizedBox(height: 14),
-                                if (_isFarm) ...[
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Text(
-                                      'صور المزرعة (من 3 إلى 10)',
-                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  OutlinedButton.icon(
-                                    onPressed: _uploadingPhoto ? null : _pickFarmPhotos,
-                                    icon: const Icon(Icons.photo_library_outlined),
-                                    label: Text('رفع صور (${_farmPhotoUrls.length}/10)'),
-                                  ),
-                                  if (_farmPhotoUrls.isNotEmpty) ...[
-                                    const SizedBox(height: 10),
-                                    SizedBox(
-                                      height: 92,
-                                      child: ListView.separated(
-                                        scrollDirection: Axis.horizontal,
-                                        itemCount: _farmPhotoUrls.length,
-                                        separatorBuilder: (_, _) => const SizedBox(width: 8),
-                                        itemBuilder: (context, index) => ClipRRect(
-                                          borderRadius: BorderRadius.circular(12),
-                                          child: SizedBox(
-                                            width: 120,
-                                            child: CachedNetworkImage(
-                                              imageUrl: _farmPhotoUrls[index],
-                                              fit: BoxFit.cover,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 14),
-                                ],
                               ],
                               TextFormField(
                                 controller: _fullName,
